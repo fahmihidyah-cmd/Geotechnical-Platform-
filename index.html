@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Geotechnical Inspection Platform</title>
+
+<!-- Libraries from CDN — no build step required -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{ --bg:#0a0e14; --panel:#0e1521; --line:#1b2434; --line2:#22304a; --txt:#cbd5e1; --txt2:#94a3b8; --mut:#64748b; --accent:#fb923c; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--txt); font-family:'Archivo',system-ui,sans-serif; }
+  .mono{ font-family:'IBM Plex Mono',ui-monospace,monospace; }
+  .disp{ font-family:'Bricolage Grotesque',system-ui,sans-serif; letter-spacing:-.01em; }
+  input,select,button{ font-family:inherit; }
+  input,select{ width:100%; background:var(--panel); border:1px solid var(--line2); color:var(--txt); border-radius:7px; padding:9px 10px; font-size:13px; }
+  label{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--mut); letter-spacing:.04em; display:block; margin-bottom:5px; text-transform:uppercase; }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+  .btn{ border-radius:8px; padding:10px 14px; font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; cursor:pointer; border:1px solid var(--line2); background:transparent; color:var(--txt2); display:inline-flex; align-items:center; gap:7px; }
+  .btn.primary{ background:var(--accent); color:#0a0e14; border-color:var(--accent); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:640px){ .grid2{ grid-template-columns:1fr; } }
+  .row{ display:flex; align-items:center; gap:12px; }
+  .pill{ font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; padding:2px 8px; border-radius:5px; letter-spacing:.03em; white-space:nowrap; }
+  .tarp{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px; }
+  a{ color:var(--accent); }
+  .spin{ width:26px;height:26px;border:3px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:r 1s linear infinite;}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback } = React;
+
+// Publishable key is safe in the browser (RLS protects the data).
+const PUBLISHABLE_KEY = "sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l";
+const LS_URL = "geotech_supabase_url";
+
+const RISK = {
+  "Low":       { c:"#34d399", bg:"rgba(52,211,153,.12)",  b:"rgba(52,211,153,.4)" },
+  "Medium":    { c:"#fbbf24", bg:"rgba(251,191,36,.12)",  b:"rgba(251,191,36,.4)" },
+  "High":      { c:"#fb923c", bg:"rgba(251,146,60,.14)",  b:"rgba(251,146,60,.45)" },
+  "Very High": { c:"#f87171", bg:"rgba(248,113,113,.16)", b:"rgba(248,113,113,.5)" },
+};
+
+// --- tiny inline icons ---
+const I = {
+  shield:  <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/>,
+  plus:    <g><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></g>,
+  x:       <g><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></g>,
+  chev:    <polyline points="9 6 15 12 9 18"/>,
+  pin:     <g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z"/><circle cx="12" cy="10" r="2.5"/></g>,
+  layers:  <g><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/></g>,
+  clip:    <g><rect x="6" y="4" width="12" height="18" rx="2"/><path d="M9 4h6v3H9z"/></g>,
+};
+function Icon({ name, size=16, color="currentColor" }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{I[name]}</svg>;
+}
+function Pill({ level }){ const r=RISK[level]||RISK.Low; return <span className="pill" style={{color:r.c,background:r.bg,border:`1px solid ${r.b}`}}>{level.toUpperCase()}</span>; }
+function Tarp({ n }){ const lv=n>=4?"Very High":n>=3?"High":n>=2?"Medium":"Low"; const r=RISK[lv]; return <span className="tarp" style={{color:r.c,border:`1px solid ${r.b}`}}>{n}</span>; }
+
+// ========================= ROOT =========================
+function App(){
+  const [sb, setSb] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [booting, setBooting] = useState(true);
+
+  // try to restore a previous session
+  useEffect(() => {
+    const url = localStorage.getItem(LS_URL);
+    if (!url) { setBooting(false); return; }
+    const c = window.supabase.createClient(url, PUBLISHABLE_KEY);
+    c.auth.getSession().then(({ data }) => {
+      if (data.session) { setSb(c); setReady(true); }
+      setBooting(false);
+    });
+  }, []);
+
+  if (booting) return <Center><div className="spin"/></Center>;
+  if (!ready) return <Connect onReady={(c)=>{ setSb(c); setReady(true); }} />;
+  return <Console sb={sb} onLogout={async ()=>{ await sb.auth.signOut(); localStorage.removeItem(LS_URL); location.reload(); }} />;
+}
+
+function Center({ children }){ return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>{children}</div>; }
+
+// ========================= CONNECT / LOGIN =========================
+function Connect({ onReady }){
+  const [url, setUrl] = useState(localStorage.getItem(LS_URL) || "https://");
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const clean = url.trim().replace(/\/$/, "");
+      const c = window.supabase.createClient(clean, PUBLISHABLE_KEY);
+      const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: pass });
+      if (error) throw error;
+      localStorage.setItem(LS_URL, clean);
+      onReady(c);
+    } catch (e) { setErr(e.message || String(e)); }
+    setBusy(false);
+  };
+
+  return (
+    <Center>
+      <div className="panel" style={{ width:380, maxWidth:"92vw", padding:28 }}>
+        <div className="row" style={{ marginBottom:18 }}>
+          <div style={{ width:38,height:38,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(251,146,60,.14)",border:"1px solid rgba(251,146,60,.4)" }}>
+            <Icon name="shield" color="#fb923c" size={19}/>
+          </div>
+          <div>
+            <div className="disp" style={{ fontWeight:800, fontSize:17, color:"#f1f5f9" }}>Geotech Monitoring</div>
+            <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>BAHODOPI BLOCK 2 &amp; 3</div>
+          </div>
+        </div>
+        <div style={{ marginBottom:11 }}>
+          <label>Supabase Project URL</label>
+          <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" />
+        </div>
+        <div style={{ marginBottom:11 }}>
+          <label>Email</label>
+          <input value={email} onChange={e=>setEmail(e.target.value)} type="email" />
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label>Password</label>
+          <input value={pass} onChange={e=>setPass(e.target.value)} type="password"
+            onKeyDown={e=>e.key==="Enter"&&submit()} />
+        </div>
+        {err && <div className="mono" style={{ fontSize:11, color:"#f87171", marginBottom:12 }}>{err}</div>}
+        <button className="btn primary" style={{ width:"100%", justifyContent:"center" }} disabled={busy} onClick={submit}>
+          {busy ? "Connecting…" : "Connect & Sign in"}
+        </button>
+        <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:12, lineHeight:1.5 }}>
+          Use the email/password of a user created in Supabase → Authentication → Users.
+        </p>
+      </div>
+    </Center>
+  );
+}
+
+// ========================= CONSOLE =========================
+function Console({ sb, onLogout }){
+  const [tab, setTab] = useState("dashboard");
+  const [params, setParams] = useState([]);
+  const [criteria, setCriteria] = useState({});
+  const [bands, setBands] = useState([]);
+  const [overview, setOverview] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState(null);
+
+  const loadOverview = useCallback(async () => {
+    const { data } = await sb.from("v_inspection_overview").select("*").order("total_score", { ascending:false });
+    setOverview(data || []);
+  }, [sb]);
+
+  useEffect(() => {
+    (async () => {
+      const [p, c, b, l] = await Promise.all([
+        sb.from("parameters").select("*").order("sort_order"),
+        sb.from("scoring_criteria").select("*"),
+        sb.from("risk_bands").select("*").order("min_score"),
+        sb.from("locations").select("id,name,area_code,owner_area").order("name"),
+      ]);
+      setParams(p.data || []);
+      const g = {}; (c.data||[]).forEach(r => (g[r.parameter_code]=g[r.parameter_code]||[]).push(r));
+      setCriteria(g);
+      setBands(b.data || []);
+      setLocations(l.data || []);
+      await loadOverview();
+      setLoading(false);
+    })();
+  }, [sb, loadOverview]);
+
+  const counts = useMemo(() => {
+    const c = { "Very High":0, "High":0, "Medium":0, "Low":0 };
+    overview.forEach(r => { if (c[r.risk_level]!==undefined) c[r.risk_level]++; });
+    return c;
+  }, [overview]);
+
+  return (
+    <div style={{ minHeight:"100vh" }}>
+      <header style={{ borderBottom:"1px solid var(--line)", background:"linear-gradient(180deg,#0d1320,#0a0e14)", padding:"14px 22px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:20 }}>
+        <div className="row">
+          <div style={{ width:36,height:36,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(251,146,60,.14)",border:"1px solid rgba(251,146,60,.4)" }}>
+            <Icon name="shield" color="#fb923c" size={18}/>
+          </div>
+          <div>
+            <div className="disp" style={{ fontWeight:800, fontSize:17, color:"#f1f5f9", lineHeight:1.1 }}>Geotechnical Hazard Monitoring</div>
+            <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>BAHODOPI BLOCK 2 &amp; 3</div>
+          </div>
+        </div>
+        <div className="row" style={{ gap:6 }}>
+          {[["dashboard","Dashboard","layers"],["inspect","New Inspection","clip"]].map(([k,t,ic]) => (
+            <button key={k} className="btn" onClick={()=>setTab(k)}
+              style={ tab===k ? { background:"var(--accent)", color:"#0a0e14", borderColor:"var(--accent)" } : {} }>
+              <Icon name={ic} size={13}/>{t}
+            </button>
+          ))}
+          <button className="btn" onClick={onLogout} title="Sign out" style={{ padding:"10px 12px" }}>Sign out</button>
+        </div>
+      </header>
+
+      {loading ? <Center><div className="spin"/></Center> : (
+        tab==="dashboard"
+          ? <Dashboard overview={overview} counts={counts} bands={bands} onOpen={async (r)=>{
+              const { data } = await sb.from("v_inspection_findings").select("*").eq("inspection_id", r.id).gt("score", 0).order("score",{ascending:false});
+              setDetail({ row:r, findings:data||[] });
+            }} />
+          : <Inspect params={params} criteria={criteria} bands={bands} locations={locations}
+              onSave={async (payload)=>{ const { error } = await sb.from("inspections").insert(payload); if(error){ alert(error.message); return false; } await loadOverview(); setTab("dashboard"); return true; }} />
+      )}
+
+      {detail && <Drawer data={detail} bands={bands} onClose={()=>setDetail(null)} />}
+    </div>
+  );
+}
+
+const bandOf = (bands, s) => bands.find(b => s>=b.min_score && s<=b.max_score) || bands[0] || {level:"Low",tarp_level:1,action:""};
+
+// ========================= DASHBOARD =========================
+function Dashboard({ overview, counts, bands, onOpen }){
+  const total = overview.length;
+  return (
+    <div style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
+        {["Very High","High","Medium","Low"].map(l => { const r=RISK[l]; return (
+          <div key={l} className="panel" style={{ background:r.bg, borderColor:r.b, padding:16 }}>
+            <div className="mono" style={{ fontSize:11, letterSpacing:".06em", color:r.c, marginBottom:4 }}>{l.toUpperCase()}</div>
+            <div className="row" style={{ alignItems:"flex-end", gap:8 }}>
+              <span className="disp" style={{ fontSize:34, fontWeight:800, color:r.c, lineHeight:1 }}>{counts[l]}</span>
+              <span style={{ fontSize:12, color:"var(--mut)", marginBottom:2 }}>/ {total} sites</span>
+            </div>
+          </div> ); })}
+      </div>
+
+      <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:10 }}>MONITORED LOCATIONS · {total}</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+        {overview.map(r => { const bd=RISK[r.risk_level]||RISK.Low; return (
+          <button key={r.id} className="panel" onClick={()=>onOpen(r)}
+            style={{ textAlign:"left", padding:"11px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", color:"inherit" }}>
+            <div style={{ width:4, height:38, background:bd.c, borderRadius:4 }} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div className="row" style={{ gap:8 }}>
+                <span style={{ color:"#f1f5f9", fontWeight:600 }}>{r.location}</span>
+                <span className="mono" style={{ fontSize:10, color:"var(--mut)" }}>{r.area_code}</span>
+              </div>
+              <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:2 }}>{r.owner_area} · {r.status}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div className="disp" style={{ fontSize:23, fontWeight:800, color:bd.c, lineHeight:1 }}>{r.total_score}</div>
+              <div className="mono" style={{ fontSize:9, color:"#475569", letterSpacing:".1em" }}>SCORE</div>
+            </div>
+            <Pill level={r.risk_level} />
+            <Tarp n={r.tarp_level} />
+            <Icon name="chev" size={16} color="#475569" />
+          </button> ); })}
+      </div>
+    </div>
+  );
+}
+
+// ========================= DRAWER =========================
+function Drawer({ data, onClose }){
+  const { row, findings } = data;
+  const bd = RISK[row.risk_level] || RISK.Low;
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:30, background:"rgba(3,6,12,.6)", display:"flex", justifyContent:"flex-end" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:460, maxWidth:"100%", height:"100%", overflowY:"auto", background:"#0c121d", borderLeft:`1px solid ${bd.b}` }}>
+        <div style={{ padding:20, position:"sticky", top:0, background:"#0c121d", borderBottom:"1px solid var(--line)" }}>
+          <div className="row" style={{ justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div>
+              <div className="disp" style={{ fontSize:21, fontWeight:800, color:"#f1f5f9" }}>{row.location}</div>
+              <div className="mono row" style={{ fontSize:11, color:"var(--mut)", gap:5, marginTop:3 }}>
+                <Icon name="pin" size={11}/>{row.area_code} · {row.easting}, {row.northing}</div>
+            </div>
+            <button onClick={onClose} className="btn" style={{ padding:8 }}><Icon name="x" size={18}/></button>
+          </div>
+          <div className="row" style={{ gap:12, marginTop:12 }}>
+            <span className="disp" style={{ fontSize:30, fontWeight:800, color:bd.c }}>{row.total_score}</span>
+            <Pill level={row.risk_level}/><Tarp n={row.tarp_level}/>
+          </div>
+          <div style={{ marginTop:12, borderRadius:7, padding:"9px 11px", fontSize:12, lineHeight:1.5, color:bd.c, background:bd.bg, border:`1px solid ${bd.b}` }}>
+            {row.action}
+          </div>
+        </div>
+        <div style={{ padding:20 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:8 }}>CONTRIBUTING FINDINGS · {findings.length}</div>
+          {findings.map((f,i) => (
+            <div key={i} style={{ padding:"10px 0", borderBottom:"1px solid #151d2b" }}>
+              <div className="row" style={{ justifyContent:"space-between", gap:8 }}>
+                <span style={{ color:"#e2e8f0", fontSize:13 }}>{f.parameter_label}</span>
+                <span className="mono" style={{ color:bd.c, fontWeight:700, fontSize:13 }}>+{f.score}</span>
+              </div>
+              <div className="mono" style={{ fontSize:11, color:"var(--txt2)", marginTop:2 }}>{f.condition_label}</div>
+              {f.response && <div style={{ fontSize:11, color:"var(--mut)", marginTop:3, lineHeight:1.4 }}>{f.response}</div>}
+            </div>
+          ))}
+          {findings.length===0 && <div style={{ color:"var(--mut)", fontSize:13 }}>No active findings — stable condition.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================= NEW INSPECTION =========================
+function Inspect({ params, criteria, bands, locations, onSave }){
+  const [locId, setLocId] = useState("");
+  const [inspector, setInspector] = useState("");
+  const [status, setStatus] = useState("OPEN");
+  const init = useMemo(() => {
+    const o = {}; params.forEach(p => { o[p.code] = (criteria[p.code]?.[0]||{}).condition_label || null; }); return o;
+  }, [params, criteria]);
+  const [cond, setCond] = useState(init);
+  useEffect(()=>setCond(init), [init]);
+  const [busy, setBusy] = useState(false);
+
+  const scoreOf = (code,label) => (criteria[code]||[]).find(x=>x.condition_label===label)?.score || 0;
+  const total = params.reduce((s,p)=>s+scoreOf(p.code, cond[p.code]), 0);
+  const bd = bandOf(bands, total);
+  const rcolor = RISK[bd.level] || RISK.Low;
+  const active = params.map(p=>({p,label:cond[p.code],score:scoreOf(p.code,cond[p.code])})).filter(x=>x.score>0);
+
+  const valid = locId && inspector.trim();
+  const save = async () => {
+    setBusy(true);
+    const payload = { location_id: Number(locId), inspection_date: new Date().toISOString().slice(0,10), inspector: inspector.trim(), status };
+    params.forEach(p => payload[`${p.code}_condition`] = cond[p.code]);
+    await onSave(payload);
+    setBusy(false);
+  };
+
+  const instr = params.filter(p=>p.category==="instrumentation");
+  const vis = params.filter(p=>p.category==="visual");
+  const Field = ({ p }) => (
+    <div>
+      <label>{p.label}</label>
+      <select value={cond[p.code]||""} onChange={e=>setCond(c=>({...c,[p.code]:e.target.value}))}>
+        {(criteria[p.code]||[]).map(o => <option key={o.condition_label} value={o.condition_label}>{o.condition_label}{o.score?`  (+${o.score})`:""}</option>)}
+      </select>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px", display:"grid", gridTemplateColumns:"2fr 1fr", gap:22 }}>
+      <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+        <section className="panel" style={{ padding:18 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>SITE &amp; INSPECTION</div>
+          <div className="grid2">
+            <div><label>Location</label>
+              <select value={locId} onChange={e=>setLocId(e.target.value)}>
+                <option value="">— select —</option>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select></div>
+            <div><label>Inspector</label><input value={inspector} onChange={e=>setInspector(e.target.value)} placeholder="Name…" /></div>
+            <div><label>Status</label>
+              <select value={status} onChange={e=>setStatus(e.target.value)}>{["OPEN","IN PROGRESS","CLOSED"].map(s=><option key={s}>{s}</option>)}</select></div>
+          </div>
+        </section>
+        <section className="panel" style={{ padding:18 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>INSTRUMENTATION SCORING</div>
+          <div className="grid2">{instr.map(p=><Field key={p.code} p={p}/>)}</div>
+        </section>
+        <section className="panel" style={{ padding:18 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>VISUAL INSPECTION</div>
+          <div className="grid2">{vis.map(p=><Field key={p.code} p={p}/>)}</div>
+        </section>
+      </div>
+
+      <div style={{ position:"sticky", top:90, height:"fit-content" }}>
+        <div className="panel" style={{ padding:18, background:rcolor.bg, borderColor:rcolor.b }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--txt2)", letterSpacing:".12em", marginBottom:8 }}>LIVE RISK SCORE</div>
+          <div className="row" style={{ alignItems:"flex-end", gap:12 }}>
+            <span className="disp" style={{ fontSize:56, fontWeight:800, color:rcolor.c, lineHeight:.9 }}>{total}</span>
+            <div style={{ marginBottom:4 }}><Pill level={bd.level}/><div className="row mono" style={{ gap:5, fontSize:11, color:"var(--mut)", marginTop:5 }}>TARP <Tarp n={bd.tarp_level}/></div></div>
+          </div>
+          <p style={{ color:rcolor.c, fontSize:12, marginTop:12, lineHeight:1.5 }}>{bd.action}</p>
+        </div>
+        <div className="panel" style={{ padding:14, marginTop:12 }}>
+          <div className="mono" style={{ fontSize:10, color:"var(--mut)", letterSpacing:".12em", marginBottom:6 }}>FINDINGS · {active.length}</div>
+          {active.map(a => (
+            <div key={a.p.code} className="row" style={{ justifyContent:"space-between", padding:"3px 0", fontSize:12 }}>
+              <span style={{ color:"var(--txt2)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:8 }}>{a.p.label}</span>
+              <span className="mono" style={{ color:rcolor.c, fontWeight:700 }}>+{a.score}</span>
+            </div>
+          ))}
+          {active.length===0 && <div style={{ color:"var(--mut)", fontSize:12 }}>No contributing findings.</div>}
+        </div>
+        <button className="btn primary" style={{ width:"100%", justifyContent:"center", marginTop:12 }} disabled={!valid||busy} onClick={save}>
+          <Icon name="plus" size={15}/>{busy?"Saving…":"Save Inspection"}
+        </button>
+        <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:8, textAlign:"center", lineHeight:1.5 }}>Score recomputed by the DB trigger on save.</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
