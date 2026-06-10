@@ -175,7 +175,7 @@ function Console({ sb, onLogout }){
         sb.from("risk_bands").select("*").order("min_score"),
         sb.from("locations").select("id,name,area_code,owner_area").order("name"),
       ]);
-      setParams(p.data || []);
+      setParams((p.data||[]).map(r=>({...r,tier:r.tier||2})));
       const g = {}; (c.data||[]).forEach(r => (g[r.parameter_code]=g[r.parameter_code]||[]).push(r));
       setCriteria(g);
       setBands(b.data || []);
@@ -220,7 +220,7 @@ function Console({ sb, onLogout }){
               const { data } = await sb.from("v_inspection_findings").select("*").eq("inspection_id", r.id).gt("score", 0).order("score",{ascending:false});
               setDetail({ row:r, findings:data||[] });
             }} />
-          : <Inspect params={params} criteria={criteria} bands={bands} locations={locations}
+          : <Inspect params={params} criteria={criteria} bands={bands} locations={locations} sb={sb}
               onSave={async (payload)=>{ const { error } = await sb.from("inspections").insert(payload); if(error){ alert(error.message); return false; } await loadOverview(); setTab("dashboard"); return true; }} />
       )}
 
@@ -316,8 +316,20 @@ function Drawer({ data, onClose }){
   );
 }
 
+// ========================= HAVERSINE =========================
+function haversineM(lat1,lng1,lat2,lng2){
+  const R=6371000,r=d=>d*Math.PI/180,dLat=r(lat2-lat1),dLng=r(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function geoStatus(dist,onR,nearR){
+  if(dist<=onR) return {s:"On Location",c:"#34d399"};
+  if(dist<=nearR) return {s:"Near Location",c:"#fbbf24"};
+  return {s:"Off Location",c:"#f87171"};
+}
+
 // ========================= NEW INSPECTION =========================
-function Inspect({ params, criteria, bands, locations, onSave }){
+function Inspect({ params, criteria, bands, locations, onSave, sb }){
   const [locId, setLocId] = useState("");
   const [inspector, setInspector] = useState("");
   const [status, setStatus] = useState("OPEN");
@@ -328,18 +340,105 @@ function Inspect({ params, criteria, bands, locations, onSave }){
   useEffect(()=>setCond(init), [init]);
   const [busy, setBusy] = useState(false);
 
-  const scoreOf = (code,label) => (criteria[code]||[]).find(x=>x.condition_label===label)?.score || 0;
-  const total = params.reduce((s,p)=>s+scoreOf(p.code, cond[p.code]), 0);
-  const bd = bandOf(bands, total);
-  const rcolor = RISK[bd.level] || RISK.Low;
-  const active = params.map(p=>({p,label:cond[p.code],score:scoreOf(p.code,cond[p.code])})).filter(x=>x.score>0);
+  // GPS state
+  const [geo, setGeo] = useState(null);   // {lat,lng,accuracy,time}
+  const [geoMsg, setGeoMsg] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
 
-  const valid = locId && inspector.trim();
+  // Photo state
+  const [photos, setPhotos] = useState([]);  // [{file,url}]
+  const [uploading, setUploading] = useState(false);
+  const fileRef = React.useRef();
+
+  // Current location config
+  const locConfig = useMemo(()=>locations.find(l=>String(l.id)===String(locId)), [locations,locId]);
+
+  // Geo validation
+  const geoVal = useMemo(()=>{
+    if(!geo||!locConfig||!locConfig.lat) return null;
+    const dist=haversineM(geo.lat,geo.lng,locConfig.lat,locConfig.lng);
+    return {...geoStatus(dist, locConfig.on_radius_m||50, locConfig.near_radius_m||150), dist:Math.round(dist)};
+  },[geo,locConfig]);
+
+  const getGeo = () => {
+    if(!locId){ setGeoMsg("Pilih lokasi target dulu."); return; }
+    if(!navigator.geolocation){ setGeoMsg("Browser tidak support geolocation."); return; }
+    setGeoLoading(true); setGeoMsg("Meminta akses lokasi GPS…");
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ setGeo({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy),time:new Date(pos.timestamp).toISOString()}); setGeoMsg(""); setGeoLoading(false); },
+      err=>{ setGeoMsg("Gagal: "+err.message); setGeoLoading(false); },
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    );
+  };
+
+  // Photo handlers
+  const addPhotos = (files) => {
+    const newP = Array.from(files).map(f=>({file:f, url:URL.createObjectURL(f)}));
+    setPhotos(p=>[...p, ...newP]);
+  };
+  const removePhoto = (idx) => setPhotos(p=>p.filter((_,i)=>i!==idx));
+
+  // Governing score helpers (mirrors SQL trigger logic in browser)
+  const TIER1 = {mv1:true,mv2:true,mv3:true,piezo:true,crack:true,f2:true,f7:true};
+  const WATER = "f8";
+  const FLOORS = {Low:1,Medium:2,High:3,"Very High":4};
+  const FLOOR_REV = {1:"Low",2:"Medium",3:"High",4:"Very High"};
+  const scoreOf = (code,label) => (criteria[code]||[]).find(x=>x.condition_label===label)?.score || 0;
+  const floorOf = (code,label) => { const o=(criteria[code]||[]).find(x=>x.condition_label===label); return FLOORS[o?.tier1_floor]||1; };
+
+  const computed = useMemo(()=>{
+    let total=0, floor=1;
+    params.forEach(p=>{ total+=scoreOf(p.code,cond[p.code]); });
+    Object.keys(TIER1).forEach(c=>{ floor=Math.max(floor,floorOf(c,cond[c])); });
+    // f8 water: cap at Medium (2)
+    floor=Math.max(floor, Math.min(2, floorOf(WATER, cond[WATER])));
+    const composite = total<=10?1:total<=30?2:total<=60?3:4;
+    let finalOrd = Math.max(composite,floor);
+    // corroboration
+    const instrT1 = Math.max(...["mv1","mv2","mv3","piezo","crack"].map(c=>floorOf(c,cond[c])))>=2;
+    const visT1 = floorOf("f2",cond["f2"])>=2;
+    const corr = instrT1&&visT1;
+    if(corr) finalOrd=Math.min(4,finalOrd+1);
+    const level=FLOOR_REV[finalOrd];
+    const bd=bandOf(bands,total);
+    return {total,level,tarp:finalOrd,corr,composite:FLOOR_REV[composite],floor:FLOOR_REV[floor],bd};
+  },[cond,params,criteria,bands]);
+
+  const rcolor = RISK[computed.level] || RISK.Low;
+  const active = params.map(p=>({p,score:scoreOf(p.code,cond[p.code])})).filter(x=>x.score>0);
+  const valid = locId && inspector.trim() && geo;
+
   const save = async () => {
     setBusy(true);
-    const payload = { location_id: Number(locId), inspection_date: new Date().toISOString().slice(0,10), inspector: inspector.trim(), status };
+    const payload = {
+      location_id:Number(locId),
+      inspection_date:new Date().toISOString().slice(0,10),
+      inspector:inspector.trim(), status,
+      inspector_lat:geo?.lat, inspector_lng:geo?.lng,
+      inspector_accuracy_m:geo?.accuracy,
+      geo_validation:geoVal?.s||null,
+      geo_time:geo?.time||null,
+    };
     params.forEach(p => payload[`${p.code}_condition`] = cond[p.code]);
-    await onSave(payload);
+
+    // upload photos to Supabase Storage then save inspection
+    let photoUrls=[];
+    if(photos.length>0 && sb){
+      setUploading(true);
+      for(const ph of photos){
+        const ext=ph.file.name.split(".").pop();
+        const path=`inspections/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const {error:ue}=await sb.storage.from("inspection-photos").upload(path,ph.file,{upsert:false});
+        if(!ue) photoUrls.push(path);
+      }
+      setUploading(false);
+    }
+
+    const ok = await onSave(payload);
+    if(ok && photoUrls.length>0 && sb){
+      const {data:ins}=await sb.from("inspections").select("id").eq("location_id",payload.location_id).order("id",{ascending:false}).limit(1).single();
+      if(ins) for(const p of photoUrls) await sb.from("inspection_photos").insert({inspection_id:ins.id,storage_path:p});
+    }
     setBusy(false);
   };
 
@@ -347,7 +446,7 @@ function Inspect({ params, criteria, bands, locations, onSave }){
   const vis = params.filter(p=>p.category==="visual");
   const Field = ({ p }) => (
     <div>
-      <label>{p.label}</label>
+      <label>{p.label}{p.tier===1&&<span style={{color:"#fb923c",fontSize:10,marginLeft:4}}>T1</span>}</label>
       <select value={cond[p.code]||""} onChange={e=>setCond(c=>({...c,[p.code]:e.target.value}))}>
         {(criteria[p.code]||[]).map(o => <option key={o.condition_label} value={o.condition_label}>{o.condition_label}{o.score?`  (+${o.score})`:""}</option>)}
       </select>
@@ -357,11 +456,13 @@ function Inspect({ params, criteria, bands, locations, onSave }){
   return (
     <div style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px", display:"grid", gridTemplateColumns:"2fr 1fr", gap:22 }}>
       <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+
+        {/* SITE */}
         <section className="panel" style={{ padding:18 }}>
           <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>SITE &amp; INSPECTION</div>
           <div className="grid2">
             <div><label>Location</label>
-              <select value={locId} onChange={e=>setLocId(e.target.value)}>
+              <select value={locId} onChange={e=>{setLocId(e.target.value);setGeo(null);setGeoMsg("");}}>
                 <option value="">— select —</option>
                 {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select></div>
@@ -370,24 +471,77 @@ function Inspect({ params, criteria, bands, locations, onSave }){
               <select value={status} onChange={e=>setStatus(e.target.value)}>{["OPEN","IN PROGRESS","CLOSED"].map(s=><option key={s}>{s}</option>)}</select></div>
           </div>
         </section>
+
+        {/* GPS VALIDATION */}
+        <section className="panel" style={{ padding:18 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:12 }}>VALIDASI LOKASI GPS</div>
+          <div className="row" style={{ gap:10, flexWrap:"wrap" }}>
+            <button className="btn" onClick={getGeo} disabled={geoLoading} style={{ flex:"0 0 auto" }}>
+              {geoLoading?"Mengambil…":"📍 Ambil Koordinat"}
+            </button>
+            {geo && <div className="mono" style={{ fontSize:11, color:"var(--txt2)" }}>
+              {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)} ±{geo.accuracy}m
+            </div>}
+            {geoVal && <span className="mono" style={{ fontSize:12, fontWeight:700, color:geoVal.c }}>
+              {geoVal.s} ({geoVal.dist}m)
+            </span>}
+            {!geo && !geoLoading && <span className="mono" style={{ fontSize:11, color:"#f87171" }}>
+              ⚠ GPS wajib diisi sebelum simpan
+            </span>}
+          </div>
+          {geoMsg && <div className="mono" style={{ fontSize:11, color:"#f87171", marginTop:6 }}>{geoMsg}</div>}
+          {geo && locConfig && !locConfig.lat && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:6 }}>
+            ℹ Koordinat lokasi target belum diset di tabel locations — validasi jarak tidak tersedia.
+          </div>}
+          {geo && <a href={`https://maps.google.com/?q=${geo.lat},${geo.lng}`} target="_blank" rel="noreferrer"
+            style={{ fontSize:11, marginTop:6, display:"inline-block" }}>Buka di Google Maps ↗</a>}
+        </section>
+
+        {/* PHOTOS */}
+        <section className="panel" style={{ padding:18 }}>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:12 }}>FOTO TEMUAN</div>
+          <div className="row" style={{ gap:10, flexWrap:"wrap", marginBottom:10 }}>
+            <button className="btn" onClick={()=>fileRef.current?.click()}>📷 Ambil / Pilih Foto</button>
+            <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+              style={{ display:"none" }} onChange={e=>addPhotos(e.target.files)} />
+            <span className="mono" style={{ fontSize:11, color:"var(--mut)" }}>{photos.length} foto terpilih</span>
+          </div>
+          {photos.length>0 && <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {photos.map((ph,i)=>(
+              <div key={i} style={{ position:"relative", width:80, height:80 }}>
+                <img src={ph.url} alt="foto" style={{ width:80, height:80, objectFit:"cover", borderRadius:6, border:"1px solid var(--line2)" }}/>
+                <button onClick={()=>removePhoto(i)}
+                  style={{ position:"absolute", top:2, right:2, background:"rgba(0,0,0,.7)", border:"none", borderRadius:"50%", width:18, height:18, color:"#fff", fontSize:12, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+              </div>
+            ))}
+          </div>}
+          {uploading && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:6 }}>Mengupload foto…</div>}
+        </section>
+
+        {/* INSTRUMENT */}
         <section className="panel" style={{ padding:18 }}>
           <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>INSTRUMENTATION SCORING</div>
           <div className="grid2">{instr.map(p=><Field key={p.code} p={p}/>)}</div>
         </section>
+
+        {/* VISUAL */}
         <section className="panel" style={{ padding:18 }}>
           <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>VISUAL INSPECTION</div>
           <div className="grid2">{vis.map(p=><Field key={p.code} p={p}/>)}</div>
         </section>
       </div>
 
+      {/* LIVE SCORE PANEL */}
       <div style={{ position:"sticky", top:90, height:"fit-content" }}>
         <div className="panel" style={{ padding:18, background:rcolor.bg, borderColor:rcolor.b }}>
           <div className="mono" style={{ fontSize:11, color:"var(--txt2)", letterSpacing:".12em", marginBottom:8 }}>LIVE RISK SCORE</div>
           <div className="row" style={{ alignItems:"flex-end", gap:12 }}>
-            <span className="disp" style={{ fontSize:56, fontWeight:800, color:rcolor.c, lineHeight:.9 }}>{total}</span>
-            <div style={{ marginBottom:4 }}><Pill level={bd.level}/><div className="row mono" style={{ gap:5, fontSize:11, color:"var(--mut)", marginTop:5 }}>TARP <Tarp n={bd.tarp_level}/></div></div>
+            <span className="disp" style={{ fontSize:56, fontWeight:800, color:rcolor.c, lineHeight:.9 }}>{computed.total}</span>
+            <div style={{ marginBottom:4 }}><Pill level={computed.level}/><div className="row mono" style={{ gap:5, fontSize:11, color:"var(--mut)", marginTop:5 }}>TARP <Tarp n={computed.tarp}/></div></div>
           </div>
-          <p style={{ color:rcolor.c, fontSize:12, marginTop:12, lineHeight:1.5 }}>{bd.action}</p>
+          {computed.corr && <div className="mono" style={{ fontSize:10, color:"#fbbf24", marginTop:6 }}>⚡ Corroboration +1: visual + instrument Tier 1 aktif</div>}
+          <div className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:4 }}>Floor: {computed.floor} · Composite: {computed.composite}</div>
+          <p style={{ color:rcolor.c, fontSize:12, marginTop:10, lineHeight:1.5 }}>{computed.bd?.action}</p>
         </div>
         <div className="panel" style={{ padding:14, marginTop:12 }}>
           <div className="mono" style={{ fontSize:10, color:"var(--mut)", letterSpacing:".12em", marginBottom:6 }}>FINDINGS · {active.length}</div>
@@ -399,10 +553,16 @@ function Inspect({ params, criteria, bands, locations, onSave }){
           ))}
           {active.length===0 && <div style={{ color:"var(--mut)", fontSize:12 }}>No contributing findings.</div>}
         </div>
-        <button className="btn primary" style={{ width:"100%", justifyContent:"center", marginTop:12 }} disabled={!valid||busy} onClick={save}>
-          <Icon name="plus" size={15}/>{busy?"Saving…":"Save Inspection"}
+        {!geo && <div style={{ background:"rgba(248,113,113,.1)", border:"1px solid rgba(248,113,113,.4)", borderRadius:8, padding:"8px 12px", marginTop:12 }}>
+          <span className="mono" style={{ fontSize:11, color:"#f87171" }}>⚠ GPS belum diambil — wajib sebelum simpan</span>
+        </div>}
+        <button className="btn primary" style={{ width:"100%", justifyContent:"center", marginTop:12 }}
+          disabled={!valid||busy||uploading} onClick={save}>
+          <Icon name="plus" size={15}/>{busy?"Saving…":uploading?"Uploading…":"Save Inspection"}
         </button>
-        <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:8, textAlign:"center", lineHeight:1.5 }}>Score recomputed by the DB trigger on save.</p>
+        <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:8, textAlign:"center", lineHeight:1.5 }}>
+          GPS wajib · Governing-trigger scoring · T1 = Tier 1
+        </p>
       </div>
     </div>
   );
