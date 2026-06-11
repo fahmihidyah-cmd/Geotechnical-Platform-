@@ -1009,8 +1009,8 @@ document.addEventListener('DOMContentLoaded', () => {
 const { useState, useEffect, useMemo, useCallback } = React;
 
 // Publishable key is safe in the browser (RLS protects the data).
+const SUPABASE_URL = "https://dhddckamrkfleuigrsip.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l";
-const LS_URL = "geotech_supabase_url";
 
 const RISK = {
   "Low":       { c:"#34d399", bg:"rgba(52,211,153,.12)",  b:"rgba(52,211,153,.4)" },
@@ -1044,11 +1044,9 @@ function App(){
   const [ready, setReady] = useState(false);
   const [booting, setBooting] = useState(true);
 
-  // try to restore a previous session
+  // restore previous session (URL is embedded — no input needed)
   useEffect(() => {
-    const url = localStorage.getItem(LS_URL);
-    if (!url) { setBooting(false); return; }
-    const c = window.supabase.createClient(url, PUBLISHABLE_KEY);
+    const c = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);
     c.auth.getSession().then(({ data }) => {
       if (data.session) { setSb(c); setReady(true); }
       setBooting(false);
@@ -1057,28 +1055,34 @@ function App(){
 
   if (booting) return <Center><div className="spin"/></Center>;
   if (!ready) return <Connect onReady={(c)=>{ setSb(c); setReady(true); }} />;
-  return <Console sb={sb} onLogout={async ()=>{ await sb.auth.signOut(); localStorage.removeItem(LS_URL); location.reload(); }} />;
+  return <Console sb={sb} onLogout={async ()=>{ await sb.auth.signOut(); location.reload(); }} />;
 }
 
 function Center({ children }){ return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>{children}</div>; }
 
 // ========================= CONNECT / LOGIN =========================
 function Connect({ onReady }){
-  const [url, setUrl] = useState(localStorage.getItem(LS_URL) || "https://");
+  const [mode, setMode] = useState("signin");   // signin | signup
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    setErr(""); setBusy(true);
+    setErr(""); setMsg(""); setBusy(true);
     try {
-      const clean = url.trim().replace(/\/$/, "");
-      const c = window.supabase.createClient(clean, PUBLISHABLE_KEY);
-      const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: pass });
-      if (error) throw error;
-      localStorage.setItem(LS_URL, clean);
-      onReady(c);
+      const c = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+      if (mode === "signup") {
+        const { data, error } = await c.auth.signUp({ email: email.trim(), password: pass });
+        if (error) throw error;
+        if (data.session) { onReady(c); }                       // auto-login (email confirmation off)
+        else { setMode("signin"); setMsg("Akun dibuat. Jika diminta, cek email untuk konfirmasi, lalu Sign in."); }
+      } else {
+        const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: pass });
+        if (error) throw error;
+        onReady(c);
+      }
     } catch (e) { setErr(e.message || String(e)); }
     setBusy(false);
   };
@@ -1095,25 +1099,30 @@ function Connect({ onReady }){
             <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>BAHODOPI BLOCK 2 &amp; 3</div>
           </div>
         </div>
-        <div style={{ marginBottom:11 }}>
-          <label>Supabase Project URL</label>
-          <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" />
+
+        <div className="row" style={{ gap:6, marginBottom:16 }}>
+          {[["signin","Sign in"],["signup","Sign up"]].map(([k,t])=>(
+            <button key={k} className="btn" onClick={()=>{ setMode(k); setErr(""); setMsg(""); }}
+              style={{ flex:1, justifyContent:"center", ...(mode===k?{ background:"var(--accent)", color:"#0a0e14", borderColor:"var(--accent)" }:{}) }}>{t}</button>
+          ))}
         </div>
+
         <div style={{ marginBottom:11 }}>
           <label>Email</label>
           <input value={email} onChange={e=>setEmail(e.target.value)} type="email" />
         </div>
         <div style={{ marginBottom:14 }}>
-          <label>Password</label>
+          <label>Password{mode==="signup" && <span style={{color:"var(--mut)",fontWeight:400}}> (min. 6 karakter)</span>}</label>
           <input value={pass} onChange={e=>setPass(e.target.value)} type="password"
             onKeyDown={e=>e.key==="Enter"&&submit()} />
         </div>
         {err && <div className="mono" style={{ fontSize:11, color:"#f87171", marginBottom:12 }}>{err}</div>}
-        <button className="btn primary" style={{ width:"100%", justifyContent:"center" }} disabled={busy} onClick={submit}>
-          {busy ? "Connecting…" : "Connect & Sign in"}
+        {msg && <div className="mono" style={{ fontSize:11, color:"#34d399", marginBottom:12, lineHeight:1.5 }}>{msg}</div>}
+        <button className="btn primary" style={{ width:"100%", justifyContent:"center" }} disabled={busy || !email.trim() || !pass} onClick={submit}>
+          {busy ? "Memproses…" : mode==="signup" ? "Buat Akun" : "Sign in"}
         </button>
         <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:12, lineHeight:1.5 }}>
-          Use the email/password of a user created in Supabase → Authentication → Users.
+          {mode==="signup" ? "Buat akun baru dengan email & password." : "Masuk dengan akun yang sudah terdaftar."}
         </p>
       </div>
     </Center>
