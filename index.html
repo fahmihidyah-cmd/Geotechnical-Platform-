@@ -536,6 +536,9 @@ const SB  = 'https://dhddckamrkfleuigrsip.supabase.co';
 const KEY = 'sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l';
 function _token(){ try { const raw = localStorage.getItem('sb-dhddckamrkfleuigrsip-auth-token'); if(!raw) return KEY; const s = JSON.parse(raw); return (s && (s.access_token || (s.currentSession && s.currentSession.access_token))) || KEY; } catch(e){ return KEY; } }
 async function db(p){const r=await fetch(`${SB}/rest/v1/${p}`,{headers:{'apikey':KEY,'Authorization':'Bearer '+_token()}});if(!r.ok)throw new Error(await r.text());return r.json();}
+const EEWS_SB = 'https://yoaimgdbcdulxbtwxffh.supabase.co';
+const EEWS_KEY = 'sb_publishable_DKjSKjI4Ky9Hrlf1-67RPQ_HKDdFQHB';
+async function dbEEWS(p){const r=await fetch(`${EEWS_SB}/rest/v1/${p}`,{headers:{'apikey':EEWS_KEY,'Authorization':'Bearer '+EEWS_KEY}});if(!r.ok)throw new Error(await r.text());return r.json();}
 
 // ═══ CONSTANTS ═══
 const TC  = ['#16a34a','#84cc16','#eab308','#f97316','#dc2626'];
@@ -554,13 +557,16 @@ const INST_SHAPES = {
   RTS:         (col) => `<polygon points="14,2 25,9 25,25 3,25 3,9" fill="${col}" stroke="#fff" stroke-width="2"/>`,
 };
 
-const HAZARD_ICONS = {
-  'Slope Failure':       { ic:'⛰', label:'Kelongsoran Lereng',   sub:'(Slope Failure)' },
-  'Rockfall':            { ic:'🪨', label:'Runtuhan Batu',         sub:'(Rockfall)' },
-  'Overall Slope':       { ic:'📐', label:'Longsoran Keseluruhan', sub:'(Overall Slope Failure)' },
-  'Erosion':             { ic:'💧', label:'Erosi',                 sub:'(Erosion)' },
-  'Ground Settlement':   { ic:'⬇', label:'Penurunan Tanah',       sub:'(Ground Settlement)' },
-};
+const HZ_CATS = [
+  { label:'Pergerakan Lereng',  sub:'(Slope Movement)',    ic:'☷', params:['mv1','mv2','mv3','crack'] },
+  { label:'Ground Failure',     sub:'(Keruntuhan Lereng)',  ic:'⛰', params:['f2'] },
+  { label:'Geometri Lereng',    sub:'(Slope Geometry)',     ic:'◱', params:['f1'] },
+  { label:'Air Tanah & Seepage',sub:'(Groundwater)',        ic:'💧', params:['piezo','f8'] },
+  { label:'Material Timbunan',  sub:'(Fill Material)',       ic:'⚒', params:['f3','f4'] },
+  { label:'Dinding Penahan',    sub:'(Retaining Wall)',      ic:'🧱', params:['f7'] },
+  { label:'Batas Elevasi/Dump', sub:'(Elevation/Dumping)',  ic:'↕', params:['f5','f6'] },
+];
+const HAZARD_ICONS = {};
 
 const INST_SYMS = {
   Prism:       { color:'#60a5fa', stroke:'#3b82f6', icon:'<circle cx="14" cy="14" r="9" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/>' },
@@ -704,7 +710,7 @@ const SITE_LAT = -2.58, SITE_LON = 121.63;
 
 async function loadPGA() {
   try {
-    const rows = await db('earthquakes?select=*&order=tanggal.desc&limit=1');
+    const rows = await dbEEWS('earthquakes?select=*&order=tanggal.desc&limit=1');
     if (!rows.length) return;
     const eq = rows[0];
     const M = eq.magnitude || 0;
@@ -781,12 +787,15 @@ function buildTrendChart(locs, insp) {
 // ═══ DATA LOADERS ═══
 async function loadAll() {
   try {
-    const [locs, inspRaw, pts, sr] = await Promise.all([
+    const [locs, inspRaw, pts, sr, crit] = await Promise.all([
       db('locations?select=*').catch(()=>[]),
       db('inspections?select=*&order=inspection_date.desc').catch(()=>[]),
-      db('instrument_points?select=*').catch(()=>[]),   // belum ada di project inspeksi -> dummy/[]
+      db('instrument_points?select=*').catch(()=>[]),   // belum ada -> []
       db('shift_reports?select=*&order=submitted_at.desc&limit=1').catch(()=>[]),
+      db('scoring_criteria?select=parameter_code,condition_label,score').catch(()=>[]),
     ]);
+    // peta skor untuk deteksi temuan (display-only: skor hanya menandai ADA/TIDAK temuan)
+    const scoreMap = {}; (crit||[]).forEach(r => { scoreMap[r.parameter_code+'||'+r.condition_label] = r.score; });
     // Normalisasi skema governing (f1..f8 + risk_final) -> field yang diharapkan dashboard
     const insp = (inspRaw||[]).map(d => ({
       ...d,
@@ -836,10 +845,10 @@ async function loadAll() {
     ]);
 
     // HAZARD TABLE
-    renderHazardList(inspArr);
+    renderHazardList(inspArr, scoreMap);
 
     // TOP 7
-    renderTop7(inspArr, locs);
+    renderTop7(inspArr, locs, scoreMap);
 
     // INSTRUMENT BAR
     renderInstBar(pts, sr[0]);
@@ -862,62 +871,40 @@ async function loadAll() {
   } catch(e) { console.error('loadAll', e); }
 }
 
-function renderHazardList(inspArr) {
-  const hz = {
-    'Slope Failure':     { count:0, maxRisk:'Low' },
-    'Rockfall':          { count:0, maxRisk:'Low' },
-    'Overall Slope':     { count:0, maxRisk:'Low' },
-    'Erosion':           { count:0, maxRisk:'Low' },
-    'Ground Settlement': { count:0, maxRisk:'Low' },
-  };
+function renderHazardList(inspArr, scoreMap) {
   const ord = ['Low','Medium','High','Very High'];
-  inspArr.forEach(d => {
-    const gf = d.ground_failure_condition||'', sg = d.slope_geometry_condition||'', dr = d.drainage_condition||'';
-    const rl = d.risk_level||'Low';
-    if ((gf.includes('failure')&&!gf.includes('Progressive')) || sg.includes('Overhang') || sg.includes('Overcut')) {
-      hz['Slope Failure'].count++;
-      if (ord.indexOf(rl) > ord.indexOf(hz['Slope Failure'].maxRisk)) hz['Slope Failure'].maxRisk = rl;
-    }
-    if (gf.includes('Progressive')) {
-      hz['Overall Slope'].count++;
-      if (ord.indexOf(rl) > ord.indexOf(hz['Overall Slope'].maxRisk)) hz['Overall Slope'].maxRisk = rl;
-    }
-    if (gf.includes('Major')) {
-      hz['Rockfall'].count++;
-      if (ord.indexOf(rl) > ord.indexOf(hz['Rockfall'].maxRisk)) hz['Rockfall'].maxRisk = rl;
-    }
-    if (dr.includes('Major') || dr.includes('Critical')) {
-      hz['Erosion'].count++;
-      if (ord.indexOf(rl) > ord.indexOf(hz['Erosion'].maxRisk)) hz['Erosion'].maxRisk = rl;
-    }
-    if (d.elevation_restriction_condition?.includes('exceeds')) {
-      hz['Ground Settlement'].count++;
-      if (ord.indexOf(rl) > ord.indexOf(hz['Ground Settlement'].maxRisk)) hz['Ground Settlement'].maxRisk = rl;
-    }
+  const has = (d, pc) => (scoreMap[pc+'||'+(d[pc+'_condition']||'')] || 0) > 0;
+  const rows = HZ_CATS.map(cat => {
+    let count = 0, maxRisk = 'Low';
+    inspArr.forEach(d => {
+      if (cat.params.some(pc => has(d, pc))) {
+        count++;
+        const rl = d.risk_level || 'Low';                 // risk = yang disubmit checklist
+        if (ord.indexOf(rl) > ord.indexOf(maxRisk)) maxRisk = rl;
+      }
+    });
+    return { cat, count, maxRisk };
   });
-  document.getElementById('hazard-list').innerHTML = Object.entries(hz).map(([key, d]) => {
-    const info = HAZARD_ICONS[key];
-    return `
+  document.getElementById('hazard-list').innerHTML = rows.map(({cat,count,maxRisk}) => `
       <div class="hzr-row">
-        <div class="hzr-icon">${info.ic}</div>
+        <div class="hzr-icon">${cat.ic}</div>
         <div>
-          <div class="hzr-name">${info.label}</div>
-          <div class="hzr-sub">${info.sub}</div>
+          <div class="hzr-name">${cat.label}</div>
+          <div class="hzr-sub">${cat.sub}</div>
         </div>
-        <div class="hzr-cnt">${d.count}</div>
-        <span class="bdg ${RBG[d.maxRisk]||'bd'}">${(d.maxRisk||'—').toUpperCase()}</span>
-      </div>`;
-  }).join('');
+        <div class="hzr-cnt">${count}</div>
+        <span class="bdg ${RBG[maxRisk]||'bd'}">${(maxRisk||'—').toUpperCase()}</span>
+      </div>`).join('');
 }
 
-function renderTop7(inspArr, locs) {
+function renderTop7(inspArr, locs, scoreMap) {
   const locMap = {}; locs.forEach(l=>locMap[l.id]=l);
   const sorted = [...inspArr].sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,7);
   if (sorted.length) document.getElementById('top7-date').textContent = fmtD(sorted[0].inspection_date);
   document.getElementById('top7-table').innerHTML = sorted.map((d,i) => {
     const loc = locMap[d.location_id]||{};
-    const gf = d.ground_failure_condition||'', sg = d.slope_geometry_condition||'';
-    const hazard = gf.includes('Major') ? 'Rockfall' : gf.includes('Progressive') ? 'Overall Slope' : gf.includes('failure') ? 'Slope Failure' : sg.includes('Overhang')||sg.includes('Overcut') ? 'Slope Geom.' : 'Visual';
+    const has = (pc) => (scoreMap[pc+'||'+(d[pc+'_condition']||'')] || 0) > 0;
+    const hazard = has('f2') ? 'Ground Failure' : (has('mv1')||has('mv2')||has('mv3')||has('crack')) ? 'Pergerakan' : has('f1') ? 'Geometri' : (has('piezo')||has('f8')) ? 'Air/Seepage' : has('f7') ? 'Ret. Wall' : (has('f3')||has('f4')) ? 'Timbunan' : (has('f5')||has('f6')) ? 'Elev/Dump' : 'Visual';
     const trend = d.total_score>30 ? ['↑','trend-up'] : d.total_score>15 ? ['→','trend-st'] : ['↓','trend-dn'];
     return `<tr>
       <td class="no-cell">${i+1}</td>
