@@ -34,9 +34,988 @@
   a{ color:var(--accent); }
   .spin{ width:26px;height:26px;border:3px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:r 1s linear infinite;}
   @keyframes r{to{transform:rotate(360deg)}}
+  .home-wrap{ max-width:560px; margin:0 auto; }
+  .inspect-grid{ display:grid; grid-template-columns:2fr 1fr; gap:22px; }
+  @media (max-width:820px){
+    .inspect-grid{ grid-template-columns:1fr; }
+  }
+  @media (min-width:760px){
+    .home-wrap{ max-width:920px; }
+    .home-grid{ grid-template-columns:repeat(4,1fr) !important; }
+    .home-stat-strip{ max-width:520px; }
+  }
 </style>
 </head>
 <body>
+<template id="gms-dashboard">
+
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMS Dashboard — PTVI Bahodopi</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  /* LIGHT THEME */
+  --bg:#f4f6fb;--bg2:#ffffff;--bg3:#eef2f8;--bg4:#e2e8f0;
+  --bd:#cbd5e1;--bd2:#94a3b8;
+  --tx:#0f172a;--tx2:#334155;--tx3:#64748b;
+  --acc:#1a6eff;
+  /* RISK COLORS — merah / oranye / kuning / hijau */
+  --g:#16a34a;--gb:rgba(22,163,74,.12);--gb2:rgba(22,163,74,.45);
+  --y:#eab308;--yb:rgba(234,179,8,.15);--yb2:rgba(234,179,8,.5);
+  --o:#f97316;--ob:rgba(249,115,22,.14);--ob2:rgba(249,115,22,.5);
+  --r:#dc2626;--rb:rgba(220,38,38,.12);--rb2:rgba(220,38,38,.5);
+  --mono:'JetBrains Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --body:'Inter',sans-serif;
+  --shadow-card:0 1px 2px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.04);
+  --shadow-glow:0 0 0 1px rgba(26,110,255,.25),0 10px 28px -10px rgba(26,110,255,.35);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;transition:background-color .25s var(--ease),border-color .25s var(--ease),color .2s var(--ease),box-shadow .25s var(--ease),transform .25s var(--ease)}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--body);background:
+  radial-gradient(1200px 600px at 20% -10%,rgba(26,110,255,.08),transparent 60%),
+  radial-gradient(900px 500px at 110% 110%,rgba(22,163,74,.06),transparent 60%),
+  var(--bg);color:var(--tx);font-size:11px;line-height:1.4}
+
+/* ═══ TOPBAR ═══ */
+.topbar{height:40px;background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 14px;gap:12px;flex-shrink:0;box-shadow:var(--shadow-card)}
+.topbar::after{content:'';position:absolute;top:39px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 0%,var(--acc) 20%,#00b3ff 50%,var(--acc) 80%,transparent 100%);background-size:200% 100%;animation:slide 6s linear infinite;opacity:.7}
+@keyframes slide{0%{background-position:0 0}100%{background-position:200% 0}}
+.logo-icon{width:26px;height:26px;background:linear-gradient(135deg,var(--acc),#00a8ff);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--head);font-size:12px;font-weight:700;color:#fff}
+.logo-text{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--tx)}
+.logo-sub{font-family:var(--mono);font-size:7px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.top-divider{width:1px;height:18px;background:var(--bd)}
+.top-label{font-family:var(--mono);font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:.1em}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--g);box-shadow:0 0 8px var(--g);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.tarp-master{font-family:var(--head);font-size:12px;font-weight:700;padding:3px 12px;border-radius:3px;border:1px solid;letter-spacing:.08em;cursor:default;animation:tarpglow 2.5s ease-in-out infinite}
+@keyframes tarpglow{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 14px -2px currentColor}}
+.clock-display{font-family:var(--mono);font-size:8px;color:var(--tx2);text-align:right;line-height:1.3}
+.refresh-btn{width:24px;height:24px;background:var(--bg2);border:1px solid var(--bd);color:var(--tx2);cursor:pointer;border-radius:3px;font-size:11px;display:flex;align-items:center;justify-content:center}
+.refresh-btn:hover{border-color:var(--acc);color:var(--acc);transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(26,110,255,.4)}
+.refresh-btn:active{transform:rotate(180deg) scale(.9)}
+
+/* ═══ LAYOUT ═══ */
+.app{display:grid;grid-template-rows:40px 78px 1fr 46px;height:100vh}
+.row-stats{display:grid;grid-template-columns:repeat(3,1fr) 2fr repeat(3,1fr);gap:6px;padding:6px;height:78px}
+.row-main{display:grid;grid-template-columns:330px 1fr 360px;gap:6px;padding:0 6px;min-height:0;overflow:hidden}
+.row-bottom{padding:4px 8px;border-top:1px solid var(--bd);background:var(--bg2);display:flex;align-items:center;gap:10px}
+
+/* ═══ STAT BIG CARDS ═══ */
+.bigstat{background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
+.bigstat::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px}
+.bs-g::before{background:var(--g)}
+.bs-y::before{background:var(--y)}
+.bs-o::before{background:var(--o)}
+.bs-r::before{background:var(--r)}
+.bs-b::before{background:var(--acc)}
+.bigstat:hover{transform:translateY(-2px);border-color:var(--bd2);box-shadow:var(--shadow-glow)}
+.bs-icon{width:38px;height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:700;transition:transform .35s var(--ease)}
+.bigstat:hover .bs-icon{transform:scale(1.08) rotate(-3deg)}
+.bs-icon.ic-b{background:rgba(26,110,255,.1);color:var(--acc)}
+.bs-icon.ic-r{background:var(--rb);color:var(--r)}
+.bs-icon.ic-o{background:var(--ob);color:var(--o)}
+.bs-icon.ic-y{background:var(--yb);color:var(--y)}
+.bs-icon.ic-g{background:var(--gb);color:var(--g)}
+.bs-meta{flex:1;min-width:0}
+.bs-lbl{font-family:var(--mono);font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.bs-val{font-family:var(--head);font-size:24px;font-weight:700;line-height:1;color:var(--tx)}
+.bs-sub{font-family:var(--mono);font-size:8px;color:var(--tx3);margin-top:1px}
+.bs-pct{font-family:var(--mono);font-size:8px;font-weight:600;margin-top:2px}
+
+/* ═══ PGA HIGHLIGHT CARD ═══ */
+.bigstat.pga-highlight{background:linear-gradient(135deg,#ffffff,#fef9ec);border:2px solid var(--y);box-shadow:0 0 0 1px var(--yb2),0 4px 14px -2px rgba(234,179,8,.35);animation:pgaPulse 3s ease-in-out infinite}
+.bigstat.pga-highlight::before{width:4px;background:linear-gradient(180deg,var(--y),var(--o))}
+@keyframes pgaPulse{0%,100%{box-shadow:0 0 0 1px var(--yb2),0 4px 14px -2px rgba(234,179,8,.25)}50%{box-shadow:0 0 0 2px var(--yb2),0 6px 20px -2px rgba(234,179,8,.5)}}
+.bigstat.pga-highlight .bs-val{font-size:26px}
+.bigstat.pga-highlight .bs-lbl{color:var(--o);font-weight:700}
+
+/* ═══ MAP TITLE ═══ */
+.map-title-bar{background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow-card)}
+.mtb-title{font-family:var(--head);font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--tx);text-transform:uppercase}
+.mtb-sub{font-family:var(--mono);font-size:9px;color:var(--tx3)}
+
+/* ═══ PANEL ═══ */
+.panel{background:var(--bg2);border:1px solid var(--bd);border-radius:6px;display:flex;flex-direction:column;min-height:0;overflow:hidden;box-shadow:var(--shadow-card)}
+.panel:hover{border-color:var(--bd2)}
+.ph{padding:6px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;background:var(--bg3)}
+.ph::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:0;transition:opacity .3s var(--ease)}
+.panel:hover .ph::after{opacity:.7}
+.pt{font-family:var(--head);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx);display:flex;align-items:center;gap:6px}
+.pt::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--acc);flex-shrink:0}
+.pt.r::before{background:var(--r)}
+.pt.o::before{background:var(--o)}
+.pt.y::before{background:var(--y)}
+.pt.g::before{background:var(--g)}
+.pb{padding:8px 10px;overflow-y:auto;flex:1;min-height:0}
+
+/* ═══ COLUMNS ═══ */
+.col-l,.col-r{display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+.col-m{position:relative;min-height:0}
+
+/* ═══ DONUT ═══ */
+.donut-wrap{display:grid;grid-template-columns:130px 1fr;gap:8px;align-items:center;padding:8px 12px;flex:1}
+.donut-canvas-wrap{position:relative;width:130px;height:130px}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.donut-center-num{font-family:var(--head);font-size:28px;font-weight:700;color:var(--acc);line-height:1}
+.donut-center-lbl{font-family:var(--mono);font-size:8px;color:var(--tx3);margin-top:2px}
+.donut-legend{display:flex;flex-direction:column;gap:5px}
+.dl-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:6px;align-items:center;font-family:var(--mono);font-size:9px;color:var(--tx2)}
+.dl-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.dl-cnt{color:var(--tx);font-weight:700;font-family:var(--head)}
+.dl-pct{color:var(--tx3);font-size:8px}
+
+/* ═══ HAZARD TABLE ═══ */
+.hzr-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:5px 10px;border-bottom:1px solid var(--bd);cursor:pointer}
+.hzr-row:last-child{border-bottom:none}
+.hzr-row:hover{background:linear-gradient(90deg,rgba(26,110,255,.08),transparent);padding-left:14px}
+.hzr-icon{width:22px;height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;background:var(--bg3);color:var(--tx2);flex-shrink:0;font-size:13px;transition:transform .25s var(--ease)}
+.hzr-row:hover .hzr-icon{transform:scale(1.1);color:var(--acc)}
+.hzr-name{font-size:10px;color:var(--tx);font-weight:500}
+.hzr-sub{font-family:var(--mono);font-size:7px;color:var(--tx3)}
+.hzr-cnt{font-family:var(--mono);font-size:11px;color:var(--tx);font-weight:700;text-align:right;min-width:24px}
+
+/* ═══ BADGE ═══ */
+.bdg{display:inline-flex;align-items:center;padding:2px 7px;border-radius:3px;font-family:var(--mono);font-size:8px;font-weight:700;border:1px solid;letter-spacing:.04em;white-space:nowrap;transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.bdg:hover{transform:translateY(-1px);box-shadow:0 4px 10px -4px currentColor}
+.bg{background:var(--gb);border-color:var(--gb2);color:var(--g)}
+.by{background:var(--yb);border-color:var(--yb2);color:#a16207}
+.bo{background:var(--ob);border-color:var(--ob2);color:var(--o)}
+.br{background:var(--rb);border-color:var(--rb2);color:var(--r)}
+.bd{background:var(--bg3);border-color:var(--bd);color:var(--tx2)}
+
+/* TARP CLASSES (LV0 hijau → LV4 merah) */
+.lv0{background:var(--gb);border-color:var(--gb2);color:var(--g)}
+.lv1{background:rgba(132,204,22,.14);border-color:rgba(132,204,22,.5);color:#65a30d}
+.lv2{background:var(--yb);border-color:var(--yb2);color:#a16207}
+.lv3{background:var(--ob);border-color:var(--ob2);color:var(--o)}
+.lv4{background:var(--rb);border-color:var(--rb2);color:var(--r)}
+
+/* ═══ TABLE ═══ */
+.dtable{width:100%;border-collapse:collapse;font-size:10px}
+.dtable th{font-family:var(--mono);font-size:7px;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);padding:5px 7px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap;background:var(--bg3);position:sticky;top:0;z-index:1}
+.dtable td{padding:4px 7px;border-bottom:1px solid var(--bd);color:var(--tx2);vertical-align:middle}
+.dtable tr:last-child td{border-bottom:none}
+.dtable tbody tr{cursor:pointer}
+.dtable tbody tr:hover td{background:linear-gradient(90deg,rgba(26,110,255,.08),transparent);color:var(--tx)}
+.no-cell{font-family:var(--mono);font-size:9px;color:var(--tx3);width:18px}
+.trend-up{color:var(--r);font-weight:700}
+.trend-st{color:var(--tx3)}
+.trend-dn{color:var(--g);font-weight:700}
+
+/* ═══ MAP ═══ */
+.col-m .panel{padding:0;height:100%}
+#leaflet-map{position:absolute;inset:0;border-radius:6px;z-index:1}
+.leaflet-container{background:#e8eef5 !important;cursor:grab}
+.leaflet-container:active{cursor:grabbing}
+.leaflet-marker-icon{transition:transform .2s var(--ease)}
+.leaflet-marker-icon:hover{transform:scale(1.4);filter:drop-shadow(0 0 6px rgba(26,110,255,.6));z-index:1000 !important}
+
+.layer-ctrl{position:absolute;top:10px;left:10px;background:rgba(255,255,255,.97);border:1px solid var(--bd);border-radius:6px;z-index:20;backdrop-filter:blur(8px);min-width:150px;box-shadow:var(--shadow-card);overflow:hidden}
+.lc-head{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;cursor:pointer;user-select:none;background:var(--bg3);border-bottom:1px solid var(--bd)}
+.lc-head:hover{background:rgba(26,110,255,.08)}
+.lc-title{font-family:var(--mono);font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:.12em;font-weight:700;display:flex;align-items:center;gap:6px}
+.lc-title::before{content:'▣';color:var(--acc);font-size:10px}
+.lc-caret{font-family:var(--mono);font-size:9px;color:var(--tx3);transition:transform .25s var(--ease)}
+.layer-ctrl.collapsed .lc-caret{transform:rotate(-90deg)}
+.lc-body{padding:6px 8px;max-height:340px;overflow:hidden;transition:max-height .3s var(--ease),padding .25s var(--ease)}
+.layer-ctrl.collapsed .lc-body{max-height:0;padding-top:0;padding-bottom:0}
+.lc-row{display:flex;align-items:center;gap:6px;padding:3px 4px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--tx2);user-select:none;border-radius:3px}
+.lc-row:hover{color:var(--tx);background:rgba(26,110,255,.08)}
+.lc-check{width:11px;height:11px;border:1px solid var(--bd2);border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lc-check.on{border-color:var(--acc);background:var(--acc)}
+.lc-check.on::after{content:'✓';font-size:8px;color:#fff;font-weight:700}
+.lc-sym{width:14px;height:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+
+.map-ctrl-right{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:4px;z-index:20}
+.map-btn{width:26px;height:26px;background:rgba(255,255,255,.96);border:1px solid var(--bd);color:var(--tx2);cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:var(--shadow-card)}
+.map-btn:hover{border-color:var(--acc);color:var(--acc);transform:translateY(-1px)}
+
+.basemap-sel{position:absolute;bottom:10px;left:10px;z-index:20;display:flex;gap:4px}
+.bm-btn{padding:3px 8px;background:rgba(255,255,255,.95);border:1px solid var(--bd);color:var(--tx2);cursor:pointer;border-radius:3px;font-family:var(--mono);font-size:7px;text-transform:uppercase;letter-spacing:.06em;box-shadow:var(--shadow-card)}
+.bm-btn:hover,.bm-btn.active{border-color:var(--acc);color:var(--acc);background:rgba(26,110,255,.1)}
+
+.map-scale{position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,.95);border:1px solid var(--bd);border-radius:3px;padding:5px 9px;z-index:20;font-family:var(--mono);font-size:7px;color:var(--tx2);box-shadow:var(--shadow-card)}
+.scale-bar{height:3px;background:var(--tx2);margin-top:4px;position:relative}
+.scale-bar::before,.scale-bar::after{content:'';position:absolute;top:-3px;width:1px;height:9px;background:var(--tx2)}
+.scale-bar::before{left:0}.scale-bar::after{right:0}
+
+.north{position:absolute;top:50px;right:10px;z-index:20;width:30px;height:30px;background:rgba(255,255,255,.95);border:1px solid var(--bd);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--head);font-size:11px;font-weight:700;color:var(--tx2);cursor:pointer;box-shadow:var(--shadow-card);transition:transform .4s var(--ease)}
+.north:hover{transform:rotate(20deg);color:var(--acc);border-color:var(--acc)}
+
+/* ═══ TREND CHART ═══ */
+.chart-box{padding:6px 10px;flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+.chart-canvas-wrap{flex:1;min-height:0;position:relative}
+.chart-legend{display:flex;gap:10px;font-family:var(--mono);font-size:8px;color:var(--tx2);justify-content:center;padding-top:4px;border-top:1px solid var(--bd);margin-top:4px}
+.cl-row{display:flex;align-items:center;gap:4px}
+.cl-dot{width:8px;height:8px;border-radius:2px}
+
+/* ═══ REKOMENDASI ═══ */
+.rec-item{display:flex;gap:7px;padding:6px 4px;border-bottom:1px solid var(--bd);border-radius:3px;cursor:pointer}
+.rec-item:last-child{border-bottom:none}
+.rec-item:hover{background:rgba(26,110,255,.06)}
+.rec-item:hover .rec-icon{transform:scale(1.15) rotate(-6deg)}
+.rec-icon{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px;transition:transform .3s var(--ease)}
+.rec-icon.ri-r{background:var(--rb);color:var(--r);border:1px solid var(--rb2)}
+.rec-icon.ri-o{background:var(--ob);color:var(--o);border:1px solid var(--ob2)}
+.rec-icon.ri-y{background:var(--yb);color:#a16207;border:1px solid var(--yb2)}
+.rec-icon.ri-g{background:var(--gb);color:var(--g);border:1px solid var(--gb2)}
+.rec-num{font-family:var(--mono);font-size:9px;color:var(--tx3);margin-right:2px}
+.rec-text{font-size:9px;color:var(--tx2);line-height:1.5;flex:1}
+.rec-text b{color:var(--tx);font-weight:600}
+
+/* ═══ INSTRUMENT STATUS — compact icon chip + hover tooltip ═══ */
+.inst-bar{display:flex;align-items:center;gap:8px;height:100%;width:100%}
+.inst-bar-title{font-family:var(--head);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2);padding-right:10px;border-right:1px solid var(--bd);height:26px;display:flex;align-items:center}
+.inst-chips{display:flex;align-items:center;gap:6px;flex:1}
+.inst-pill{position:relative;width:36px;height:36px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bd);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-card)}
+.inst-pill:hover{transform:translateY(-2px) scale(1.08);border-color:var(--bd2);box-shadow:var(--shadow-glow);z-index:50}
+.inst-pill.s-ok{border-color:var(--g);box-shadow:0 0 0 1px var(--gb2),0 2px 8px -2px rgba(22,163,74,.35)}
+.inst-pill.s-bad{border-color:var(--r);box-shadow:0 0 0 1px var(--rb2),0 2px 8px -2px rgba(220,38,38,.45);animation:dotPulseR 1.6s ease-in-out infinite}
+.inst-pill .ip-svg{transition:transform .35s var(--ease)}
+.inst-pill:hover .ip-svg{transform:rotate(10deg) scale(1.12)}
+/* tiny corner status dot */
+.ip-dot{position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--bg2)}
+.ip-dot.ok{background:var(--g)}
+.ip-dot.bad{background:var(--r);animation:dotPulseR 1.4s ease-in-out infinite}
+@keyframes dotPulseG{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.4)}50%{box-shadow:0 0 0 4px rgba(22,163,74,0)}}
+@keyframes dotPulseR{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}50%{box-shadow:0 0 0 5px rgba(220,38,38,0)}}
+/* Tooltip popup */
+.ip-tip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;padding:10px 12px;min-width:220px;max-width:280px;box-shadow:0 10px 30px -5px rgba(15,23,42,.25),0 0 0 1px rgba(15,23,42,.04);opacity:0;pointer-events:none;transition:all .25s var(--ease);z-index:200}
+.inst-pill:hover .ip-tip{opacity:1;transform:translateX(-50%) translateY(0)}
+.ip-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--bg2);filter:drop-shadow(0 1px 0 var(--bd2))}
+.tip-title{font-family:var(--head);font-size:11px;font-weight:700;color:var(--tx);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.05em}
+.tip-row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:9px;padding:2px 0}
+.tip-key{color:var(--tx3)}
+.tip-val{color:var(--tx);font-weight:600}
+.tip-status-line{margin-top:6px;padding-top:5px;border-top:1px dashed var(--bd);font-family:var(--mono);font-size:8px;color:var(--tx3);line-height:1.4}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--tx3)}
+::-webkit-scrollbar-track{background:var(--bg3)}
+
+/* ═══ LEAFLET POPUP (light) ═══ */
+.leaflet-popup-content-wrapper{background:#ffffff;border:1px solid var(--bd2);border-radius:6px;box-shadow:0 8px 24px rgba(15,23,42,.15);color:var(--tx);padding:0}
+.leaflet-popup-content{margin:8px 10px;font-family:var(--mono);font-size:9px;line-height:1.5}
+.leaflet-popup-tip{background:#ffffff;border:1px solid var(--bd2)}
+.leaflet-popup-close-button{display:none}
+.popup-row{display:flex;justify-content:space-between;gap:10px;padding:1px 0}
+.popup-key{color:var(--tx3)}
+.popup-val{color:var(--tx);font-weight:600}
+.popup-title{font-family:var(--head);font-size:11px;font-weight:700;color:var(--tx);margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid var(--bd);text-transform:uppercase;letter-spacing:.04em}
+
+/* Fade-in */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.bigstat,.panel,.inst-pill,.map-title-bar{animation:fadeUp .5s var(--ease) backwards}
+.bigstat:nth-child(2){animation-delay:.04s}.bigstat:nth-child(3){animation-delay:.08s}
+.map-title-bar{animation-delay:.12s}
+.bigstat:nth-child(5){animation-delay:.16s}.bigstat:nth-child(6){animation-delay:.20s}
+.bigstat:nth-child(7){animation-delay:.24s}
+
+@media print {
+  .no-print { display:none !important; }
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  .leaflet-control-container { display:none !important; }
+  body { zoom: .8; }
+}
+.autoreport-btn{position:fixed;top:14px;right:16px;z-index:9999;background:#f97316;color:#0a0d14;border:none;border-radius:8px;padding:9px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.autoreport-btn:hover{background:#fb923c}
+</style>
+
+
+<button class="autoreport-btn no-print" onclick="window.print()" title="Cetak / simpan sebagai PDF">📄 Auto Report (PDF)</button>
+
+<div class="app">
+
+<!-- ═══ TOPBAR ═══ -->
+<div class="topbar" style="position:relative">
+  <div class="logo-icon">GMS</div>
+  <div>
+    <div class="logo-text">PTVI BAHODOPI</div>
+    <div class="logo-sub">Geotechnical Monitoring System</div>
+  </div>
+  <div class="top-divider"></div>
+  <div class="top-label">Real-time · Integrated · Bahodopi Block 2 &amp; 3</div>
+  <div class="top-right">
+    <div class="live-dot"></div>
+    <div class="clock-display" id="clock">—<br>—</div>
+    <div class="tarp-master lv0" id="master-tarp">TARP · LV 0</div>
+    <button class="refresh-btn" onclick="loadAll()" title="Refresh">↻</button>
+  </div>
+</div>
+
+<!-- ═══ TOP ROW: 3 STAT + MAP TITLE + 3 OVERVIEW STAT ═══ -->
+<div class="row-stats">
+  <div class="bigstat bs-b">
+    <div class="bs-icon ic-b">⛰</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">Total Lokasi Terpantau</div>
+      <div class="bs-val" id="bs-total">—</div>
+      <div class="bs-sub">lokasi aktif</div>
+    </div>
+  </div>
+  <div class="bigstat bs-r">
+    <div class="bs-icon ic-r">⚠</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">Risiko Tinggi</div>
+      <div class="bs-val" style="color:var(--r)" id="bs-high">—</div>
+      <div class="bs-pct" id="bs-high-pct" style="color:var(--r)">— dari total</div>
+    </div>
+  </div>
+  <div class="bigstat bs-y">
+    <div class="bs-icon ic-y">⚡</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">Risiko Sedang</div>
+      <div class="bs-val" style="color:var(--y)" id="bs-med">—</div>
+      <div class="bs-pct" id="bs-med-pct" style="color:var(--y)">— dari total</div>
+    </div>
+  </div>
+
+  <!-- MAP TITLE -->
+  <div class="map-title-bar">
+    <div class="mtb-title">Peta Risiko Geoteknik</div>
+    <div class="mtb-sub" id="last-update">—</div>
+  </div>
+
+  <div class="bigstat bs-g">
+    <div class="bs-icon ic-g">✓</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">Risiko Rendah</div>
+      <div class="bs-val" style="color:var(--g)" id="bs-low">—</div>
+      <div class="bs-pct" id="bs-low-pct" style="color:var(--g)">— dari total</div>
+    </div>
+  </div>
+  <div class="bigstat bs-o">
+    <div class="bs-icon ic-o">📊</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">Total Instrumen</div>
+      <div class="bs-val" style="color:var(--o)" id="bs-inst">—</div>
+      <div class="bs-sub" id="bs-inst-sub">7 jenis</div>
+    </div>
+  </div>
+  <div class="bigstat bs-b pga-highlight">
+    <div class="bs-icon ic-o">📈</div>
+    <div class="bs-meta">
+      <div class="bs-lbl">PGA · Donovan 1972</div>
+      <div class="bs-val" id="bs-pga">0.00<span style="font-size:14px;font-weight:400"> g</span></div>
+      <div class="bs-sub" id="bs-pga-sub">— cm/s²</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAIN ROW: LEFT + MAP + RIGHT ═══ -->
+<div class="row-main">
+
+  <!-- LEFT: Donut + Hazard Table -->
+  <div class="col-l">
+    <div class="panel" style="flex:1.1">
+      <div class="ph"><div class="pt">Ringkasan Risiko Geoteknik</div></div>
+      <div class="donut-wrap">
+        <div class="donut-canvas-wrap">
+          <canvas id="donut-chart" width="130" height="130"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-num" id="donut-num">—</div>
+            <div class="donut-center-lbl">Total Lokasi</div>
+          </div>
+        </div>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+    <div class="panel" style="flex:1">
+      <div class="ph"><div class="pt y">Risiko Berdasarkan Jenis Hazard</div></div>
+      <div style="overflow-y:auto;flex:1" id="hazard-list"></div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="col-m panel">
+    <div id="leaflet-map"></div>
+    <div class="layer-ctrl" id="layer-ctrl">
+      <div class="lc-head" onclick="document.getElementById('layer-ctrl').classList.toggle('collapsed')">
+        <div class="lc-title">Layer Peta</div>
+        <div class="lc-caret">▼</div>
+      </div>
+      <div class="lc-body">
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('Prism')"><div class="lc-check on" id="lchk-Prism"></div><div class="lc-sym"><svg width="13" height="13"><circle cx="6.5" cy="6.5" r="4.5" fill="#60a5fa" stroke="#3b82f6" stroke-width="1.5"/></svg></div>Prism</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('Sensor')"><div class="lc-check on" id="lchk-Sensor"></div><div class="lc-sym"><svg width="13" height="13"><polygon points="6.5,1 12,12 1,12" fill="#a78bfa" stroke="#7c3aed" stroke-width="1.5"/></svg></div>Sensor</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('Incl')"><div class="lc-check on" id="lchk-Incl"></div><div class="lc-sym"><svg width="13" height="13"><circle cx="6.5" cy="6.5" r="5" fill="none" stroke="#f87171" stroke-width="1.8"/><circle cx="6.5" cy="6.5" r="1.8" fill="#f87171"/></svg></div>Inclinometer</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('Main Unit')"><div class="lc-check on" id="lchk-Main Unit"></div><div class="lc-sym"><svg width="13" height="13"><rect x="1" y="1" width="11" height="11" rx="1.5" fill="#34d399" stroke="#059669" stroke-width="1.5"/></svg></div>Main Unit</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('AWD')"><div class="lc-check on" id="lchk-AWD"></div><div class="lc-sym"><svg width="13" height="13"><polygon points="6.5,1 12,6.5 6.5,12 1,6.5" fill="#fbbf24" stroke="#d97706" stroke-width="1.5"/></svg></div>AWD</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('PWP')"><div class="lc-check on" id="lchk-PWP"></div><div class="lc-sym"><svg width="13" height="13"><rect x="1" y="1" width="11" height="11" fill="none" stroke="#f472b6" stroke-width="1.8"/><line x1="6.5" y1="1" x2="6.5" y2="12" stroke="#f472b6" stroke-width="1.2"/><line x1="1" y1="6.5" x2="12" y2="6.5" stroke="#f472b6" stroke-width="1.2"/></svg></div>PWP</div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('RTS')"><div class="lc-check on" id="lchk-RTS"></div><div class="lc-sym"><svg width="13" height="13"><polygon points="6.5,1 12,5 12,12 1,12 1,5" fill="#fb923c" stroke="#ea580c" stroke-width="1.5"/></svg></div>RTS</div>
+        <div style="height:5px;margin-top:5px;border-top:1px solid var(--bd)"></div>
+        <div class="lc-row" onclick="event.stopPropagation();toggleLayer('risk-halos')"><div class="lc-check on" id="lchk-risk-halos"></div><div class="lc-sym"><svg width="13" height="13"><circle cx="6.5" cy="6.5" r="5" fill="rgba(220,38,38,.25)" stroke="#dc2626" stroke-width="1" stroke-dasharray="2,2"/></svg></div>Risk Halos</div>
+        <div style="height:5px;margin-top:5px;border-top:1px solid var(--bd)"></div>
+        <div style="font-family:var(--mono);font-size:7px;color:var(--tx3);text-transform:uppercase;letter-spacing:.1em;padding:4px 4px 2px">Warna · Risk Level</div>
+        <div style="display:flex;gap:3px;padding:2px 4px 4px">
+          <div style="flex:1;height:8px;background:var(--g);border-radius:2px" title="Low"></div>
+          <div style="flex:1;height:8px;background:var(--y);border-radius:2px" title="Medium"></div>
+          <div style="flex:1;height:8px;background:var(--o);border-radius:2px" title="High"></div>
+          <div style="flex:1;height:8px;background:var(--r);border-radius:2px" title="Very High"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="basemap-sel">
+      <button class="bm-btn active" id="bm-osm" onclick="setBasemap('osm')">OSM</button>
+      <button class="bm-btn" id="bm-sat" onclick="setBasemap('sat')">Satellite</button>
+      <button class="bm-btn" id="bm-topo" onclick="setBasemap('topo')">Topo</button>
+      <button class="bm-btn" id="bm-dark" onclick="setBasemap('dark')">Dark</button>
+    </div>
+
+    <div class="map-ctrl-right">
+      <button class="map-btn" onclick="leafletMap.zoomIn()">+</button>
+      <button class="map-btn" onclick="leafletMap.zoomOut()">−</button>
+      <button class="map-btn" onclick="resetMapView()" style="font-size:10px">⊙</button>
+    </div>
+
+    <div class="north">N↑</div>
+    <div class="map-scale">250 m<div class="scale-bar"></div></div>
+  </div>
+
+  <!-- RIGHT: Top 7 + Trend + Rekomendasi -->
+  <div class="col-r">
+    <div class="panel" style="flex:1.2">
+      <div class="ph">
+        <div class="pt r">Top 7 Lokasi Risiko Tertinggi</div>
+        <span class="bdg bd" id="top7-date">—</span>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        <table class="dtable">
+          <thead><tr><th>NO</th><th>LOKASI</th><th>HAZARD</th><th>RISIKO</th><th>TREND</th></tr></thead>
+          <tbody id="top7-table"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel" style="flex:1">
+      <div class="ph"><div class="pt y">Trend Risiko per Lokasi</div></div>
+      <div class="chart-box">
+        <div class="chart-canvas-wrap"><canvas id="trend-chart"></canvas></div>
+        <div class="chart-legend">
+          <div class="cl-row"><div class="cl-dot" style="background:var(--r)"></div>Tinggi</div>
+          <div class="cl-row"><div class="cl-dot" style="background:var(--o)"></div>Sedang-T</div>
+          <div class="cl-row"><div class="cl-dot" style="background:var(--y)"></div>Sedang</div>
+          <div class="cl-row"><div class="cl-dot" style="background:var(--g)"></div>Rendah</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="flex:.95">
+      <div class="ph"><div class="pt o">Rekomendasi Tindakan</div></div>
+      <div class="pb" id="rec-panel"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ BOTTOM ROW: INSTRUMENT STATUS (icon chips) ═══ -->
+<div class="row-bottom">
+  <div class="inst-bar">
+    <div class="inst-bar-title">Instrument Status</div>
+    <div class="inst-chips" id="inst-bar"></div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--tx3);display:flex;align-items:center;gap:8px;padding-left:10px;border-left:1px solid var(--bd);height:26px">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--g)"></span>OK</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--r)"></span>Perlu Cek</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ═══ SUPABASE ═══
+const SB  = 'https://dhddckamrkfleuigrsip.supabase.co';
+const KEY = 'sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l';
+function _token(){ try { const raw = localStorage.getItem('sb-dhddckamrkfleuigrsip-auth-token'); if(!raw) return KEY; const s = JSON.parse(raw); return (s && (s.access_token || (s.currentSession && s.currentSession.access_token))) || KEY; } catch(e){ return KEY; } }
+async function db(p){const r=await fetch(`${SB}/rest/v1/${p}`,{headers:{'apikey':KEY,'Authorization':'Bearer '+_token()}});if(!r.ok)throw new Error(await r.text());return r.json();}
+
+// ═══ CONSTANTS ═══
+const TC  = ['#16a34a','#84cc16','#eab308','#f97316','#dc2626'];
+const TN  = ['Normal','Waspada','Siaga','Bahaya','Kritis'];
+const LVC = ['lv0','lv1','lv2','lv3','lv4'];
+const RC  = { Low:'#16a34a', Medium:'#eab308', High:'#f97316', 'Very High':'#dc2626' };
+const RBG = { Low:'bg', Medium:'by', High:'bo', 'Very High':'br' };
+// Shape per instrument type (color applied dynamically from risk level)
+const INST_SHAPES = {
+  Prism:       (col) => `<circle cx="14" cy="14" r="9" fill="${col}" stroke="#fff" stroke-width="2"/>`,
+  Sensor:      (col) => `<polygon points="14,3 25,24 3,24" fill="${col}" stroke="#fff" stroke-width="2"/>`,
+  Incl:        (col) => `<circle cx="14" cy="14" r="10" fill="none" stroke="${col}" stroke-width="2.8"/><circle cx="14" cy="14" r="4" fill="${col}"/>`,
+  'Main Unit': (col) => `<rect x="3" y="3" width="22" height="22" rx="3" fill="${col}" stroke="#fff" stroke-width="2"/>`,
+  AWD:         (col) => `<polygon points="14,2 26,14 14,26 2,14" fill="${col}" stroke="#fff" stroke-width="2"/>`,
+  PWP:         (col) => `<rect x="3" y="3" width="22" height="22" fill="${col}" stroke="#fff" stroke-width="2"/><line x1="14" y1="3" x2="14" y2="25" stroke="#fff" stroke-width="2"/><line x1="3" y1="14" x2="25" y2="14" stroke="#fff" stroke-width="2"/>`,
+  RTS:         (col) => `<polygon points="14,2 25,9 25,25 3,25 3,9" fill="${col}" stroke="#fff" stroke-width="2"/>`,
+};
+
+const HAZARD_ICONS = {
+  'Slope Failure':       { ic:'⛰', label:'Kelongsoran Lereng',   sub:'(Slope Failure)' },
+  'Rockfall':            { ic:'🪨', label:'Runtuhan Batu',         sub:'(Rockfall)' },
+  'Overall Slope':       { ic:'📐', label:'Longsoran Keseluruhan', sub:'(Overall Slope Failure)' },
+  'Erosion':             { ic:'💧', label:'Erosi',                 sub:'(Erosion)' },
+  'Ground Settlement':   { ic:'⬇', label:'Penurunan Tanah',       sub:'(Ground Settlement)' },
+};
+
+const INST_SYMS = {
+  Prism:       { color:'#60a5fa', stroke:'#3b82f6', icon:'<circle cx="14" cy="14" r="9" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/>' },
+  Sensor:      { color:'#a78bfa', stroke:'#7c3aed', icon:'<polygon points="14,3 25,24 3,24" fill="#a78bfa" stroke="#7c3aed" stroke-width="2"/>' },
+  Incl:        { color:'#f87171', stroke:'#dc2626', icon:'<circle cx="14" cy="14" r="10" fill="none" stroke="#f87171" stroke-width="2.5"/><circle cx="14" cy="14" r="4" fill="#f87171"/>' },
+  'Main Unit': { color:'#34d399', stroke:'#059669', icon:'<rect x="3" y="3" width="22" height="22" rx="3" fill="#34d399" stroke="#059669" stroke-width="2"/>' },
+  AWD:         { color:'#fbbf24', stroke:'#d97706', icon:'<polygon points="14,2 26,14 14,26 2,14" fill="#fbbf24" stroke="#d97706" stroke-width="2"/>' },
+  PWP:         { color:'#f472b6', stroke:'#db2777', icon:'<rect x="3" y="3" width="22" height="22" fill="none" stroke="#f472b6" stroke-width="2.5"/><line x1="14" y1="3" x2="14" y2="25" stroke="#f472b6" stroke-width="2"/><line x1="3" y1="14" x2="25" y2="14" stroke="#f472b6" stroke-width="2"/>' },
+  RTS:         { color:'#fb923c', stroke:'#ea580c', icon:'<polygon points="14,2 25,9 25,25 3,25 3,9" fill="#fb923c" stroke="#ea580c" stroke-width="2"/>' },
+};
+
+function fmtD(d){if(!d)return'—';return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}
+
+// ═══ UTM → LAT/LON (Zone 51S) ═══
+function utmToLatLon(e, n) {
+  const a=6378137, eccSq=0.00669438, k0=0.9996;
+  const x=e-500000, y=n-10000000;
+  const M=y/k0;
+  const mu=M/(a*(1-eccSq/4-3*eccSq*eccSq/64));
+  const e1=(1-Math.sqrt(1-eccSq))/(1+Math.sqrt(1-eccSq));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu);
+  const N1=a/Math.sqrt(1-eccSq*Math.sin(phi1)**2);
+  const T1=Math.tan(phi1)**2;
+  const C1=eccSq*Math.cos(phi1)**2/(1-eccSq);
+  const R1=a*(1-eccSq)/(1-eccSq*Math.sin(phi1)**2)**1.5;
+  const D=x/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D**2/2-(5+3*T1+10*C1-4*C1**2-9*eccSq)*D**4/24);
+  const lon=(123*Math.PI/180)+(D-(1+2*T1+C1)*D**3/6)/Math.cos(phi1);
+  return [lat*180/Math.PI, lon*180/Math.PI];
+}
+
+// ═══ LEAFLET ═══
+let leafletMap, baseLayers = {}, currentBase = 'osm';
+let instMarkers = {}, riskCircles = [];
+let layerVisible = { Prism:true, Sensor:true, Incl:true, 'Main Unit':true, AWD:true, PWP:true, RTS:true, 'risk-halos':true };
+const CENTER = [-2.582, 121.626];
+
+function initMap() {
+  leafletMap = L.map('leaflet-map', {
+    zoomControl: false, attributionControl: false, center: CENTER, zoom: 15,
+    dragging: true, scrollWheelZoom: true, doubleClickZoom: true,
+    touchZoom: true, boxZoom: true, keyboard: true, tap: true, inertia: true,
+    zoomSnap: 0.25, wheelDebounceTime: 30, wheelPxPerZoomLevel: 90
+  });
+  baseLayers.osm  = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+  baseLayers.sat  = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+  baseLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 });
+  baseLayers.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+  baseLayers.osm.addTo(leafletMap);
+}
+function setBasemap(type) {
+  if (currentBase === type) return;
+  leafletMap.removeLayer(baseLayers[currentBase]);
+  baseLayers[type].addTo(leafletMap);
+  currentBase = type;
+  document.querySelectorAll('.bm-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bm-'+type).classList.add('active');
+}
+function resetMapView(){ leafletMap.setView(CENTER, 15); }
+function toggleLayer(type) {
+  layerVisible[type] = !layerVisible[type];
+  const chk = document.getElementById('lchk-'+type);
+  if (chk) chk.className = 'lc-check' + (layerVisible[type] ? ' on' : '');
+  if (type === 'risk-halos') {
+    riskCircles.forEach(c => layerVisible[type] ? c.addTo(leafletMap) : leafletMap.removeLayer(c));
+    return;
+  }
+  if (instMarkers[type]) {
+    instMarkers[type].forEach(m => layerVisible[type] ? m.addTo(leafletMap) : leafletMap.removeLayer(m));
+  }
+}
+
+function makeInstIcon(type, color) {
+  const shape = INST_SHAPES[type] || INST_SHAPES.Prism;
+  return L.divIcon({
+    html: `<div style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))"><svg width="18" height="18" viewBox="0 0 28 28">${shape(color)}</svg></div>`,
+    className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+  });
+}
+
+function renderMapInstruments(points, inspArr, locs) {
+  Object.values(instMarkers).flat().forEach(m => leafletMap.removeLayer(m));
+  riskCircles.forEach(c => leafletMap.removeLayer(c));
+  instMarkers = {}; riskCircles = [];
+
+  // Build location-risk map for coloring nearby instruments
+  const latestByLoc = {};
+  inspArr.forEach(d => { if (!latestByLoc[d.location_id] || new Date(d.inspection_date) > new Date(latestByLoc[d.location_id].inspection_date)) latestByLoc[d.location_id] = d; });
+
+  points.forEach(pt => {
+    const [lat, lon] = utmToLatLon(pt.easting, pt.northing);
+    if (isNaN(lat) || isNaN(lon)) return;
+    // Color = TARP level color (risk aligned). Fallback green.
+    const lvl = pt.tarp_lv || 0;
+    const col = TC[lvl] || TC[0];
+    const m = L.marker([lat, lon], { icon: makeInstIcon(pt.remark, col), riseOnHover: true });
+    m.bindPopup(`
+      <div class="popup-title">${pt.inst_id}</div>
+      <div class="popup-row"><span class="popup-key">Tipe</span><span class="popup-val">${pt.remark}</span></div>
+      <div class="popup-row"><span class="popup-key">Easting</span><span class="popup-val">${Number(pt.easting).toFixed(2)}</span></div>
+      <div class="popup-row"><span class="popup-key">Northing</span><span class="popup-val">${Number(pt.northing).toFixed(2)}</span></div>
+      <div class="popup-row"><span class="popup-key">Status</span><span class="popup-val" style="color:var(--g)">${pt.status||'Online'}</span></div>
+      <div class="popup-row"><span class="popup-key">TARP</span><span class="popup-val" style="color:${col}">LV${lvl} · ${TN[lvl]}</span></div>
+    `, { closeButton: false, autoPan: false });
+    m.on('mouseover', function(){ this.openPopup(); });
+    m.on('mouseout',  function(){ this.closePopup(); });
+    if (!instMarkers[pt.remark]) instMarkers[pt.remark] = [];
+    instMarkers[pt.remark].push(m);
+    if (layerVisible[pt.remark]) m.addTo(leafletMap);
+  });
+
+  // Risk halos per location
+  const latest = {};
+  inspArr.forEach(d => { if (!latest[d.location_id] || new Date(d.inspection_date) > new Date(latest[d.location_id].inspection_date)) latest[d.location_id] = d; });
+  const locMap = {}; locs.forEach(l=>locMap[l.id]=l);
+  Object.values(latest).forEach(ins => {
+    const loc = locMap[ins.location_id]; if (!loc) return;
+    const [lat, lon] = utmToLatLon(parseFloat(loc.easting), parseFloat(loc.northing));
+    if (isNaN(lat) || isNaN(lon)) return;
+    const col = RC[ins.risk_level] || '#5a6f96';
+    const c = L.circle([lat, lon], { radius: 70, color: col, fillColor: col, fillOpacity: .15, weight: 1.5, dashArray: '4,3' });
+    c.bindPopup(`
+      <div class="popup-title">${loc.name}</div>
+      <div class="popup-row"><span class="popup-key">Area</span><span class="popup-val">${loc.area_code||'—'}</span></div>
+      <div class="popup-row"><span class="popup-key">Risk</span><span class="popup-val" style="color:${col}">${ins.risk_level}</span></div>
+      <div class="popup-row"><span class="popup-key">Score</span><span class="popup-val">${ins.total_score}</span></div>
+      <div class="popup-row"><span class="popup-key">TARP</span><span class="popup-val" style="color:${TC[ins.tarp_level||0]}">LV${ins.tarp_level||0}</span></div>
+      <div class="popup-row"><span class="popup-key">Inspeksi</span><span class="popup-val">${fmtD(ins.inspection_date)}</span></div>
+    `, { closeButton: false, autoPan: false });
+    c.on('mouseover', function(){ this.openPopup(); });
+    c.on('mouseout',  function(){ this.closePopup(); });
+    riskCircles.push(c);
+    if (layerVisible['risk-halos']) c.addTo(leafletMap);
+  });
+}
+
+// ═══ PGA DONOVAN 1972 ═══
+function gcDist(la1,lo1,la2,lo2){const R=6371,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180;const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function donovan(M, Rkm, hkm) {const Rh = Math.sqrt(Rkm**2 + hkm**2);return Math.exp(-2.611 + 1.1*M - Math.log(Rh + Math.exp(0.5*M)));}
+const SITE_LAT = -2.58, SITE_LON = 121.63;
+
+async function loadPGA() {
+  try {
+    const rows = await db('earthquakes?select=*&order=tanggal.desc&limit=1');
+    if (!rows.length) return;
+    const eq = rows[0];
+    const M = eq.magnitude || 0;
+    let lat=0, lon=0;
+    try {
+      const ls=String(eq.lintang||'0').replace(/[^\d.]/g,'');
+      const bs=String(eq.bujur||'0').replace(/[^\d.]/g,'');
+      lat=(eq.lintang||'').includes('LS')?-parseFloat(ls):parseFloat(ls);
+      lon=parseFloat(bs);
+    } catch(e){}
+    const h = parseFloat(String(eq.kedalaman||'10').replace(/[^\d]/g,'')) || 10;
+    const distKm = gcDist(SITE_LAT, SITE_LON, lat, lon);
+    const pgaCms = donovan(M, distKm, h);
+    const pgaG = pgaCms / 981;
+    let col = '#16a34a';
+    if (pgaG >= 0.3) col = '#dc2626';
+    else if (pgaG >= 0.1) col = '#f97316';
+    else if (pgaG >= 0.05) col = '#eab308';
+    else if (pgaG >= 0.01) col = '#84cc16';
+    document.getElementById('bs-pga').innerHTML = `<span style="color:${col}">${pgaG.toFixed(2)}</span><span style="font-size:14px;font-weight:400;color:${col}"> g</span>`;
+    document.getElementById('bs-pga-sub').textContent = `${pgaCms.toFixed(2)} cm/s² · ${M} Mw @ ${distKm.toFixed(0)} km`;
+  } catch(e) { console.warn('PGA', e); }
+}
+
+// ═══ DONUT CHART ═══
+let donutChart = null;
+function buildDonut(data) {
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: data.map(d=>d.l), datasets: [{ data: data.map(d=>d.v), backgroundColor: data.map(d=>d.c), borderColor: '#0a0d14', borderWidth: 2, hoverOffset: 4 }] },
+    options: { responsive: false, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { bodyFont: { family: 'JetBrains Mono', size: 10 } } } }
+  });
+  const total = data.reduce((a,b)=>a+b.v,0);
+  document.getElementById('donut-num').textContent = total;
+  document.getElementById('donut-legend').innerHTML = data.map(d => `
+    <div class="dl-row">
+      <div class="dl-dot" style="background:${d.c}"></div>
+      <span class="dl-lbl">${d.l}</span>
+      <span class="dl-cnt">${d.v}</span>
+      <span class="dl-pct">${total?Math.round(d.v/total*100):0}%</span>
+    </div>`).join('');
+}
+
+// ═══ TREND CHART (stacked bar per location, last 6 inspections) ═══
+let trendChart = null;
+function buildTrendChart(locs, insp) {
+  const ctx = document.getElementById('trend-chart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+  // Top 7 locations by total_score (latest inspection)
+  const latest = {};
+  insp.forEach(d => { if (!latest[d.location_id] || new Date(d.inspection_date) > new Date(latest[d.location_id].inspection_date)) latest[d.location_id] = d; });
+  const locMap = {}; locs.forEach(l=>locMap[l.id]=l);
+  const arr = Object.values(latest).sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,7);
+  const labels = arr.map(d => (locMap[d.location_id]?.name||'—').substring(0,12));
+  const scores = arr.map(d => d.total_score||0);
+  const colors = arr.map(d => RC[d.risk_level]||'#5a6f96');
+
+  trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Risk Score', data: scores, backgroundColor: colors.map(c=>c+'cc'), borderColor: colors, borderWidth: 1.5, borderRadius: 3 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { bodyFont: { family: 'JetBrains Mono', size: 10 }, callbacks: { label: c=>`Score: ${c.raw}` } } },
+      scales: {
+        x: { grid: { color: 'rgba(30,40,64,.4)' }, ticks: { color: '#5a6f96', font: { family: 'JetBrains Mono', size: 8 }, maxRotation: 35, minRotation: 35 } },
+        y: { beginAtZero: true, max: 85, grid: { color: 'rgba(30,40,64,.4)' }, ticks: { color: '#5a6f96', font: { family: 'JetBrains Mono', size: 8 }, stepSize: 20 } }
+      }
+    }
+  });
+}
+
+// ═══ DATA LOADERS ═══
+async function loadAll() {
+  try {
+    const [locs, inspRaw, pts, sr] = await Promise.all([
+      db('locations?select=*').catch(()=>[]),
+      db('inspections?select=*&order=inspection_date.desc').catch(()=>[]),
+      db('instrument_points?select=*').catch(()=>[]),   // belum ada di project inspeksi -> dummy/[]
+      db('shift_reports?select=*&order=submitted_at.desc&limit=1').catch(()=>[]),
+    ]);
+    // Normalisasi skema governing (f1..f8 + risk_final) -> field yang diharapkan dashboard
+    const insp = (inspRaw||[]).map(d => ({
+      ...d,
+      risk_level: d.risk_level || d.risk_final,
+      ground_failure_condition:       d.ground_failure_condition       || d.f2_condition,
+      slope_geometry_condition:       d.slope_geometry_condition       || d.f1_condition,
+      drainage_condition:             d.drainage_condition             || d.f8_condition,
+      elevation_restriction_condition:d.elevation_restriction_condition|| d.f5_condition,
+    }));
+
+    const latest = {};
+    insp.forEach(d => { if (!latest[d.location_id] || new Date(d.inspection_date) > new Date(latest[d.location_id].inspection_date)) latest[d.location_id] = d; });
+    const inspArr = Object.values(latest);
+
+    // TARP master (top bar)
+    const tShift = sr[0]?.tarp_level || 0;
+    const tInsp  = inspArr.reduce((a,b)=>Math.max(a,b.tarp_level||0),0);
+    const master = Math.max(tShift, tInsp);
+    const tb = document.getElementById('master-tarp');
+    tb.className = 'tarp-master ' + LVC[master];
+    tb.textContent = 'TARP · LV ' + master;
+
+    // STATS
+    const cnt = { Low:0, Medium:0, High:0, 'Very High':0 };
+    inspArr.forEach(d=>{ if(d.risk_level) cnt[d.risk_level]++; });
+    const total = locs.length;
+    const totalScored = inspArr.length;
+    const hi = (cnt.High||0)+(cnt['Very High']||0);
+
+    document.getElementById('bs-total').textContent = total;
+    document.getElementById('bs-high').textContent  = hi;
+    document.getElementById('bs-med').textContent   = cnt.Medium||0;
+    document.getElementById('bs-low').textContent   = cnt.Low||0;
+    document.getElementById('bs-inst').textContent  = pts.length;
+    const typesCnt = new Set(pts.map(p=>p.remark)).size;
+    document.getElementById('bs-inst-sub').textContent = typesCnt+' jenis instrumen';
+    document.getElementById('bs-high-pct').textContent = totalScored ? Math.round(hi/totalScored*100)+'% dari total' : '—';
+    document.getElementById('bs-med-pct').textContent  = totalScored ? Math.round((cnt.Medium||0)/totalScored*100)+'% dari total' : '—';
+    document.getElementById('bs-low-pct').textContent  = totalScored ? Math.round((cnt.Low||0)/totalScored*100)+'% dari total' : '—';
+
+    // DONUT
+    buildDonut([
+      { l:'Risiko Rendah', v: cnt.Low||0,          c:'#16a34a' },
+      { l:'Risiko Sedang', v: cnt.Medium||0,       c:'#eab308' },
+      { l:'Risiko Tinggi', v: cnt.High||0,         c:'#f97316' },
+      { l:'Sangat Tinggi', v: cnt['Very High']||0, c:'#dc2626' },
+    ]);
+
+    // HAZARD TABLE
+    renderHazardList(inspArr);
+
+    // TOP 7
+    renderTop7(inspArr, locs);
+
+    // INSTRUMENT BAR
+    renderInstBar(pts, sr[0]);
+
+    // MAP
+    renderMapInstruments(pts, inspArr, locs);
+
+    // TREND CHART
+    buildTrendChart(locs, insp);
+
+    // PGA
+    await loadPGA();
+
+    // RECOMMENDATIONS
+    renderRecs(inspArr, locs, master);
+
+    // Last update
+    document.getElementById('last-update').textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+
+  } catch(e) { console.error('loadAll', e); }
+}
+
+function renderHazardList(inspArr) {
+  const hz = {
+    'Slope Failure':     { count:0, maxRisk:'Low' },
+    'Rockfall':          { count:0, maxRisk:'Low' },
+    'Overall Slope':     { count:0, maxRisk:'Low' },
+    'Erosion':           { count:0, maxRisk:'Low' },
+    'Ground Settlement': { count:0, maxRisk:'Low' },
+  };
+  const ord = ['Low','Medium','High','Very High'];
+  inspArr.forEach(d => {
+    const gf = d.ground_failure_condition||'', sg = d.slope_geometry_condition||'', dr = d.drainage_condition||'';
+    const rl = d.risk_level||'Low';
+    if ((gf.includes('failure')&&!gf.includes('Progressive')) || sg.includes('Overhang') || sg.includes('Overcut')) {
+      hz['Slope Failure'].count++;
+      if (ord.indexOf(rl) > ord.indexOf(hz['Slope Failure'].maxRisk)) hz['Slope Failure'].maxRisk = rl;
+    }
+    if (gf.includes('Progressive')) {
+      hz['Overall Slope'].count++;
+      if (ord.indexOf(rl) > ord.indexOf(hz['Overall Slope'].maxRisk)) hz['Overall Slope'].maxRisk = rl;
+    }
+    if (gf.includes('Major')) {
+      hz['Rockfall'].count++;
+      if (ord.indexOf(rl) > ord.indexOf(hz['Rockfall'].maxRisk)) hz['Rockfall'].maxRisk = rl;
+    }
+    if (dr.includes('Major') || dr.includes('Critical')) {
+      hz['Erosion'].count++;
+      if (ord.indexOf(rl) > ord.indexOf(hz['Erosion'].maxRisk)) hz['Erosion'].maxRisk = rl;
+    }
+    if (d.elevation_restriction_condition?.includes('exceeds')) {
+      hz['Ground Settlement'].count++;
+      if (ord.indexOf(rl) > ord.indexOf(hz['Ground Settlement'].maxRisk)) hz['Ground Settlement'].maxRisk = rl;
+    }
+  });
+  document.getElementById('hazard-list').innerHTML = Object.entries(hz).map(([key, d]) => {
+    const info = HAZARD_ICONS[key];
+    return `
+      <div class="hzr-row">
+        <div class="hzr-icon">${info.ic}</div>
+        <div>
+          <div class="hzr-name">${info.label}</div>
+          <div class="hzr-sub">${info.sub}</div>
+        </div>
+        <div class="hzr-cnt">${d.count}</div>
+        <span class="bdg ${RBG[d.maxRisk]||'bd'}">${(d.maxRisk||'—').toUpperCase()}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderTop7(inspArr, locs) {
+  const locMap = {}; locs.forEach(l=>locMap[l.id]=l);
+  const sorted = [...inspArr].sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,7);
+  if (sorted.length) document.getElementById('top7-date').textContent = fmtD(sorted[0].inspection_date);
+  document.getElementById('top7-table').innerHTML = sorted.map((d,i) => {
+    const loc = locMap[d.location_id]||{};
+    const gf = d.ground_failure_condition||'', sg = d.slope_geometry_condition||'';
+    const hazard = gf.includes('Major') ? 'Rockfall' : gf.includes('Progressive') ? 'Overall Slope' : gf.includes('failure') ? 'Slope Failure' : sg.includes('Overhang')||sg.includes('Overcut') ? 'Slope Geom.' : 'Visual';
+    const trend = d.total_score>30 ? ['↑','trend-up'] : d.total_score>15 ? ['→','trend-st'] : ['↓','trend-dn'];
+    return `<tr>
+      <td class="no-cell">${i+1}</td>
+      <td style="font-family:var(--head);font-weight:600;color:var(--tx)">${(loc.name||'—').substring(0,15)}</td>
+      <td style="color:var(--tx3);font-size:9px">${hazard}</td>
+      <td><span class="bdg ${RBG[d.risk_level]||'bd'}">${(d.risk_level||'—').toUpperCase()}</span></td>
+      <td class="${trend[1]}" style="font-size:14px;text-align:center">${trend[0]}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderInstBar(pts, lastShift) {
+  const byType = {};
+  pts.forEach(p => { if (!byType[p.remark]) byType[p.remark] = []; byType[p.remark].push(p); });
+  const order = ['Prism','Sensor','Incl','Main Unit','AWD','PWP','RTS'];
+  const bar = document.getElementById('inst-bar');
+  bar.innerHTML = '';
+  const shiftDate = lastShift?.submitted_at ? fmtD(lastShift.submitted_at) : '—';
+  const shiftBy   = lastShift?.submitted_by || lastShift?.shift || '—';
+  order.forEach(type => {
+    if (!byType[type]) return;
+    const arr = byType[type];
+    const online = arr.filter(p=>p.status==='Online'||!p.status).length;
+    const offline = arr.length - online;
+    const cov = Math.round(online/arr.length*100);
+    const ok = (cov === 100);
+    const statusTxt = ok ? 'OK · Semua Online' : `${offline} alat perlu pengecekan`;
+    const shape = INST_SHAPES[type] || INST_SHAPES.Prism;
+    const dotCls = ok ? 'ok' : 'bad';
+    const pillCls = ok ? 's-ok' : 's-bad';
+    const dotColor = ok ? 'var(--g)' : 'var(--r)';
+    const iconCol = ok ? '#475569' : 'var(--r)';
+    bar.innerHTML += `
+      <div class="inst-pill ${pillCls}" title="${type}">
+        <div class="ip-svg"><svg width="20" height="20" viewBox="0 0 28 28">${shape(iconCol)}</svg></div>
+        <div class="ip-dot ${dotCls}"></div>
+        <div class="ip-tip">
+          <div class="tip-title">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor}"></span>
+            ${type} · Status
+          </div>
+          <div class="tip-row"><span class="tip-key">Total Titik</span><span class="tip-val">${arr.length}</span></div>
+          <div class="tip-row"><span class="tip-key">Online</span><span class="tip-val" style="color:var(--g)">${online}</span></div>
+          <div class="tip-row"><span class="tip-key">Offline / Check</span><span class="tip-val" style="color:${offline?'var(--r)':'var(--tx3)'}">${offline}</span></div>
+          <div class="tip-row"><span class="tip-key">Coverage</span><span class="tip-val">${cov}%</span></div>
+          <div class="tip-row"><span class="tip-key">Status</span><span class="tip-val" style="color:${dotColor}">${ok?'NORMAL':'PERHATIAN'}</span></div>
+          <div class="tip-status-line">
+            ${statusTxt}<br>
+            Checklist akhir shift: <b style="color:var(--tx2)">${shiftDate}</b> · ${shiftBy}
+          </div>
+        </div>
+      </div>`;
+  });
+}
+
+function renderRecs(inspArr, locs, master) {
+  const locMap = {}; locs.forEach(l=>locMap[l.id]=l);
+  const sorted = [...inspArr].sort((a,b)=>(b.total_score||0)-(a.total_score||0));
+  const recs = [];
+  if (sorted[0]) {
+    const l = locMap[sorted[0].location_id];
+    recs.push({ ic:'⚠', cls:'ri-r', text: `Perkuat monitoring lereng <b>${l?.name||'—'}</b> yang menunjukkan tren peningkatan risiko (score: ${sorted[0].total_score}).` });
+  }
+  if (inspArr.some(d=>d.drainage_condition?.includes('Critical'))) {
+    recs.push({ ic:'🔧', cls:'ri-o', text: 'Lakukan <b>scaling dan pembersihan</b> batu lepas pada area dengan critical drainage failure.' });
+  }
+  if (inspArr.some(d=>d.drainage_condition?.includes('Major')||d.drainage_condition?.includes('Moderate'))) {
+    recs.push({ ic:'💧', cls:'ri-y', text: 'Perbaiki <b>sistem drainase</b> dan kontrol erosi pada lokasi dengan water/drainage issue.' });
+  }
+  recs.push({ ic:'✓', cls:'ri-g', text: 'Lanjutkan monitoring rutin dan validasi model stabilitas lereng secara berkala (ICMM/GISTM).' });
+
+  document.getElementById('rec-panel').innerHTML = recs.slice(0,4).map((r,i) => `
+    <div class="rec-item">
+      <div class="rec-icon ${r.cls}">${r.ic}</div>
+      <div class="rec-text"><span class="rec-num">${i+1}.</span>${r.text}</div>
+    </div>`).join('');
+}
+
+// ═══ CLOCK ═══
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').innerHTML =
+    n.toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short'}) + '<br>' +
+    n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ═══ INIT ═══
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  setInterval(tick, 1000); tick();
+  loadAll();
+  setInterval(loadAll, 60000);
+});
+</script>
+
+
+</template>
+
 <div id="root"></div>
 
 <script type="text/babel">
@@ -62,6 +1041,9 @@ const I = {
   pin:     <g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z"/><circle cx="12" cy="10" r="2.5"/></g>,
   layers:  <g><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/></g>,
   clip:    <g><rect x="6" y="4" width="12" height="18" rx="2"/><path d="M9 4h6v3H9z"/></g>,
+  bell:    <g><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></g>,
+  back:    <polyline points="15 18 9 12 15 6"/>,
+  logout:  <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></g>,
 };
 function Icon({ name, size=16, color="currentColor" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{I[name]}</svg>;
@@ -153,7 +1135,8 @@ function Connect({ onReady }){
 
 // ========================= CONSOLE =========================
 function Console({ sb, onLogout }){
-  const [tab, setTab] = useState("dashboard");
+  const [view, setView] = useState("home");
+  const [email, setEmail] = useState("");
   const [params, setParams] = useState([]);
   const [criteria, setCriteria] = useState({});
   const [bands, setBands] = useState([]);
@@ -164,8 +1147,10 @@ function Console({ sb, onLogout }){
 
   const loadOverview = useCallback(async () => {
     const { data } = await sb.from("v_inspection_overview").select("*").order("total_score", { ascending:false });
-    setOverview(data || []);
+    setOverview((data||[]).map(r=>({ ...r, risk_level: r.risk_final, tarp_level: r.tarp_level })));
   }, [sb]);
+
+  useEffect(()=>{ sb.auth.getUser().then(({data})=>setEmail(data?.user?.email||"")); }, [sb]);
 
   useEffect(() => {
     (async () => {
@@ -173,7 +1158,7 @@ function Console({ sb, onLogout }){
         sb.from("parameters").select("*").order("sort_order"),
         sb.from("scoring_criteria").select("*"),
         sb.from("risk_bands").select("*").order("min_score"),
-        sb.from("locations").select("id,name,area_code,owner_area").order("name"),
+        sb.from("locations").select("id,name,area_code,owner_area,easting,northing,lat,lng,on_radius_m,near_radius_m").order("name"),
       ]);
       setParams((p.data||[]).map(r=>({...r,tier:r.tier||2})));
       const g = {}; (c.data||[]).forEach(r => (g[r.parameter_code]=g[r.parameter_code]||[]).push(r));
@@ -191,37 +1176,94 @@ function Console({ sb, onLogout }){
     return c;
   }, [overview]);
 
-  return (
-    <div style={{ minHeight:"100vh" }}>
-      <header style={{ borderBottom:"1px solid var(--line)", background:"linear-gradient(180deg,#0d1320,#0a0e14)", padding:"14px 22px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:20 }}>
-        <div className="row">
-          <div style={{ width:36,height:36,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(251,146,60,.14)",border:"1px solid rgba(251,146,60,.4)" }}>
-            <Icon name="shield" color="#fb923c" size={18}/>
-          </div>
-          <div>
-            <div className="disp" style={{ fontWeight:800, fontSize:17, color:"#f1f5f9", lineHeight:1.1 }}>Geotechnical Hazard Monitoring</div>
-            <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>BAHODOPI BLOCK 2 &amp; 3</div>
+  const TILES = [
+    { key:"dashboard", label:"Dashboard",     sub:"Peta & daftar risiko",     icon:"layers", color:"#2563eb" },
+    { key:"inspect",   label:"Inspeksi Baru", sub:"Checklist · GPS · foto",   icon:"clip",   color:"#ea580c" },
+    { key:"eews",      label:"EEWS",          sub:"Peringatan dini gempa",    icon:"bell",   color:"#dc2626" },
+    { key:"logout",    label:"Keluar",        sub:"Akhiri sesi",              icon:"logout", color:"#334155" },
+  ];
+  const titles = { dashboard:"Dashboard", inspect:"Inspeksi Baru", eews:"EEWS" };
+
+  if (view==="home") {
+    return (
+      <div className="home-wrap" style={{ minHeight:"100vh", padding:"26px 18px" }}>
+        <div className="row" style={{ justifyContent:"space-between", marginBottom:22 }}>
+          <div className="row">
+            <div style={{ width:40,height:40,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(251,146,60,.14)",border:"1px solid rgba(251,146,60,.4)" }}>
+              <Icon name="shield" color="#fb923c" size={20}/>
+            </div>
+            <div>
+              <div className="disp" style={{ fontWeight:800, fontSize:18, color:"#f1f5f9", lineHeight:1.1 }}>Geotech Monitoring</div>
+              <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>BAHODOPI BLOCK 2 &amp; 3</div>
+            </div>
           </div>
         </div>
-        <div className="row" style={{ gap:6 }}>
-          {[["dashboard","Dashboard","layers"],["inspect","New Inspection","clip"]].map(([k,t,ic]) => (
-            <button key={k} className="btn" onClick={()=>setTab(k)}
-              style={ tab===k ? { background:"var(--accent)", color:"#0a0e14", borderColor:"var(--accent)" } : {} }>
-              <Icon name={ic} size={13}/>{t}
+
+        {email && <div className="mono" style={{ fontSize:12, color:"var(--txt2)", marginBottom:16 }}>Halo, {email}</div>}
+
+        {!loading && <div className="row" style={{ gap:8, marginBottom:18, flexWrap:"wrap" }}>
+          {[["Very High",counts["Very High"]],["High",counts.High],["Medium",counts.Medium],["Low",counts.Low]].map(([l,n])=>{
+            const r=RISK[l]; return (
+            <div key={l} style={{ flex:1, minWidth:64, background:r.bg, border:`1px solid ${r.b}`, borderRadius:10, padding:"8px 6px", textAlign:"center" }}>
+              <div className="disp" style={{ fontSize:20, fontWeight:800, color:r.c, lineHeight:1 }}>{n}</div>
+              <div className="mono" style={{ fontSize:8.5, color:r.c, letterSpacing:".03em", marginTop:2 }}>{l.toUpperCase()}</div>
+            </div>
+          );})}
+        </div>}
+
+        <div className="home-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          {TILES.map(t => (
+            <button key={t.key}
+              onClick={()=> t.key==="logout" ? onLogout() : setView(t.key)}
+              style={{ background:t.color, border:"none", borderRadius:18, padding:"20px 16px", minHeight:128, textAlign:"left",
+                       display:"flex", flexDirection:"column", justifyContent:"space-between", cursor:"pointer", color:"#fff",
+                       boxShadow:"0 6px 18px rgba(0,0,0,.25)" }}>
+              <div style={{ width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.18)",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <Icon name={t.icon} color="#fff" size={24}/>
+              </div>
+              <div>
+                <div className="disp" style={{ fontSize:17, fontWeight:700 }}>{t.label}</div>
+                <div style={{ fontSize:11.5, opacity:.82, marginTop:2 }}>{t.sub}</div>
+              </div>
             </button>
           ))}
-          <button className="btn" onClick={onLogout} title="Sign out" style={{ padding:"10px 12px" }}>Sign out</button>
         </div>
+
+        {detail && <Drawer data={detail} bands={bands} onClose={()=>setDetail(null)} />}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh" }}>
+      <header style={{ borderBottom:"1px solid var(--line)", background:"linear-gradient(180deg,#0d1320,#0a0e14)", padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:20 }}>
+        <button className="btn" onClick={()=>setView("home")} style={{ padding:"8px 12px" }}>
+          <Icon name="back" size={15}/> Menu
+        </button>
+        <div className="disp" style={{ fontWeight:800, fontSize:16, color:"#f1f5f9" }}>{titles[view]}</div>
+        <button className="btn" onClick={onLogout} title="Sign out" style={{ padding:"8px 11px" }}>
+          <Icon name="logout" size={15}/>
+        </button>
       </header>
 
-      {loading ? <Center><div className="spin"/></Center> : (
-        tab==="dashboard"
-          ? <Dashboard overview={overview} counts={counts} bands={bands} onOpen={async (r)=>{
-              const { data } = await sb.from("v_inspection_findings").select("*").eq("inspection_id", r.id).gt("score", 0).order("score",{ascending:false});
-              setDetail({ row:r, findings:data||[] });
-            }} />
-          : <Inspect params={params} criteria={criteria} bands={bands} locations={locations} sb={sb}
-              onSave={async (payload)=>{ const { error } = await sb.from("inspections").insert(payload); if(error){ alert(error.message); return false; } await loadOverview(); setTab("dashboard"); return true; }} />
+      {view==="eews" || view==="dashboard" ? (
+        <div style={{ width:"100%", height:"calc(100vh - 60px)", background:"#0a0e14", position:"relative" }}>
+          {view==="eews"
+            ? <iframe src="https://eewsi.netlify.app/" title="EEWS IGP Morowali"
+                style={{ width:"100%", height:"100%", border:"none", display:"block" }} allow="geolocation"></iframe>
+            : <iframe title="Geotechnical Dashboard" allow="geolocation"
+                ref={el=>{ if(el && !el.getAttribute("data-loaded")){ el.setAttribute("data-loaded","1"); el.srcdoc = document.getElementById("gms-dashboard").innerHTML; } }}
+                style={{ width:"100%", height:"100%", border:"none", display:"block" }}></iframe>}
+          {view==="eews" && <div style={{ position:"absolute", bottom:10, right:14 }}>
+            <a href="https://eewsi.netlify.app/" target="_blank" rel="noreferrer" className="mono"
+               style={{ fontSize:11, background:"rgba(14,21,33,.85)", padding:"5px 9px", borderRadius:6, border:"1px solid var(--line2)" }}>
+              Buka EEWS di tab baru ↗
+            </a>
+          </div>}
+        </div>
+      ) : loading ? <Center><div className="spin"/></Center> : (
+        <Inspect params={params} criteria={criteria} bands={bands} locations={locations} sb={sb}
+          onSave={async (payload)=>{ const { error } = await sb.from("inspections").insert(payload); if(error){ alert(error.message); return false; } await loadOverview(); setView("home"); return true; }} />
       )}
 
       {detail && <Drawer data={detail} bands={bands} onClose={()=>setDetail(null)} />}
@@ -317,6 +1359,19 @@ function Drawer({ data, onClose }){
 }
 
 // ========================= HAVERSINE =========================
+function utmToLatLng(e,n){
+  const a=6378137, eccSq=0.00669438, k0=0.9996;
+  const x=e-500000, y=n-10000000, M=y/k0;
+  const mu=M/(a*(1-eccSq/4-3*eccSq*eccSq/64));
+  const e1=(1-Math.sqrt(1-eccSq))/(1+Math.sqrt(1-eccSq));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);
+  const N1=a/Math.sqrt(1-eccSq*Math.sin(phi1)**2), T1=Math.tan(phi1)**2;
+  const C1=(eccSq/(1-eccSq))*Math.cos(phi1)**2;
+  const R1=a*(1-eccSq)/(1-eccSq*Math.sin(phi1)**2)**1.5, D=x/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*eccSq)*D**4/24+(61+90*T1+298*C1+45*T1*T1-252*eccSq-3*C1*C1)*D**6/720);
+  const lng=(123*Math.PI/180)+(D-(1+2*T1+C1)*D**3/6+(5-2*C1+28*T1-3*C1*C1+8*eccSq+24*T1*T1)*D**5/120)/Math.cos(phi1);
+  return {lat:lat*180/Math.PI, lng:lng*180/Math.PI};
+}
 function haversineM(lat1,lng1,lat2,lng2){
   const R=6371000,r=d=>d*Math.PI/180,dLat=r(lat2-lat1),dLng=r(lng2-lng1);
   const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;
@@ -354,11 +1409,17 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
   const locConfig = useMemo(()=>locations.find(l=>String(l.id)===String(locId)), [locations,locId]);
 
   // Geo validation
+  const target = useMemo(()=>{
+    if(!locConfig) return null;
+    if(locConfig.lat && locConfig.lng) return {lat:+locConfig.lat, lng:+locConfig.lng};
+    if(locConfig.easting && locConfig.northing) return utmToLatLng(+locConfig.easting, +locConfig.northing);
+    return null;
+  },[locConfig]);
   const geoVal = useMemo(()=>{
-    if(!geo||!locConfig||!locConfig.lat) return null;
-    const dist=haversineM(geo.lat,geo.lng,locConfig.lat,locConfig.lng);
+    if(!geo||!target) return null;
+    const dist=haversineM(geo.lat,geo.lng,target.lat,target.lng);
     return {...geoStatus(dist, locConfig.on_radius_m||50, locConfig.near_radius_m||150), dist:Math.round(dist)};
-  },[geo,locConfig]);
+  },[geo,target,locConfig]);
 
   const getGeo = () => {
     if(!locId){ setGeoMsg("Pilih lokasi target dulu."); return; }
@@ -454,7 +1515,7 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
   );
 
   return (
-    <div style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px", display:"grid", gridTemplateColumns:"2fr 1fr", gap:22 }}>
+    <div className="inspect-grid" style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px" }}>
       <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
 
         {/* SITE */}
@@ -490,7 +1551,7 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
             </span>}
           </div>
           {geoMsg && <div className="mono" style={{ fontSize:11, color:"#f87171", marginTop:6 }}>{geoMsg}</div>}
-          {geo && locConfig && !locConfig.lat && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:6 }}>
+          {geo && target===null && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:6 }}>
             ℹ Koordinat lokasi target belum diset di tabel locations — validasi jarak tidak tersedia.
           </div>}
           {geo && <a href={`https://maps.google.com/?q=${geo.lat},${geo.lng}`} target="_blank" rel="noreferrer"
