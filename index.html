@@ -1417,15 +1417,41 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
     return {...geoStatus(dist, locConfig.on_radius_m||50, locConfig.near_radius_m||150), dist:Math.round(dist)};
   },[geo,target,locConfig]);
 
+  const [manual, setManual] = useState(false);
+  const [mLat, setMLat] = useState("");
+  const [mLng, setMLng] = useState("");
+
+  const onPos = (pos) => {
+    setGeo({ lat:pos.coords.latitude, lng:pos.coords.longitude,
+             accuracy:Math.round(pos.coords.accuracy||0), time:new Date(pos.timestamp).toISOString() });
+    setGeoMsg(""); setGeoLoading(false);
+  };
+  const errText = (err) => {
+    if(err.code===1) return "Izin lokasi ditolak. iPhone: Settings → Privacy & Security → Location Services → ON, lalu cari Safari → 'While Using'. Lalu reload halaman.";
+    if(err.code===2) return "Lokasi tidak tersedia. Pastikan GPS/Location Services aktif & sinyal cukup (coba di luar ruangan).";
+    if(err.code===3) return "Waktu habis mencari sinyal GPS. Coba lagi, atau gunakan 'Input manual'.";
+    return "Gagal mengambil lokasi: " + (err.message||"unknown");
+  };
   const getGeo = () => {
     if(!locId){ setGeoMsg("Pilih lokasi target dulu."); return; }
-    if(!navigator.geolocation){ setGeoMsg("Browser tidak support geolocation."); return; }
-    setGeoLoading(true); setGeoMsg("Meminta akses lokasi GPS…");
-    navigator.geolocation.getCurrentPosition(
-      pos=>{ setGeo({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy),time:new Date(pos.timestamp).toISOString()}); setGeoMsg(""); setGeoLoading(false); },
-      err=>{ setGeoMsg("Gagal: "+err.message); setGeoLoading(false); },
-      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
-    );
+    if(!navigator.geolocation || !window.isSecureContext){
+      setGeoMsg("Geolocation butuh HTTPS / browser pendukung. Gunakan 'Input manual'."); setManual(true); return;
+    }
+    setGeoLoading(true); setGeoMsg("Mencari sinyal GPS… (iPhone bisa 10–20 detik, mohon tunggu)");
+    // Tahap 1: akurasi tinggi
+    navigator.geolocation.getCurrentPosition(onPos, (e1)=>{
+      if(e1.code===1){ setGeoMsg(errText(e1)); setGeoLoading(false); return; }   // ditolak: tak perlu retry
+      // Tahap 2: fallback akurasi rendah + boleh cache 60 dtk (lebih andal di iOS)
+      setGeoMsg("Mencoba ulang dengan akurasi standar…");
+      navigator.geolocation.getCurrentPosition(onPos, (e2)=>{
+        setGeoMsg(errText(e2)); setGeoLoading(false); setManual(true);
+      }, { enableHighAccuracy:false, timeout:20000, maximumAge:60000 });
+    }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+  };
+  const useManual = () => {
+    const la=parseFloat(mLat), ln=parseFloat(mLng);
+    if(isNaN(la)||isNaN(ln)||la< -90||la>90||ln< -180||ln>180){ setGeoMsg("Koordinat manual tidak valid."); return; }
+    setGeo({ lat:la, lng:ln, accuracy:null, time:new Date().toISOString(), manual:true }); setGeoMsg("");
   };
 
   // Photo handlers
@@ -1463,7 +1489,8 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
 
   const rcolor = RISK[computed.level] || RISK.Low;
   const active = params.map(p=>({p,score:scoreOf(p.code,cond[p.code])})).filter(x=>x.score>0);
-  const valid = locId && inspector.trim() && geo;
+  const offLoc = !!(geoVal && geoVal.s === "Off Location");
+  const valid = locId && inspector.trim() && geo && !offLoc;
 
   const save = async () => {
     setBusy(true);
@@ -1473,7 +1500,7 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
       inspector:inspector.trim(), status,
       inspector_lat:geo?.lat, inspector_lng:geo?.lng,
       inspector_accuracy_m:geo?.accuracy,
-      geo_validation:geoVal?.s||null,
+      geo_validation:(geo?.manual ? ((geoVal?.s||"Manual")+" (manual)") : (geoVal?.s||"Tidak tervalidasi")),
       geo_time:geo?.time||null,
     };
     params.forEach(p => payload[`${p.code}_condition`] = cond[p.code]);
@@ -1519,7 +1546,7 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
           <div className="mono" style={{ fontSize:11, color:"var(--mut)", letterSpacing:".12em", marginBottom:14 }}>SITE &amp; INSPECTION</div>
           <div className="grid2">
             <div><label>Location</label>
-              <select value={locId} onChange={e=>{setLocId(e.target.value);setGeo(null);setGeoMsg("");}}>
+              <select value={locId} onChange={e=>{setLocId(e.target.value);setGeo(null);setGeoMsg("");setManual(false);setMLat("");setMLng("");}}>
                 <option value="">— select —</option>
                 {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select></div>
@@ -1536,8 +1563,11 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
             <button className="btn" onClick={getGeo} disabled={geoLoading} style={{ flex:"0 0 auto" }}>
               {geoLoading?"Mengambil…":"📍 Ambil Koordinat"}
             </button>
+            <button className="btn" onClick={()=>setManual(m=>!m)} style={{ flex:"0 0 auto" }}>
+              {manual?"Tutup manual":"⌨ Input manual"}
+            </button>
             {geo && <div className="mono" style={{ fontSize:11, color:"var(--txt2)" }}>
-              {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)} ±{geo.accuracy}m
+              {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}{geo.accuracy!=null?` ±${geo.accuracy}m`:""}{geo.manual?" (manual)":""}
             </div>}
             {geoVal && <span className="mono" style={{ fontSize:12, fontWeight:700, color:geoVal.c }}>
               {geoVal.s} ({geoVal.dist}m)
@@ -1546,6 +1576,11 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
               ⚠ GPS wajib diisi sebelum simpan
             </span>}
           </div>
+          {manual && <div className="row" style={{ gap:8, marginTop:10, flexWrap:"wrap", alignItems:"flex-end" }}>
+            <div><label style={{fontSize:11}}>Latitude</label><input value={mLat} onChange={e=>setMLat(e.target.value)} placeholder="-2.7xxxx" inputMode="decimal" style={{width:130}}/></div>
+            <div><label style={{fontSize:11}}>Longitude</label><input value={mLng} onChange={e=>setMLng(e.target.value)} placeholder="122.0xxxx" inputMode="decimal" style={{width:130}}/></div>
+            <button className="btn" onClick={useManual}>Pakai koordinat ini</button>
+          </div>}
           {geoMsg && <div className="mono" style={{ fontSize:11, color:"#f87171", marginTop:6 }}>{geoMsg}</div>}
           {geo && target===null && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:6 }}>
             ℹ Koordinat lokasi target belum diset di tabel locations — validasi jarak tidak tersedia.
@@ -1612,6 +1647,9 @@ function Inspect({ params, criteria, bands, locations, onSave, sb }){
         </div>
         {!geo && <div style={{ background:"rgba(248,113,113,.1)", border:"1px solid rgba(248,113,113,.4)", borderRadius:8, padding:"8px 12px", marginTop:12 }}>
           <span className="mono" style={{ fontSize:11, color:"#f87171" }}>⚠ GPS belum diambil — wajib sebelum simpan</span>
+        </div>}
+        {offLoc && <div style={{ background:"rgba(248,113,113,.1)", border:"1px solid rgba(248,113,113,.4)", borderRadius:8, padding:"8px 12px", marginTop:12 }}>
+          <span className="mono" style={{ fontSize:11, color:"#f87171" }}>⛔ Off Location ({geoVal.dist}m dari titik) — terlalu jauh, inspeksi tidak bisa disimpan. Pastikan kamu berada di lokasi.</span>
         </div>}
         <button className="btn primary" style={{ width:"100%", justifyContent:"center", marginTop:12 }}
           disabled={!valid||busy||uploading} onClick={save}>
