@@ -789,7 +789,7 @@ async function loadAll() {
   try {
     const [locs, inspRaw, pts, sr, crit] = await Promise.all([
       db('locations?select=*').catch(()=>[]),
-      db('inspections?select=*&order=inspection_date.desc').catch(()=>[]),
+      db('inspections?select=*&approval_status=eq.approved&order=inspection_date.desc').catch(()=>[]),
       db('instrument_points?select=*').catch(()=>[]),   // belum ada -> []
       db('shift_reports?select=*&order=submitted_at.desc&limit=1').catch(()=>[]),
       db('scoring_criteria?select=parameter_code,condition_label,score').catch(()=>[]),
@@ -1062,22 +1062,40 @@ function Center({ children }){ return <div style={{minHeight:"100vh",display:"fl
 
 // ========================= CONNECT / LOGIN =========================
 function Connect({ onReady }){
-  const [mode, setMode] = useState("signin");   // signin | signup
+  const [c] = useState(()=> window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY));
+  const [mode, setMode] = useState("signin");   // signin | signup | forgot | newpass
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [bn, setBn] = useState("");
+  const [position, setPosition] = useState("");
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(()=>{
+    if((window.location.hash||"").includes("type=recovery")) setMode("newpass");
+    const { data:sub } = c.auth.onAuthStateChange((ev)=>{ if(ev==="PASSWORD_RECOVERY") setMode("newpass"); });
+    return ()=>{ try{ sub.subscription.unsubscribe(); }catch(e){} };
+  }, [c]);
+
   const submit = async () => {
     setErr(""); setMsg(""); setBusy(true);
     try {
-      const c = window.supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY);
       if (mode === "signup") {
-        const { data, error } = await c.auth.signUp({ email: email.trim(), password: pass });
+        const { data, error } = await c.auth.signUp({ email: email.trim(), password: pass,
+          options:{ data:{ badge_number: bn.trim(), position: position.trim() }, emailRedirectTo: window.location.origin } });
         if (error) throw error;
-        if (data.session) { onReady(c); }                       // auto-login (email confirmation off)
-        else { setMode("signin"); setMsg("Akun dibuat. Jika diminta, cek email untuk konfirmasi, lalu Sign in."); }
+        if (data.session) { onReady(c); }
+        else { const { error:e2 } = await c.auth.signInWithPassword({ email: email.trim(), password: pass });
+               if(!e2){ onReady(c); } else { setMode("signin"); setMsg("Akun dibuat. Silakan Sign in."); } }
+      } else if (mode === "forgot") {
+        const { error } = await c.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+        if (error) throw error;
+        setMsg("Jika email terdaftar, link reset sudah dikirim. Cek inbox/spam.");
+      } else if (mode === "newpass") {
+        const { error } = await c.auth.updateUser({ password: pass });
+        if (error) throw error;
+        setMsg("Password diperbarui. Mengarahkan…"); setTimeout(()=>onReady(c), 800);
       } else {
         const { error } = await c.auth.signInWithPassword({ email: email.trim(), password: pass });
         if (error) throw error;
@@ -1100,29 +1118,61 @@ function Connect({ onReady }){
           </div>
         </div>
 
+        {mode!=="newpass" && (
         <div className="row" style={{ gap:6, marginBottom:16 }}>
           {[["signin","Sign in"],["signup","Sign up"]].map(([k,t])=>(
             <button key={k} className="btn" onClick={()=>{ setMode(k); setErr(""); setMsg(""); }}
               style={{ flex:1, justifyContent:"center", ...(mode===k?{ background:"var(--accent)", color:"#0a0e14", borderColor:"var(--accent)" }:{}) }}>{t}</button>
           ))}
-        </div>
+        </div>)}
 
+        {mode!=="newpass" && (
         <div style={{ marginBottom:11 }}>
           <label>Email</label>
           <input value={email} onChange={e=>setEmail(e.target.value)} type="email" />
-        </div>
+        </div>)}
+
+        {mode==="signup" && (
+          <div style={{ marginBottom:11 }}>
+            <label>Badge Number (B/N)</label>
+            <input value={bn} onChange={e=>setBn(e.target.value)} placeholder="mis. 0676733" />
+          </div>)}
+        {mode==="signup" && (
+          <div style={{ marginBottom:11 }}>
+            <label>Position</label>
+            <input value={position} onChange={e=>setPosition(e.target.value)} placeholder="mis. Geotechnical Engineer" />
+          </div>)}
+
+        {mode!=="forgot" && (
         <div style={{ marginBottom:14 }}>
-          <label>Password{mode==="signup" && <span style={{color:"var(--mut)",fontWeight:400}}> (min. 6 karakter)</span>}</label>
-          <input value={pass} onChange={e=>setPass(e.target.value)} type="password"
-            onKeyDown={e=>e.key==="Enter"&&submit()} />
-        </div>
+          <label>{mode==="newpass" ? "Password Baru" : "Password"}{(mode==="signup"||mode==="newpass") && <span style={{color:"var(--mut)",fontWeight:400}}> (min. 6 karakter)</span>}</label>
+          <input value={pass} onChange={e=>setPass(e.target.value)} type="password" onKeyDown={e=>e.key==="Enter"&&submit()} />
+        </div>)}
+
+        {mode==="signin" && (
+          <div style={{ marginBottom:12, marginTop:-4 }}>
+            <button onClick={()=>{ setMode("forgot"); setErr(""); setMsg(""); }}
+              style={{ padding:0, border:"none", background:"none", color:"var(--accent)", fontSize:12, cursor:"pointer" }}>Lupa password?</button>
+          </div>)}
+
         {err && <div className="mono" style={{ fontSize:11, color:"#f87171", marginBottom:12 }}>{err}</div>}
         {msg && <div className="mono" style={{ fontSize:11, color:"#34d399", marginBottom:12, lineHeight:1.5 }}>{msg}</div>}
-        <button className="btn primary" style={{ width:"100%", justifyContent:"center" }} disabled={busy || !email.trim() || !pass} onClick={submit}>
-          {busy ? "Memproses…" : mode==="signup" ? "Buat Akun" : "Sign in"}
+
+        <button className="btn primary" style={{ width:"100%", justifyContent:"center" }}
+          disabled={busy || (mode==="forgot" ? !email.trim() : mode==="newpass" ? !pass : (!email.trim() || !pass))}
+          onClick={submit}>
+          {busy ? "Memproses…" : mode==="signup" ? "Buat Akun" : mode==="forgot" ? "Kirim Link Reset" : mode==="newpass" ? "Simpan Password" : "Sign in"}
         </button>
+
+        {mode==="forgot" && (
+          <button className="btn" style={{ width:"100%", justifyContent:"center", marginTop:8 }}
+            onClick={()=>{ setMode("signin"); setErr(""); setMsg(""); }}>Kembali</button>)}
+
         <p className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:12, lineHeight:1.5 }}>
-          {mode==="signup" ? "Buat akun baru dengan email & password." : "Masuk dengan akun yang sudah terdaftar."}
+          {mode==="signup" ? "Akun baru otomatis berperan Member. Super Admin menaikkan tier-nya." :
+           mode==="forgot" ? "Masukkan email akunmu; link reset dikirim ke email." :
+           mode==="newpass" ? "Buat password baru untuk akunmu." :
+           "Masuk dengan akun yang sudah terdaftar."}
         </p>
       </div>
     </Center>
@@ -1140,13 +1190,29 @@ function Console({ sb, onLogout }){
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
+  const [canValidate, setCanValidate] = useState(false);
+  const [role, setRole] = useState("member");
+  const [pending, setPending] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
+  const loadPending = useCallback(async () => {
+    setPendingLoading(true);
+    const { data } = await sb.from("inspections").select("*, locations(name,area_code)")
+      .eq("approval_status","pending").order("tarp_level",{ascending:false}).order("inspection_date",{ascending:false});
+    setPending(data||[]); setPendingLoading(false);
+  }, [sb]);
 
   const loadOverview = useCallback(async () => {
     const { data } = await sb.from("v_inspection_overview").select("*").order("total_score", { ascending:false });
     setOverview((data||[]).map(r=>({ ...r, risk_level: r.risk_final, tarp_level: r.tarp_level })));
   }, [sb]);
 
-  useEffect(()=>{ sb.auth.getUser().then(({data})=>setEmail(data?.user?.email||"")); }, [sb]);
+  useEffect(()=>{ sb.auth.getUser().then(async ({data})=>{
+    const u=data?.user; setEmail(u?.email||"");
+    if(u){ try{ const { data:rl } = await sb.from("user_roles").select("role, can_validate").eq("user_id",u.id).maybeSingle(); const rr=(rl&&rl.role)||"member"; setRole(rr); setCanValidate(rr==="admin"||rr==="super_admin"); }catch(e){ setCanValidate(false); } }
+  }); }, [sb]);
+
+  useEffect(()=>{ if(view==="validasi" && canValidate) loadPending(); }, [view, canValidate, loadPending]);
 
   useEffect(() => {
     (async () => {
@@ -1175,10 +1241,12 @@ function Console({ sb, onLogout }){
   const TILES = [
     { key:"dashboard", label:"Dashboard",     sub:"Peta & daftar risiko",     icon:"layers", color:"#2563eb" },
     { key:"inspect",   label:"Inspeksi Baru", sub:"Checklist · GPS · foto",   icon:"clip",   color:"#ea580c" },
+    ...(canValidate ? [{ key:"validasi", label:"Validasi", sub:"Verifikasi & approve inspeksi", icon:"shield", color:"#0d9488" }] : []),
+    ...(canValidate ? [{ key:"database", label:"Database", sub:"Checklist · User · Reporting", icon:"layers", color:"#7c3aed" }] : []),
     { key:"eews",      label:"EEWS",          sub:"Peringatan dini gempa",    icon:"bell",   color:"#dc2626" },
     { key:"logout",    label:"Keluar",        sub:"Akhiri sesi",              icon:"logout", color:"#334155" },
   ];
-  const titles = { dashboard:"Dashboard", inspect:"Inspeksi Baru", eews:"EEWS" };
+  const titles = { dashboard:"Dashboard", inspect:"Inspeksi Baru", validasi:"Validasi Inspeksi", database:"Database", eews:"EEWS" };
 
   if (view==="home") {
     return (
@@ -1257,6 +1325,12 @@ function Console({ sb, onLogout }){
             </a>
           </div>}
         </div>
+      ) : view==="validasi" && canValidate ? (
+        <Validate sb={sb} params={params} criteria={criteria}
+          pending={pending} loading={pendingLoading} reload={loadPending}
+          afterAction={async()=>{ await loadPending(); await loadOverview(); }} />
+      ) : view==="database" && canValidate ? (
+        <DatabaseView sb={sb} isSuper={role==="super_admin"} />
       ) : loading ? <Center><div className="spin"/></Center> : (
         <Inspect params={params} criteria={criteria} bands={bands} locations={locations} sb={sb}
           onSave={async (payload)=>{ const { error } = await sb.from("inspections").insert(payload); if(error){ alert(error.message); return false; } await loadOverview(); setView("home"); return true; }} />
@@ -1380,6 +1454,310 @@ function geoStatus(dist,onR,nearR){
 }
 
 // ========================= NEW INSPECTION =========================
+// ========================= VALIDATE (engineer console) =========================
+// ========================= DATABASE (admin/super) =========================
+function DatabaseView({ sb, isSuper }){
+  const [tab, setTab] = useState("checklist");
+  const [rows, setRows] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const loadChecklist = useCallback(async ()=>{ setBusy(true);
+    const { data } = await sb.from("inspections").select("*, locations(name,area_code)").order("id",{ascending:false});
+    setRows(data||[]); setBusy(false);
+  },[sb]);
+  const loadUsers = useCallback(async ()=>{ setBusy(true);
+    const { data } = await sb.from("user_roles").select("*").order("role").order("email");
+    setUsers(data||[]); setBusy(false);
+  },[sb]);
+  useEffect(()=>{ if(tab==="checklist"||tab==="reporting") loadChecklist(); if(tab==="user") loadUsers(); },[tab,loadChecklist,loadUsers]);
+
+  const exportChecklist = ()=>{
+    const esc = v => '"'+String(v??"").replace(/"/g,'""')+'"';
+    const head = "id,lokasi,area,tanggal,inspektor,risk_model,risk_override,risk_final,tarp,skor,approval";
+    const lines = rows.map(r=>[r.id, r.locations?.name||"", r.locations?.area_code||"", r.inspection_date, r.inspector||"", r.risk_model||"", r.risk_override||"", r.risk_final, r.tarp_level, r.total_score, r.approval_status].map(esc).join(","));
+    const blob = new Blob([head+"\n"+lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="checklist_export.csv"; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  const superCount = users.filter(u=>u.role==="super_admin").length;
+  const changeRole = async (u, newRole)=>{
+    if(u.role===newRole) return;
+    if(u.role==="super_admin" && newRole!=="super_admin" && superCount<=1){ alert("Tidak bisa menurunkan Super Admin terakhir."); return; }
+    setBusy(true);
+    const { error } = await sb.from("user_roles").update({ role:newRole }).eq("user_id", u.user_id);
+    setBusy(false);
+    if(error){ alert(error.message); } else { await loadUsers(); }
+  };
+
+  const TABS = [["checklist","Checklist"],["reporting","Reporting"], ...(isSuper?[["user","User"]]:[])];
+  const th = { textAlign:"left", padding:"9px 12px", borderBottom:"1px solid var(--line2)", color:"var(--mut)", fontSize:10, textTransform:"uppercase", letterSpacing:".08em", whiteSpace:"nowrap" };
+  const apprColor = s => s==="approved"?"#22b06b":s==="rejected"?"#f87171":"#fbbf24";
+
+  return (
+    <div style={{ maxWidth:1120, margin:"0 auto", padding:"24px 22px" }}>
+      <div className="row" style={{ justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div className="disp" style={{ fontSize:20, fontWeight:800, color:"#f1f5f9" }}>Database</div>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)" }}>Pusat kelola data checklist, user &amp; reporting</div>
+        </div>
+        <div className="row" style={{ gap:6 }}>
+          {TABS.map(([k,t])=>(
+            <button key={k} className="btn" onClick={()=>setTab(k)}
+              style={{ ...(tab===k?{ background:"var(--accent)", color:"#0a0e14", borderColor:"var(--accent)" }:{}) }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {busy && <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginBottom:8 }}>memuat…</div>}
+
+      {tab==="checklist" && (
+        <div className="panel" style={{ padding:0, overflow:"hidden" }}>
+          <div className="row" style={{ justifyContent:"space-between", padding:"12px 14px", borderBottom:"1px solid var(--line)" }}>
+            <span className="mono" style={{ fontSize:11, color:"var(--mut)" }}>{rows.length} record (semua status)</span>
+            <button className="btn" onClick={exportChecklist}><Icon name="layers" size={13}/> Export CSV</button>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead><tr>{["Lokasi","Area","Tanggal","Inspektor","Model","Override","Final","TARP","Approval"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map(r=>(
+                <tr key={r.id} style={{ borderBottom:"1px solid var(--line)" }}>
+                  <td style={{ padding:"9px 12px" }}>{r.locations?.name||"—"}</td>
+                  <td style={{ padding:"9px 12px", color:"var(--mut)" }} className="mono">{r.locations?.area_code||"—"}</td>
+                  <td style={{ padding:"9px 12px" }} className="mono">{r.inspection_date}</td>
+                  <td style={{ padding:"9px 12px" }}>{r.inspector||"—"}</td>
+                  <td style={{ padding:"9px 12px" }} className="mono">{r.risk_model||"—"}</td>
+                  <td style={{ padding:"9px 12px", color: r.risk_override?"#fbbf24":"var(--mut)" }} className="mono">{r.risk_override||"—"}</td>
+                  <td style={{ padding:"9px 12px" }}><Pill level={r.risk_final}/></td>
+                  <td style={{ padding:"9px 12px", textAlign:"center" }}><Tarp n={r.tarp_level}/></td>
+                  <td style={{ padding:"9px 12px" }}><span className="mono" style={{ fontSize:10, padding:"2px 7px", borderRadius:6, border:"1px solid var(--line2)", color:apprColor(r.approval_status) }}>{(r.approval_status||"").toUpperCase()}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      )}
+
+      {tab==="reporting" && <Reporting rows={rows} onExport={exportChecklist}/>}
+
+      {tab==="user" && isSuper && (
+        <div className="panel" style={{ padding:0, overflow:"hidden" }}>
+          <div className="row" style={{ justifyContent:"space-between", padding:"12px 14px", borderBottom:"1px solid var(--line)" }}>
+            <span className="mono" style={{ fontSize:11, color:"var(--mut)" }}>{users.length} user · ubah tier via dropdown</span>
+            <button className="btn" onClick={loadUsers}>↻</button>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead><tr>{["Email","B/N","Position","Tier"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {users.map(u=>(
+                <tr key={u.user_id} style={{ borderBottom:"1px solid var(--line)" }}>
+                  <td style={{ padding:"9px 12px" }}>{u.email}</td>
+                  <td style={{ padding:"9px 12px" }} className="mono">{u.badge_number||"—"}</td>
+                  <td style={{ padding:"9px 12px" }}>{u.position||"—"}</td>
+                  <td style={{ padding:"9px 12px" }}>
+                    <select value={u.role} onChange={e=>changeRole(u, e.target.value)} style={{ width:"auto", padding:"6px 8px" }}>
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Reporting({ rows, onExport }){
+  const by = (key)=>{ const m={}; rows.forEach(r=>{ const k=r[key]||"—"; m[k]=(m[k]||0)+1; }); return m; };
+  const byArea = ()=>{ const m={}; rows.forEach(r=>{ const k=r.locations?.area_code||"—"; m[k]=(m[k]||0)+1; }); return m; };
+  const riskColor = {}; ["Low","Medium","High","Very High"].forEach(l=>{ riskColor[l]=(RISK[l]||{}).c; });
+  const card = (title, obj, cmap)=> (
+    <div className="panel" style={{ flex:1, minWidth:220 }}>
+      <div className="mono" style={{ fontSize:10, color:"var(--mut)", letterSpacing:".12em", textTransform:"uppercase", marginBottom:10 }}>{title}</div>
+      {Object.entries(obj).map(([k,v])=>(
+        <div key={k} className="row" style={{ justifyContent:"space-between", margin:"5px 0" }}>
+          <span style={{ color: (cmap&&cmap[k])||"#cbd5e1", fontSize:13 }}>{k}</span>
+          <span className="mono" style={{ fontVariantNumeric:"tabular-nums" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div>
+      <div className="row" style={{ justifyContent:"flex-end", marginBottom:12 }}>
+        <button className="btn" onClick={onExport}><Icon name="layers" size={13}/> Export CSV</button>
+      </div>
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+        {card("Per Risk Final", by("risk_final"), riskColor)}
+        {card("Per Approval", by("approval_status"))}
+        {card("Per Area", byArea())}
+      </div>
+      <div className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:12 }}>Total {rows.length} inspeksi. Reporting lanjutan (PDF, per periode / per inspektor) bisa ditambah berikutnya.</div>
+    </div>
+  );
+}
+
+function Validate({ sb, params, criteria, pending, loading, reload, afterAction }){
+  const [sel, setSel] = useState(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const colOf = (code)=> code+"_condition";
+  const isInstr = (code)=> /^(mv|piezo|crack|accel)/.test(code);
+  const open = (row)=>{ setSel({...row}); setNote(row.review_note||""); };
+  const close = ()=>{ setSel(null); setNote(""); };
+  const refetch = async (id)=>{ const { data } = await sb.from("inspections").select("*, locations(name,area_code)").eq("id",id).single(); if(data) setSel(s=>({ ...s, ...data })); };
+  const conditionsBody = ()=>{ const b={}; params.forEach(p=>{ b[colOf(p.code)]=sel[colOf(p.code)]||"-"; }); return b; };
+  const overrideBody = ()=>({ risk_override: sel.risk_override||null, override_reason: sel.risk_override ? (sel.override_reason||null) : null });
+  const saveOnly = async ()=>{ setBusy(true);
+    try{ const { error } = await sb.from("inspections").update({...conditionsBody(), ...overrideBody()}).eq("id",sel.id); if(error) throw error; await refetch(sel.id); }
+    catch(e){ alert(e.message); } finally{ setBusy(false); } };
+  const decide = async (status)=>{
+    if(status==="approved" && sel.risk_override && !((sel.override_reason||"").trim())){ alert("Alasan override wajib diisi sebelum approve."); return; }
+    setBusy(true);
+    try{ const body = status==="approved" ? {...conditionsBody(), ...overrideBody(), approval_status:"approved", review_note:note||null} : { approval_status:"rejected", review_note:note||null };
+      const { error } = await sb.from("inspections").update(body).eq("id",sel.id); if(error) throw error; close(); await afterAction(); }
+    catch(e){ alert(e.message); } finally{ setBusy(false); } };
+
+  return (
+    <div style={{ maxWidth:1080, margin:"0 auto", padding:"24px 22px" }}>
+      <div className="row" style={{ justifyContent:"space-between", marginBottom:16 }}>
+        <div>
+          <div className="disp" style={{ fontSize:20, fontWeight:800, color:"#f1f5f9" }}>Validasi Inspeksi</div>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)" }}>Checklist menunggu verifikasi · approve agar tampil di dashboard</div>
+        </div>
+        <button className="btn" onClick={reload}><Icon name="layers" size={14}/> Refresh</button>
+      </div>
+      {loading ? <Center><div className="spin"/></Center> :
+        pending.length===0 ? (
+          <div className="panel" style={{ padding:40, textAlign:"center" }}>
+            <div className="disp" style={{ fontSize:16, color:"var(--txt2)", marginBottom:6 }}>Tidak ada yang menunggu validasi</div>
+            <div className="mono" style={{ fontSize:12, color:"var(--mut)" }}>Semua inspeksi sudah diproses.</div>
+          </div>
+        ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {pending.map(r=>{ const bd=RISK[r.risk_final]||RISK.Low; return (
+            <button key={r.id} className="panel" onClick={()=>open(r)}
+              style={{ textAlign:"left", padding:"12px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", color:"inherit" }}>
+              <div style={{ width:4, height:40, background:bd.c, borderRadius:4 }}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div className="row" style={{ gap:8 }}>
+                  <span style={{ color:"#f1f5f9", fontWeight:600 }}>{r.locations?.name||"—"}</span>
+                  <span className="mono" style={{ fontSize:10, color:"var(--mut)" }}>{r.locations?.area_code||""}</span>
+                </div>
+                <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:2 }}>{r.inspection_date} · {r.inspector||"—"}</div>
+              </div>
+              <span className="pill" style={{ color:"#fbbf24", background:"rgba(251,191,36,.12)", border:"1px solid rgba(251,191,36,.4)" }}>PENDING</span>
+              <Pill level={r.risk_final}/>
+              <Tarp n={r.tarp_level}/>
+              <Icon name="chev" size={16} color="#475569"/>
+            </button> ); })}
+        </div>
+      )}
+      {sel && <ValidateDrawer sel={sel} setSel={setSel} note={note} setNote={setNote} busy={busy}
+        params={params} criteria={criteria} isInstr={isInstr} colOf={colOf}
+        onClose={close} onSave={saveOnly} onDecide={decide} />}
+    </div>
+  );
+}
+
+function ValidateDrawer({ sel, setSel, note, setNote, busy, params, criteria, isInstr, colOf, onClose, onSave, onDecide }){
+  const bd = RISK[sel.risk_final]||RISK.Low;
+  const optsFor = (code)=>{ const list=["-"].concat((criteria[code]||[]).map(c=>c.condition_label)); const cur=sel[colOf(code)]; if(cur&&list.indexOf(cur)<0) list.push(cur); return list; };
+  const setCond = (code,val)=> setSel(s=>({ ...s, [colOf(code)]:val }));
+  const group = (instr)=> params.filter(p=> isInstr(p.code)===instr);
+  const Box = ({label,level})=> { const r=RISK[level]||RISK.Low; return (
+    <div style={{ flex:1, background:"var(--panel)", border:`1px solid ${r.b}`, borderRadius:9, padding:"9px 8px", textAlign:"center" }}>
+      <div className="mono" style={{ fontSize:9, color:"var(--mut)", letterSpacing:".08em" }}>{label}</div>
+      <div className="disp" style={{ fontSize:13, fontWeight:700, color:r.c, marginTop:4 }}>{level}</div></div>); };
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:40, background:"rgba(3,6,12,.65)", display:"flex", justifyContent:"flex-end" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:480, maxWidth:"100%", height:"100%", overflowY:"auto", background:"#0c121d", borderLeft:`1px solid ${bd.b}` }}>
+        <div style={{ padding:"18px 20px", borderBottom:"1px solid var(--line)", position:"sticky", top:0, background:"#0c121d", zIndex:2 }}>
+          <div className="row" style={{ justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div>
+              <div className="mono" style={{ fontSize:10, color:"var(--mut)" }}>INSPEKSI #{sel.id} · {sel.inspection_date}</div>
+              <div className="disp" style={{ fontSize:18, fontWeight:800, color:"#f1f5f9" }}>{sel.locations?.name||"—"}</div>
+              <div className="mono" style={{ fontSize:11, color:"var(--mut)" }}>{sel.locations?.area_code||""} · {sel.inspector||"—"}</div>
+            </div>
+            <button onClick={onClose} className="btn" style={{ padding:8 }}><Icon name="x" size={18}/></button>
+          </div>
+        </div>
+        <div style={{ padding:"16px 20px 30px" }}>
+          <div className="row" style={{ gap:6, alignItems:"stretch" }}>
+            <Box label="COMPOSITE" level={sel.risk_composite}/>
+            <div style={{ display:"flex", alignItems:"center", color:"var(--mut)" }}>⊔</div>
+            <Box label="FLOOR · T1" level={sel.risk_floor}/>
+            <div style={{ display:"flex", alignItems:"center", color:"var(--mut)" }}>→</div>
+            <Box label="MODEL" level={sel.risk_model||sel.risk_final}/>
+          </div>
+          <div className="mono" style={{ fontSize:11, color:"var(--mut)", marginTop:8 }}>Skor {sel.total_score} · model = MAX(composite, floor){sel.risk_corroboration?" + koroborasi":""}</div>
+
+          <div style={{ marginTop:14, padding:"12px", borderRadius:9, border:`1px dashed ${(RISK[sel.risk_override||sel.risk_model||sel.risk_final]||RISK.Low).b}`, background:"rgba(255,255,255,.02)" }}>
+            <label>Override risk akhir · penilaian engineer</label>
+            <div className="row" style={{ gap:8 }}>
+              <select value={sel.risk_override||""} onChange={e=>setSel(s=>({...s, risk_override:e.target.value}))} style={{ flex:1 }}>
+                <option value="">Ikuti model ({sel.risk_model||sel.risk_final})</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Very High">Very High</option>
+              </select>
+              <span style={{ whiteSpace:"nowrap", display:"inline-flex", alignItems:"center", gap:6 }}>→ <Pill level={sel.risk_override||sel.risk_model||sel.risk_final}/></span>
+            </div>
+            {sel.risk_override ? (
+              <div style={{ marginTop:10 }}>
+                <label>Alasan override (wajib)</label>
+                <textarea value={sel.override_reason||""} onChange={e=>setSel(s=>({...s, override_reason:e.target.value}))} rows={2}
+                  style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line2)", color:"var(--txt)", borderRadius:7, padding:"8px 10px", fontFamily:"inherit", fontSize:13 }}
+                  placeholder="mis. crack lama sudah stabil, monitoring tidak menunjukkan pergerakan…"/>
+              </div>
+            ) : null}
+            <div className="mono" style={{ fontSize:10, color:"var(--mut)", marginTop:8 }}>Nilai yang dikirim ke dashboard = override (jika diisi), kalau tidak = model.</div>
+          </div>
+
+          <div className="mono" style={{ fontSize:10, color:"var(--mut)", letterSpacing:".12em", margin:"20px 0 8px" }}>PARAMETER VISUAL</div>
+          {group(false).map(p=>(
+            <div key={p.code} style={{ marginBottom:10 }}>
+              <label>{p.label} {Number(p.tier)===1?<span style={{color:"#f87171"}}>· T1</span>:null}</label>
+              <select value={sel[colOf(p.code)]||"-"} onChange={e=>setCond(p.code,e.target.value)}>
+                {optsFor(p.code).map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+          <div className="mono" style={{ fontSize:10, color:"var(--mut)", letterSpacing:".12em", margin:"18px 0 8px" }}>INSTRUMENTASI</div>
+          {group(true).map(p=>(
+            <div key={p.code} style={{ marginBottom:10 }}>
+              <label>{p.label} {Number(p.tier)===1?<span style={{color:"#f87171"}}>· T1</span>:null}</label>
+              <select value={sel[colOf(p.code)]||"-"} onChange={e=>setCond(p.code,e.target.value)}>
+                {optsFor(p.code).map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+
+          <label style={{ marginTop:16 }}>Catatan validasi (opsional)</label>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} rows={3}
+            style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line2)", color:"var(--txt)", borderRadius:7, padding:"9px 10px", fontFamily:"inherit", fontSize:13 }}
+            placeholder="mis. verifikasi lapangan OK / minta re-inspeksi…"/>
+
+          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+            <button className="btn" disabled={busy} onClick={onSave} title="Simpan perubahan kondisi & hitung ulang (tetap pending)">Simpan</button>
+            <button className="btn" disabled={busy} onClick={()=>onDecide("rejected")} style={{ color:"#f87171", borderColor:"rgba(248,113,113,.5)" }}>Reject</button>
+            <button className="btn primary" disabled={busy} onClick={()=>onDecide("approved")} style={{ flex:1, justifyContent:"center", background:"#0d9488", borderColor:"#0d9488", color:"#04201d" }}>{busy?"…":"Approve"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Inspect({ params, criteria, bands, locations, onSave, sb }){
   const [locId, setLocId] = useState("");
   const [inspector, setInspector] = useState("");
