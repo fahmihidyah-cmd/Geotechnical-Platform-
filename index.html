@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+(function(){
+  function box(){var d=document.getElementById('__diag__');if(!d){d=document.createElement('div');d.id='__diag__';d.style.cssText='position:fixed;z-index:2147483647;left:0;right:0;top:0;max-height:75vh;overflow:auto;background:#450a0a;color:#fecaca;font:12px/1.5 monospace;padding:12px;white-space:pre-wrap';(document.body||document.documentElement).appendChild(d);d.append('\u26a0 DIAGNOSTIK ERROR (screenshot & kirim ke Claude):\n');}return d;}
+  window.addEventListener('error',function(e){var m;if(e.target&&(e.target.src||e.target.href)){m='GAGAL MUAT RESOURCE: '+(e.target.src||e.target.href);}else{m=(e.message||(e.error&&e.error.message)||e.type)+'  @'+((e.filename||'').split('/').pop())+':'+(e.lineno||'');}box().append('\n\u2022 '+m+'\n');},true);
+  window.addEventListener('unhandledrejection',function(e){box().append('\n\u2022 PROMISE: '+((e.reason&&(e.reason.message||(''+e.reason)))||e.reason)+'\n');});
+  var ce=console.error;console.error=function(){try{box().append('\n\u2022 '+Array.prototype.slice.call(arguments).map(function(a){return (a&&a.message)||(typeof a==='string'?a:(''+a));}).join(' ')+'\n');}catch(_){}return ce.apply(console,arguments);};
+})();
+</script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Geotechnical Inspection Platform</title>
