@@ -1,5 +1,6 @@
-// PERA Service Worker — caches app shell so the form opens offline.
-const CACHE = "pera-shell-v1";
+// PERA Service Worker v2 — ONLY handles pera.html + its shell.
+// Never intercepts index.html or any other page/resource.
+const CACHE = "pera-shell-v2";
 const SHELL = [
   "./pera.html",
   "./manifest.json",
@@ -21,9 +22,16 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET") return;             // never intercept Supabase writes
-  if (url.hostname.endsWith("supabase.co")) return;   // API/auth/storage/realtime -> network only
+
+  const isPera     = url.origin === location.origin && url.pathname.endsWith("/pera.html");
+  const isManifest = url.origin === location.origin && url.pathname.endsWith("/manifest.json");
+  const isLib      = url.href.indexOf("cdn.jsdelivr.net/npm/@supabase/supabase-js") !== -1;
+
+  // Anything that is NOT a PERA asset -> leave it completely alone (browser handles it).
+  if (!(isPera || isManifest || isLib)) return;
+
   e.respondWith(
     caches.match(e.request).then((hit) =>
       hit ||
@@ -31,7 +39,7 @@ self.addEventListener("fetch", (e) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return res;
-      }).catch(() => caches.match("./pera.html"))
+      }).catch(() => (isPera ? caches.match("./pera.html") : Response.error()))
     )
   );
 });
