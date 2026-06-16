@@ -536,7 +536,7 @@ const SB  = 'https://dhddckamrkfleuigrsip.supabase.co';
 const KEY = 'sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l';
 function _token(){ try { const raw = localStorage.getItem('sb-dhddckamrkfleuigrsip-auth-token'); if(!raw) return KEY; const s = JSON.parse(raw); return (s && (s.access_token || (s.currentSession && s.currentSession.access_token))) || KEY; } catch(e){ return KEY; } }
 async function db(p){const r=await fetch(`${SB}/rest/v1/${p}`,{headers:{'apikey':KEY,'Authorization':'Bearer '+_token()}});if(!r.ok)throw new Error(await r.text());return r.json();}
-const EEWS_SB = 'https://yoaimgdbcdulxbtwxffh.supabase.co';
+const EEWS_SB = 'https://dhddckamrkfleuigrsip.supabase.co';
 const EEWS_KEY = 'sb_publishable_DKjSKjI4Ky9Hrlf1-67RPQ_HKDdFQHB';
 async function dbEEWS(p){const r=await fetch(`${EEWS_SB}/rest/v1/${p}`,{headers:{'apikey':EEWS_KEY,'Authorization':'Bearer '+EEWS_KEY}});if(!r.ok)throw new Error(await r.text());return r.json();}
 
@@ -1387,9 +1387,9 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
-const SUPABASE_URL = 'https://yoaimgdbcdulxbtwxffh.supabase.co';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvYWltZ2RiY2R1bHhidHd4ZmZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjUwODAsImV4cCI6MjA5NTY0MTA4MH0.Z-msSGa5YpFz_P82q23FWuw8lJIw1wfgAJm9rYKMhDg';
-const WS_URL = `wss://yoaimgdbcdulxbtwxffh.supabase.co/realtime/v1/websocket?apikey=${ANON_KEY}&vsn=1.0.0`;
+const SUPABASE_URL = 'https://dhddckamrkfleuigrsip.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRoZGRja2FtcmtmbGV1aWdyc2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjQ5NTYsImV4cCI6MjA5NTc0MDk1Nn0.lwf2eccrvrAf73PFBHfDN-5K7P_OO-BwDMQWkRCunvk';
+const WS_URL = `wss://dhddckamrkfleuigrsip.supabase.co/realtime/v1/websocket?apikey=${ANON_KEY}&vsn=1.0.0`;
 let wsRef = 1; // counter ref untuk setiap pesan
 
 const SITES = [
