@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Inspeksi Geoteknik — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .wrap{max-width:980px;}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:880px){.grid{grid-template-columns:1fr 320px;align-items:start;}
+    .scorebox{position:sticky;top:80px;}}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr;}}
+  .pwrap{margin-bottom:6px;}
+  .pwrap .t1{color:#ea580c;font-size:9px;font-weight:700;margin-left:5px;vertical-align:top;}
+  .score-big{font-size:52px;font-weight:800;line-height:.9;}
+  .findings .fr{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;}
+  .photos{display:flex;gap:8px;flex-wrap:wrap;}
+  .ph{position:relative;width:78px;height:78px;border-radius:9px;overflow:hidden;border:1px solid var(--line);}
+  .ph img{width:100%;height:100%;object-fit:cover;}
+  .ph .x{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:11px;cursor:pointer;line-height:1;}
+  .addph{width:78px;height:78px;border-radius:9px;border:1.5px dashed var(--line);background:#fafbfd;color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;cursor:pointer;}
+  .addph input{display:none;}
+  .actions{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;max-width:980px;margin:0 auto;z-index:25;}
+  #outbox{position:fixed;bottom:70px;left:0;right:0;max-width:980px;margin:0 auto;padding:0 14px;z-index:24;}
+  #outbox .chip{background:#1e293b;color:#fff;border-radius:10px;padding:9px 12px;font-size:12px;display:flex;align-items:center;gap:8px;}
+  #outbox .chip button{margin-left:auto;background:#334155;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div id="app" class="wrap"><div class="center"><div class="spin"></div></div></div>
+<div id="outbox"></div>
+<div id="actions" class="actions hidden">
+  <button class="btn" id="btnDraft">Simpan Draft</button>
+  <button class="btn primary" id="btnSubmit" style="flex:1">Simpan Inspeksi</button>
+</div>
+
+<script>
+"use strict";
+const sb = GMS.sb, $ = GMS.$, isOnline = GMS.isOnline;
+
+// ===================== IndexedDB =====================
+const DB_NAME="inspeksi-db", DB_VER=1; let _db=null;
+function idb(){ return new Promise((res,rej)=>{ if(_db)return res(_db);
+  const r=indexedDB.open(DB_NAME,DB_VER);
+  r.onupgradeneeded=e=>{ const db=e.target.result;
+    if(!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+    if(!db.objectStoreNames.contains("outbox")) db.createObjectStore("outbox",{keyPath:"client_uuid"}); };
+  r.onsuccess=()=>{_db=r.result;res(_db);}; r.onerror=()=>rej(r.error); }); }
+async function metaGet(k){ const db=await idb(); return new Promise((res,rej)=>{const t=db.transaction("meta").objectStore("meta").get(k);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error);}); }
+async function metaSet(k,v){ const db=await idb(); return new Promise((res,rej)=>{const t=db.transaction("meta","readwrite").objectStore("meta").put(v,k);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}); }
+async function obxAll(){ const db=await idb(); return new Promise((res,rej)=>{const t=db.transaction("outbox").objectStore("outbox").getAll();t.onsuccess=()=>res(t.result||[]);t.onerror=()=>rej(t.error);}); }
+async function obxPut(rec){ const db=await idb(); return new Promise((res,rej)=>{const t=db.transaction("outbox","readwrite").objectStore("outbox").put(rec);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}); }
+async function obxDel(id){ const db=await idb(); return new Promise((res,rej)=>{const t=db.transaction("outbox","readwrite").objectStore("outbox").delete(id);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}); }
+
+// ===================== STATE =====================
+let PARAMS=[], CRITERIA={}, BANDS=[], LOCATIONS=[];
+let cond={}, locId="", inspector="", status="OPEN", geo=null, photos=[]; // photos: [{url(dataURL)}]
+let inspectorName="";
+
+// ===================== RISK ENGINE (mirror platform) =====================
+const TIER1={mv1:true,mv2:true,mv3:true,piezo:true,crack:true,f2:true,f7:true};
+const WATER="f8";
+const FLOORS={Low:1,Medium:2,High:3,"Very High":4};
+const FLOOR_REV={1:"Low",2:"Medium",3:"High",4:"Very High"};
+const optsOf=(code)=> (CRITERIA[code]||[]).slice().sort((a,b)=>(a.score||0)-(b.score||0));
+const scoreOf=(code,label)=> ((CRITERIA[code]||[]).find(x=>x.condition_label===label)||{}).score||0;
+const floorOf=(code,label)=>{ const o=(CRITERIA[code]||[]).find(x=>x.condition_label===label); return FLOORS[o&&o.tier1_floor]||1; };
+function bandOf(s){ return BANDS.find(b=>s>=b.min_score && s<=b.max_score) || BANDS[0] || {level:"Low",tarp_level:1,action:""}; }
+function compute(){
+  let total=0, floor=1;
+  PARAMS.forEach(p=> total+=scoreOf(p.code,cond[p.code]));
+  Object.keys(TIER1).forEach(c=> floor=Math.max(floor,floorOf(c,cond[c])));
+  floor=Math.max(floor, Math.min(2, floorOf(WATER,cond[WATER])));   // water capped at Medium
+  const composite = total<=10?1:total<=30?2:total<=60?3:4;
+  let fin=Math.max(composite,floor);
+  const instrT1=Math.max.apply(null,["mv1","mv2","mv3","piezo","crack"].map(c=>floorOf(c,cond[c])))>=2;
+  const visT1=floorOf("f2",cond["f2"])>=2;
+  const corr=instrT1&&visT1; if(corr) fin=Math.min(4,fin+1);
+  return { total, level:FLOOR_REV[fin], tarp:fin, corr, composite:FLOOR_REV[composite], floor:FLOOR_REV[floor], band:bandOf(total) };
+}
+
+// ===================== GPS =====================
+function haversineM(la1,ln1,la2,ln2){ const R=6371000,r=d=>d*Math.PI/180,dLa=r(la2-la1),dLn=r(ln2-ln1);
+  const a=Math.sin(dLa/2)**2+Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLn/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+function utmToLatLng(e,n){ const a=6378137,eccSq=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;
+  const mu=M/(a*(1-eccSq/4-3*eccSq*eccSq/64)),e1=(1-Math.sqrt(1-eccSq))/(1+Math.sqrt(1-eccSq));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);
+  const N1=a/Math.sqrt(1-eccSq*Math.sin(phi1)**2),T1=Math.tan(phi1)**2,C1=(eccSq/(1-eccSq))*Math.cos(phi1)**2;
+  const R1=a*(1-eccSq)/(1-eccSq*Math.sin(phi1)**2)**1.5,D=x/(N1*k0);
+  const lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*eccSq)*D**4/24+(61+90*T1+298*C1+45*T1*T1-252*eccSq-3*C1*C1)*D**6/720);
+  const lng=(123*Math.PI/180)+(D-(1+2*T1+C1)*D**3/6+(5-2*C1+28*T1-3*C1*C1+8*eccSq+24*T1*T1)*D**5/120)/Math.cos(phi1);
+  return {lat:lat*180/Math.PI,lng:lng*180/Math.PI}; }
+function locTarget(l){ if(!l)return null; if(l.lat&&l.lng)return{lat:+l.lat,lng:+l.lng}; if(l.easting&&l.northing)return utmToLatLng(+l.easting,+l.northing); return null; }
+function geoVal(){ const l=LOCATIONS.find(x=>String(x.id)===String(locId)); const t=locTarget(l); if(!geo||!t)return null;
+  const dist=Math.round(haversineM(geo.lat,geo.lng,t.lat,t.lng)); const onR=(l.on_radius_m)||50, nearR=(l.near_radius_m)||150;
+  if(dist<=onR) return {s:"On Location",c:"#16a34a",dist}; if(dist<=nearR) return {s:"Near Location",c:"#d97706",dist}; return {s:"Off Location",c:"#dc2626",dist}; }
+
+// ===================== PHOTO =====================
+function fileToDataURL(file){ return new Promise(res=>{ const img=new Image(),rd=new FileReader();
+  rd.onload=()=>{ img.onload=()=>{ let{width:w,height:h}=img; const MAX=1280; if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h);w=Math.round(w*s);h=Math.round(h*s);}
+    const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);res(c.toDataURL("image/jpeg",0.7)); }; img.src=rd.result; };
+  rd.readAsDataURL(file); }); }
+function dataURLtoBlob(d){ const[meta,b64]=d.split(","),mime=meta.match(/:(.*?);/)[1],bin=atob(b64),u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new Blob([u],{type:mime}); }
+
+// ===================== LOAD CONFIG =====================
+async function loadConfig(){
+  if(isOnline()){
+    try{
+      const [p,c,b,l]=await Promise.all([
+        sb.from("parameters").select("*").order("sort_order"),
+        sb.from("scoring_criteria").select("*"),
+        sb.from("risk_bands").select("*").order("min_score"),
+        sb.from("locations").select("id,name,area_code,owner_area,easting,northing,lat,lng,on_radius_m,near_radius_m").order("name"),
+      ]);
+      if(p.data&&p.data.length){
+        PARAMS=p.data.map(r=>({...r,tier:r.tier||2}));
+        const g={}; (c.data||[]).forEach(r=>{(g[r.parameter_code]=g[r.parameter_code]||[]).push(r);}); CRITERIA=g;
+        BANDS=b.data||[]; LOCATIONS=l.data||[];
+        await metaSet("config",{PARAMS,CRITERIA,BANDS,LOCATIONS});
+        return;
+      }
+    }catch(e){}
+  }
+  const cfg=await metaGet("config");
+  if(cfg){ PARAMS=cfg.PARAMS; CRITERIA=cfg.CRITERIA; BANDS=cfg.BANDS; LOCATIONS=cfg.LOCATIONS; }
+}
+
+// ===================== RENDER =====================
+function fieldHTML(p){
+  const opts=optsOf(p.code);
+  const cur=cond[p.code]||(opts[0]&&opts[0].condition_label)||"";
+  return '<div class="pwrap"><label class="f">'+GMS.esc(p.label)+(p.tier===1?'<span class="t1">T1</span>':'')+'</label>'+
+    '<select data-code="'+p.code+'">'+opts.map(o=>'<option value="'+GMS.esc(o.condition_label)+'"'+(o.condition_label===cur?' selected':'')+'>'+GMS.esc(o.condition_label)+(o.score?'  (+'+o.score+')':'')+'</option>').join("")+'</select></div>';
+}
+function render(){
+  const instr=PARAMS.filter(p=>p.category==="instrumentation");
+  const vis=PARAMS.filter(p=>p.category==="visual");
+  $("app").innerHTML =
+    '<div class="grid">'+
+      '<div style="display:flex;flex-direction:column;gap:16px">'+
+        // SITE
+        '<div class="panel"><div class="eyebrow">Site &amp; Inspeksi</div><div class="grid2">'+
+          '<div><label class="f">Lokasi <span class="req">*</span></label><select id="locId"><option value="">— pilih —</option>'+
+            LOCATIONS.map(l=>'<option value="'+l.id+'"'+(String(l.id)===String(locId)?' selected':'')+'>'+GMS.esc(l.name)+'</option>').join("")+'</select></div>'+
+          '<div><label class="f">Inspektor <span class="req">*</span></label><input id="inspector" placeholder="Nama petugas" value="'+GMS.esc(inspector)+'"></div>'+
+          '<div><label class="f">Status</label><select id="status">'+["OPEN","IN PROGRESS","CLOSED"].map(s=>'<option'+(s===status?' selected':'')+'>'+s+'</option>').join("")+'</select></div>'+
+        '</div></div>'+
+        // GPS
+        '<div class="panel"><div class="eyebrow">Validasi Lokasi GPS</div>'+
+          '<div class="row" style="flex-wrap:wrap;gap:8px">'+
+            '<button class="btn" id="btnGeo">&#128205; Ambil Koordinat</button>'+
+            '<button class="btn" id="btnManual">&#9000; Manual</button>'+
+            '<span id="geoTxt" class="mono" style="font-size:12px;color:var(--mut)"></span>'+
+          '</div><div id="manualBox"></div><div id="geoMsg" class="mono" style="font-size:11px;color:#dc2626;margin-top:6px"></div>'+
+        '</div>'+
+        // PHOTOS
+        '<div class="panel"><div class="eyebrow">Foto Temuan</div>'+
+          '<div class="photos" id="photos"></div></div>'+
+        // INSTRUMENT
+        '<div class="panel"><div class="eyebrow">Instrumentation Scoring</div><div class="grid2" id="instr">'+instr.map(fieldHTML).join("")+'</div></div>'+
+        // VISUAL
+        '<div class="panel"><div class="eyebrow">Visual Inspection</div><div class="grid2" id="vis">'+vis.map(fieldHTML).join("")+'</div></div>'+
+      '</div>'+
+      // SCORE PANEL
+      '<div class="scorebox"><div class="panel" id="scoreCard"></div>'+
+        '<div class="panel" style="margin-top:12px"><div class="eyebrow" id="findHead">Findings</div><div class="findings" id="findList"></div></div>'+
+        '<div id="gpsWarn"></div></div>'+
+    '</div>';
+
+  // bind
+  $("locId").onchange=e=>{ locId=e.target.value; geo=null; updateGeo(); };
+  $("inspector").oninput=e=>{ inspector=e.target.value; saveDraft(); };
+  $("status").onchange=e=>{ status=e.target.value; };
+  $("btnGeo").onclick=getGeo; $("btnManual").onclick=toggleManual;
+  document.querySelectorAll("select[data-code]").forEach(s=> s.onchange=e=>{ cond[e.target.dataset.code]=e.target.value; saveDraft(); updateScore(); });
+  // init cond defaults
+  PARAMS.forEach(p=>{ if(!cond[p.code]){ const o=optsOf(p.code)[0]; if(o) cond[p.code]=o.condition_label; } });
+  renderPhotos(); updateGeo(); updateScore();
+  $("actions").classList.remove("hidden");
+}
+
+function renderPhotos(){
+  const box=$("photos"); if(!box)return; box.innerHTML="";
+  photos.forEach((ph,i)=>{ const w=document.createElement("div"); w.className="ph";
+    w.innerHTML='<img src="'+ph.url+'"><button class="x">&times;</button>';
+    w.querySelector(".x").onclick=()=>{ photos.splice(i,1); saveDraft(); renderPhotos(); };
+    box.appendChild(w); });
+  const add=document.createElement("label"); add.className="addph";
+  add.innerHTML='<span style="font-size:17px">&#128247;</span><span>Tambah</span><input type="file" accept="image/*" capture="environment">';
+  add.querySelector("input").onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const d=await fileToDataURL(f); photos.push({url:d}); saveDraft(); renderPhotos(); };
+  box.appendChild(add);
+}
+
+function updateScore(){
+  const c=compute();
+  const colors={Low:"#16a34a",Medium:"#d97706",High:"#dc2626","Very High":"#7f1d1d"};
+  const col=colors[c.level]||"#16a34a";
+  const cls=c.level.replace(" ","");
+  $("scoreCard").innerHTML=
+    '<div class="eyebrow">Live Risk Score</div>'+
+    '<div class="row" style="align-items:flex-end;gap:12px">'+
+      '<span class="score-big" style="color:'+col+'">'+c.total+'</span>'+
+      '<div style="margin-bottom:4px"><span class="pill '+cls+'">'+c.level.toUpperCase()+'</span>'+
+      '<div class="mono" style="font-size:11px;color:var(--mut);margin-top:5px">TARP LV'+c.tarp+'</div></div>'+
+    '</div>'+
+    (c.corr?'<div class="mono" style="font-size:10px;color:#d97706;margin-top:6px">&#9889; Corroboration +1: visual + instrument Tier 1 aktif</div>':'')+
+    '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:4px">Floor: '+c.floor+' · Composite: '+c.composite+'</div>'+
+    '<p style="color:'+col+';font-size:12px;margin:10px 0 0;line-height:1.5">'+GMS.esc(c.band&&c.band.action||"")+'</p>';
+  const active=PARAMS.map(p=>({p,score:scoreOf(p.code,cond[p.code])})).filter(x=>x.score>0);
+  $("findHead").textContent="Findings · "+active.length;
+  $("findList").innerHTML = active.length? active.map(a=>'<div class="fr"><span style="color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">'+GMS.esc(a.p.label)+'</span><span class="mono" style="color:'+col+';font-weight:700">+'+a.score+'</span></div>').join("") : '<div style="color:var(--mut);font-size:12px">Tidak ada temuan berkontribusi.</div>';
+}
+
+function updateGeo(){
+  const gt=$("geoTxt"), gw=$("gpsWarn"); if(!gt)return;
+  const v=geoVal();
+  if(geo){ gt.innerHTML=geo.lat.toFixed(5)+", "+geo.lng.toFixed(5)+(geo.accuracy!=null?" ±"+geo.accuracy+"m":"")+(geo.manual?" (manual)":"")+
+    (v?' · <b style="color:'+v.c+'">'+v.s+' ('+v.dist+'m)</b>':''); }
+  else gt.textContent="";
+  let warn="";
+  if(!geo) warn='<div class="banner warn" style="margin-top:12px">&#9888; GPS belum diambil — wajib sebelum simpan.</div>';
+  else if(v&&v.s==="Off Location") warn='<div class="banner err" style="margin-top:12px">&#9940; Off Location ('+v.dist+'m) — terlalu jauh dari titik, inspeksi tidak bisa disimpan.</div>';
+  if(gw) gw.innerHTML=warn;
+}
+
+function toggleManual(){
+  const box=$("manualBox"); if(!box)return;
+  if(box.innerHTML){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">'+
+    '<div><label class="f" style="margin-top:0">Latitude</label><input id="mLat" inputmode="decimal" placeholder="-2.7xxxx" style="width:140px"></div>'+
+    '<div><label class="f" style="margin-top:0">Longitude</label><input id="mLng" inputmode="decimal" placeholder="122.0xxxx" style="width:140px"></div>'+
+    '<button class="btn" id="mUse">Pakai</button></div>';
+  $("mUse").onclick=()=>{ const la=parseFloat($("mLat").value),ln=parseFloat($("mLng").value);
+    if(isNaN(la)||isNaN(ln)||la<-90||la>90||ln<-180||ln>180){ $("geoMsg").textContent="Koordinat manual tidak valid."; return; }
+    geo={lat:la,lng:ln,accuracy:null,time:new Date().toISOString(),manual:true}; $("geoMsg").textContent=""; box.innerHTML=""; updateGeo(); };
+}
+function getGeo(){
+  if(!locId){ $("geoMsg").textContent="Pilih lokasi target dulu."; return; }
+  if(!navigator.geolocation||!window.isSecureContext){ $("geoMsg").textContent="Geolocation butuh HTTPS. Gunakan input manual."; toggleManual(); return; }
+  $("geoMsg").textContent="Mencari sinyal GPS…";
+  const ok=p=>{ geo={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),time:new Date(p.timestamp).toISOString()}; $("geoMsg").textContent=""; updateGeo(); };
+  navigator.geolocation.getCurrentPosition(ok, e1=>{
+    if(e1.code===1){ $("geoMsg").textContent="Izin lokasi ditolak. Aktifkan Location Services lalu reload."; return; }
+    navigator.geolocation.getCurrentPosition(ok, e2=>{ $("geoMsg").textContent="Gagal ambil GPS. Coba lagi / input manual."; toggleManual(); }, {enableHighAccuracy:false,timeout:20000,maximumAge:60000});
+  }, {enableHighAccuracy:true,timeout:12000,maximumAge:0});
+}
+
+// ===================== DRAFT =====================
+let _dt=null;
+function saveDraft(){ clearTimeout(_dt); _dt=setTimeout(()=>metaSet("draft",{cond,locId,inspector,status,geo,photos}),400); }
+async function loadDraft(){ const d=await metaGet("draft"); if(d){ cond=d.cond||{}; locId=d.locId||""; inspector=d.inspector||""; status=d.status||"OPEN"; geo=d.geo||null; photos=d.photos||[]; } }
+
+// ===================== VALIDATE + SAVE =====================
+function validate(){
+  const v=geoVal();
+  if(!locId) return "Lokasi wajib dipilih.";
+  if(!inspector.trim()) return "Nama inspektor wajib diisi.";
+  if(!geo) return "GPS wajib diambil sebelum simpan.";
+  if(v&&v.s==="Off Location") return "Off Location — terlalu jauh dari titik.";
+  return null;
+}
+function buildRecord(){
+  const v=geoVal();
+  const payload={
+    client_uuid: GMS.uuid(),
+    location_id:Number(locId),
+    inspection_date:new Date().toISOString().slice(0,10),
+    inspector:inspector.trim(), status,
+    inspector_lat:geo.lat, inspector_lng:geo.lng, inspector_accuracy_m:geo.accuracy,
+    geo_validation:(geo.manual?((v&&v.s||"Manual")+" (manual)"):(v&&v.s||"Tidak tervalidasi")),
+    geo_time:geo.time||null,
+  };
+  PARAMS.forEach(p=> payload[p.code+"_condition"]=cond[p.code]);
+  return { client_uuid:payload.client_uuid, payload, _photoData:photos.map(p=>p.url) };
+}
+async function pushRecord(rec){
+  // idempotent insert by client_uuid
+  const { error:ue } = await sb.from("inspections").upsert(rec.payload,{onConflict:"client_uuid",ignoreDuplicates:true});
+  if(ue) throw ue;
+  const { data:ins } = await sb.from("inspections").select("id").eq("client_uuid",rec.client_uuid).single();
+  if(ins && rec._photoData && rec._photoData.length){
+    // deterministic paths -> safe on retry; refresh photo rows for this inspection
+    await sb.from("inspection_photos").delete().eq("inspection_id",ins.id);
+    for(let i=0;i<rec._photoData.length;i++){
+      const path=rec.client_uuid+"/"+(i+1)+".jpg";
+      const { error:se } = await sb.storage.from("inspection-photos").upload(path,dataURLtoBlob(rec._photoData[i]),{contentType:"image/jpeg",upsert:true});
+      if(se) throw se;
+      await sb.from("inspection_photos").insert({inspection_id:ins.id,storage_path:path});
+    }
+  }
+}
+async function submit(){
+  const err=validate(); if(err){ alert(err); return; }
+  $("btnSubmit").disabled=true; $("btnSubmit").textContent="Memproses…";
+  const rec=buildRecord();
+  try{
+    if(isOnline()){ await pushRecord(rec); await metaSet("draft",null); done(true); }
+    else { await obxPut(rec); await metaSet("draft",null); done(false); }
+  }catch(e){
+    try{ await obxPut(rec); await metaSet("draft",null); done(false,String(e.message||e)); }
+    catch(e2){ $("btnSubmit").disabled=false; $("btnSubmit").textContent="Simpan Inspeksi"; alert("Gagal menyimpan: "+(e2.message||e2)); }
+  }
+}
+function done(sent,warn){
+  $("actions").classList.add("hidden"); $("outbox").innerHTML="";
+  $("app").innerHTML='<div class="center">'+
+    '<div style="width:64px;height:64px;border-radius:50%;background:'+(sent?'#dcfce7':'#fef3c7')+';color:'+(sent?'#16a34a':'#d97706')+';display:flex;align-items:center;justify-content:center;font-size:32px">'+(sent?'&#10003;':'&#8681;')+'</div>'+
+    '<div style="font-size:18px;font-weight:700">'+(sent?'Inspeksi Tersimpan':'Tersimpan (menunggu sinyal)')+'</div>'+
+    '<div style="font-size:13px;max-width:340px">'+(sent?'Data inspeksi berhasil dikirim ke database. Risiko dihitung otomatis di server.':'Tidak ada sinyal. Inspeksi disimpan di perangkat & otomatis terkirim saat online.')+'</div>'+
+    (warn?'<div class="banner warn" style="max-width:360px">Kirim online gagal ('+GMS.esc(warn)+'); masuk antrean offline.</div>':'')+
+    '<button class="btn primary" style="max-width:240px" onclick="location.reload()">Inspeksi Baru</button>'+
+    '<a class="btn" style="max-width:240px;text-decoration:none" href="index.html">Kembali ke Menu</a></div>';
+  refreshOutbox();
+}
+
+// ===================== OUTBOX SYNC =====================
+let _sync=false;
+async function syncOutbox(){ if(_sync||!isOnline())return; const items=await obxAll(); if(!items.length){refreshOutbox();return;}
+  _sync=true; refreshOutbox();
+  for(const rec of items){ try{ await pushRecord(rec); await obxDel(rec.client_uuid); }catch(e){} }
+  _sync=false; refreshOutbox(); }
+async function refreshOutbox(){ const box=$("outbox"); if(!box)return; const items=await obxAll();
+  if(!items.length){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="chip"><span>&#8681; '+items.length+' inspeksi menunggu terkirim'+(_sync?' (mengirim…)':'')+'</span>'+(isOnline()&&!_sync?'<button id="syncNow">Kirim sekarang</button>':'')+'</div>';
+  const b=$("syncNow"); if(b) b.onclick=syncOutbox; }
+
+// ===================== INIT =====================
+async function init(){
+  $("hdr").innerHTML=GMS.header("Inspeksi Geoteknik","Bahodopi Block 2 & 3",{net:true}); GMS.setNet();
+  const session=await GMS.getSession();
+  if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><div style="font-size:13px">Login dulu di halaman utama, lalu kembali.</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
+  await loadConfig(); await loadDraft();
+  if(!PARAMS.length){ $("app").innerHTML='<div class="center">Konfigurasi belum tersedia offline. Sambungkan internet sekali untuk mengunduh, lalu bisa dipakai offline.</div>'; return; }
+  render(); refreshOutbox(); syncOutbox();
+}
+$("btnDraft").onclick=()=>{ saveDraft(); setTimeout(()=>alert("Draft tersimpan di perangkat."),420); };
+$("btnSubmit").onclick=submit;
+window.addEventListener("online",()=>{ GMS.setNet(); syncOutbox(); });
+window.addEventListener("offline",GMS.setNet);
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+init();
+</script>
+</body>
+</html>
