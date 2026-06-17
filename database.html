@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Database — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .tabs .btn.act{background:var(--blue);color:#fff;border-color:var(--blue);}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;}
+  th,td{padding:9px 11px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);background:#f8fafc;}
+  .tbl{border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .scroll{overflow-x:auto;}
+  .badge{font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line);}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;}
+  .rcard{flex:1;min-width:220px;}
+  a.lnk{color:var(--blue2);text-decoration:none;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div id="app" class="wrap" style="max-width:1140px"><div class="center"><div class="spin"></div></div></div>
+<script>
+"use strict";
+const sb=GMS.sb,$=GMS.$,esc=GMS.esc,fmt=GMS.fmtDate;
+const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
+const cls=l=>String(l||'Low').replace(' ','');
+let isSuper=false, tab="checklist", rows=[], users=[], peras=[], busy=false;
+
+const apprColor=s=> s==="approved"?"#16a34a":s==="rejected"?"#dc2626":"#d97706";
+
+async function loadChecklist(){ busy=true; render();
+  const {data}=await sb.from("inspections").select("*, locations(name,area_code)").order("id",{ascending:false});
+  rows=data||[]; busy=false; render(); }
+async function loadUsers(){ busy=true; render();
+  const {data}=await sb.from("user_roles").select("*").order("role").order("email");
+  users=data||[]; busy=false; render(); }
+async function loadPeras(){ busy=true; render();
+  const {data}=await sb.from("pera_assessments").select("id,event_id,event_snapshot,summary,inspector_name,status,created_at").order("created_at",{ascending:false});
+  peras=data||[]; busy=false; render(); }
+
+function go(t){ tab=t; if(t==="checklist"||t==="reporting"){ if(!rows.length) loadChecklist(); else render(); }
+  else if(t==="user"){ loadUsers(); } else if(t==="pera"){ loadPeras(); } else render(); }
+window.go=go;
+
+function exportCSV(){
+  const e=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+  const head="id,lokasi,area,tanggal,inspektor,risk_model,risk_override,risk_final,tarp,skor,approval";
+  const lines=rows.map(r=>[r.id,(r.locations&&r.locations.name)||"",(r.locations&&r.locations.area_code)||"",r.inspection_date,r.inspector||"",r.risk_model||"",r.risk_override||"",r.risk_final,r.tarp_level,r.total_score,r.approval_status].map(e).join(","));
+  const blob=new Blob([head+"\n"+lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="checklist_export.csv"; a.click(); URL.revokeObjectURL(a.href);
+}
+window.exportCSV=exportCSV;
+
+const superCount=()=>users.filter(u=>u.role==="super_admin").length;
+window.changeRole=async(uid,oldRole,v)=>{ if(oldRole===v)return;
+  if(oldRole==="super_admin"&&v!=="super_admin"&&superCount()<=1){ alert("Tidak bisa menurunkan Super Admin terakhir."); render(); return; }
+  busy=true; render(); const {error}=await sb.from("user_roles").update({role:v}).eq("user_id",uid); busy=false;
+  if(error){alert(error.message);} await loadUsers(); };
+window.changeStatus=async(uid,v)=>{ busy=true; render(); const {error}=await sb.from("user_roles").update({status:v}).eq("user_id",uid); busy=false;
+  if(error){alert(error.message);} await loadUsers(); };
+
+function render(){
+  const TABS=[["checklist","Checklist"],["reporting","Reporting"],["pera","Audit PERA"]].concat(isSuper?[["user","User"]]:[]);
+  let body="";
+  if(busy) body='<div class="mono" style="font-size:12px;color:var(--mut);margin-bottom:8px">memuat…</div>';
+
+  if(tab==="checklist"){
+    body+='<div class="tbl"><div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)">'+
+      '<span class="mono" style="font-size:11px;color:var(--mut)">'+rows.length+' record (semua status)</span>'+
+      '<button class="btn" onclick="exportCSV()">&#8681; Export CSV</button></div><div class="scroll"><table>'+
+      '<thead><tr>'+["Lokasi","Area","Tanggal","Inspektor","Model","Override","Final","TARP","Approval","PDF"].map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+
+      rows.map(r=>'<tr><td>'+esc((r.locations&&r.locations.name)||"—")+'</td>'+
+        '<td class="mono" style="color:var(--mut)">'+esc((r.locations&&r.locations.area_code)||"—")+'</td>'+
+        '<td class="mono">'+esc(r.inspection_date||"")+'</td><td>'+esc(r.inspector||"—")+'</td>'+
+        '<td class="mono">'+esc(r.risk_model||"—")+'</td>'+
+        '<td class="mono" style="color:'+(r.risk_override?"#d97706":"var(--mut)")+'">'+esc(r.risk_override||"—")+'</td>'+
+        '<td><span class="pill '+cls(r.risk_final)+'">'+esc(r.risk_final||"")+'</span></td>'+
+        '<td style="text-align:center;font-weight:700;color:'+(RC[r.risk_final]||RC.Low)+'">'+(r.tarp_level||0)+'</td>'+
+        '<td><span class="badge" style="color:'+apprColor(r.approval_status)+'">'+esc((r.approval_status||"").toUpperCase())+'</span></td>'+
+        '<td><a class="lnk" href="report.html?type=inspeksi&id='+r.id+'">PDF →</a></td></tr>').join("")+
+      '</tbody></table></div></div>';
+  }
+  else if(tab==="reporting"){
+    const by=k=>{const m={};rows.forEach(r=>{const v=r[k]||"—";m[v]=(m[v]||0)+1;});return m;};
+    const byArea=()=>{const m={};rows.forEach(r=>{const v=(r.locations&&r.locations.area_code)||"—";m[v]=(m[v]||0)+1;});return m;};
+    const card=(t,obj,cmap)=>'<div class="panel rcard"><div class="eyebrow">'+t+'</div>'+
+      Object.keys(obj).map(k=>'<div class="row" style="justify-content:space-between;margin:5px 0"><span style="color:'+((cmap&&cmap[k])||"var(--txt2)")+'">'+esc(k)+'</span><span class="mono" style="font-weight:700">'+obj[k]+'</span></div>').join("")+'</div>';
+    body+='<div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn" onclick="exportCSV()">&#8681; Export CSV</button></div>'+
+      '<div class="cards">'+card("Per Risk Final",by("risk_final"),RC)+card("Per Approval",by("approval_status"),{approved:"#16a34a",rejected:"#dc2626",pending:"#d97706"})+card("Per Area",byArea())+'</div>'+
+      '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:12px">Total '+rows.length+' inspeksi.</div>';
+  }
+  else if(tab==="pera"){
+    body+='<div class="tbl"><div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)">'+
+      '<span class="mono" style="font-size:11px;color:var(--mut)">'+peras.length+' penilaian PERA</span>'+
+      '<button class="btn" onclick="loadPeras()">&#8635;</button></div><div class="scroll"><table>'+
+      '<thead><tr>'+["Tanggal","Inspektor","Event","Magnitudo","Kritis \"Ya\"","Triase","Status","PDF"].map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+
+      (peras.length?peras.map(a=>{const ev=a.event_snapshot||{},s=a.summary||{};
+        return '<tr><td class="mono">'+esc(fmt(a.created_at).split(",")[0])+'</td><td>'+esc(a.inspector_name||"—")+'</td>'+
+        '<td class="mono" style="color:var(--mut)">'+esc(a.event_id||"—")+'</td>'+
+        '<td class="mono">'+(ev.magnitude!=null?("M "+ev.magnitude):"—")+'</td>'+
+        '<td style="text-align:center;font-weight:700;color:'+(s.critical_yes>0?"#dc2626":"#16a34a")+'">'+(s.critical_yes!=null?s.critical_yes:"—")+'</td>'+
+        '<td>'+esc(s.triage||"—")+'</td><td><span class="badge">'+esc(a.status||"")+'</span></td>'+
+        '<td><a class="lnk" href="report.html?type=pera&id='+esc(a.id)+'">PDF →</a></td></tr>';}).join("")
+        :'<tr><td colspan="8" style="color:var(--mut);padding:18px">Belum ada penilaian PERA.</td></tr>')+
+      '</tbody></table></div></div>';
+  }
+  else if(tab==="user" && isSuper){
+    body+='<div class="tbl"><div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)">'+
+      '<span class="mono" style="font-size:11px;color:var(--mut)">'+users.length+' user · ubah tier via dropdown</span>'+
+      '<button class="btn" onclick="loadUsers()">&#8635;</button></div><div class="scroll"><table>'+
+      '<thead><tr>'+["Email","B/N","Position","Tier","Status","Aksi"].map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+
+      users.map(u=>'<tr><td>'+esc(u.email||"")+'</td><td class="mono">'+esc(u.badge_number||"—")+'</td><td>'+esc(u.position||"—")+'</td>'+
+        '<td><select onchange="changeRole(\''+u.user_id+'\',\''+u.role+'\',this.value)">'+
+          ['member','Member','admin','Admin','super_admin','Super Admin'].reduce((a,_,i,ar)=>{if(i%2)return a;const k=ar[i],t=ar[i+1];return a+'<option value="'+k+'"'+(u.role===k?' selected':'')+'>'+t+'</option>';},'')+
+        '</select></td>'+
+        '<td><span class="badge" style="color:'+(u.status==="active"?"#16a34a":u.status==="disabled"?"#dc2626":"#d97706")+'">'+esc((u.status||"").toUpperCase())+'</span></td>'+
+        '<td>'+(u.status!=="active"?'<button class="btn" style="padding:5px 9px" onclick="changeStatus(\''+u.user_id+'\',\'active\')">Setujui</button>':'<button class="btn" style="padding:5px 9px;color:#dc2626" onclick="changeStatus(\''+u.user_id+'\',\'disabled\')">Nonaktifkan</button>')+'</td></tr>').join("")+
+      '</tbody></table></div></div>';
+  }
+
+  $("app").innerHTML=
+    '<div class="row" style="justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'+
+      '<div><div style="font-size:19px;font-weight:800">Database</div>'+
+      '<div style="font-size:12px;color:var(--mut)">Pusat kelola checklist, user, reporting &amp; audit PERA</div></div></div>'+
+    '<div class="tabs">'+TABS.map(([k,t])=>'<button class="btn '+(tab===k?'act':'')+'" onclick="go(\''+k+'\')">'+t+'</button>').join("")+'</div>'+
+    body;
+}
+
+(async()=>{
+  $("hdr").innerHTML=GMS.header("Database","Bahodopi Block 2 & 3");
+  const p=await GMS.guard({requireAdmin:true,mount:"#app"}); if(!p) return;
+  isSuper=p.isSuper;
+  await loadChecklist();
+})();
+</script>
+</body>
+</html>
