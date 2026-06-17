@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Validasi Inspeksi — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .pcard{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer;text-align:left;width:100%;}
+  .pcard .bar{width:5px;height:42px;border-radius:3px;flex:0 0 auto;}
+  .pcard .nm{font-weight:700;} .pcard .sub{font-size:11px;color:var(--mut);}
+  .drawer{position:fixed;inset:0;z-index:60;background:rgba(8,15,30,.5);display:flex;justify-content:flex-end;}
+  .drawer .panelD{width:480px;max-width:100%;height:100%;overflow-y:auto;background:#fff;}
+  .dhead{padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2;}
+  .dbody{padding:16px 18px 40px;}
+  .boxes{display:flex;gap:8px;align-items:stretch;}
+  .box{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 6px;text-align:center;}
+  .box .k{font-size:9px;color:var(--mut);letter-spacing:.06em;} .box .v{font-size:13px;font-weight:800;margin-top:3px;}
+  .ovr{margin-top:14px;padding:12px;border-radius:9px;border:1px dashed var(--line);background:#fafbfd;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div id="app" class="wrap"><div class="center"><div class="spin"></div></div></div>
+<div id="drawer"></div>
+<script>
+"use strict";
+const sb=GMS.sb,$=GMS.$,esc=GMS.esc;
+const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
+const cls=l=>String(l||'Low').replace(' ','');
+let PARAMS=[], CRIT={}, PENDING=[], sel=null, note="", busy=false;
+const colOf=c=>c+"_condition";
+const isInstr=c=>/^(mv|piezo|crack|accel)/.test(c);
+const optsFor=code=>{ const list=["-"].concat((CRIT[code]||[]).map(c=>c.condition_label)); const cur=sel&&sel[colOf(code)]; if(cur&&list.indexOf(cur)<0)list.push(cur); return list; };
+
+async function loadAll(){
+  const [{data:p},{data:c}] = await Promise.all([
+    sb.from("parameters").select("code,label,category,tier,sort_order").order("sort_order"),
+    sb.from("scoring_criteria").select("parameter_code,condition_label,score"),
+  ]);
+  PARAMS=p||[]; CRIT={}; (c||[]).forEach(x=>{(CRIT[x.parameter_code]=CRIT[x.parameter_code]||[]).push(x);});
+  await loadPending();
+}
+async function loadPending(){
+  const {data}=await sb.from("inspections").select("*, locations(name,area_code)")
+    .eq("approval_status","pending").order("tarp_level",{ascending:false}).order("inspection_date",{ascending:false});
+  PENDING=data||[]; renderList();
+}
+function renderList(){
+  $("app").innerHTML='<div class="row" style="justify-content:space-between;margin-bottom:14px">'+
+    '<div><div style="font-size:19px;font-weight:800">Validasi Inspeksi</div>'+
+    '<div style="font-size:12px;color:var(--mut)">Menunggu verifikasi · approve agar tampil di dashboard</div></div>'+
+    '<button class="btn" onclick="loadPending()">&#8635; Refresh</button></div>'+
+    (PENDING.length? PENDING.map((r,i)=>{ const col=RC[r.risk_final]||RC.Low;
+      return '<button class="pcard" onclick="openSel('+i+')"><div class="bar" style="background:'+col+'"></div>'+
+        '<div style="flex:1;min-width:0"><div class="nm">'+esc((r.locations&&r.locations.name)||"—")+' <span class="mono" style="font-size:10px;color:var(--mut)">'+esc((r.locations&&r.locations.area_code)||"")+'</span></div>'+
+        '<div class="sub">'+esc(r.inspection_date||"")+' · '+esc(r.inspector||"—")+'</div></div>'+
+        '<span class="pill" style="color:#d97706;background:#fffbeb;border:1px solid #fde68a">PENDING</span>'+
+        '<span class="pill '+cls(r.risk_final)+'">'+esc(r.risk_final||"")+'</span>'+
+        '<span class="mono" style="font-weight:800;color:'+col+'">T'+(r.tarp_level||0)+'</span></button>';
+    }).join("") : '<div class="panel" style="text-align:center;padding:36px"><div style="font-weight:700;color:var(--txt2)">Tidak ada yang menunggu validasi</div><div style="font-size:12px;color:var(--mut);margin-top:4px">Semua inspeksi sudah diproses.</div></div>');
+}
+
+window.openSel=(i)=>{ sel=Object.assign({},PENDING[i]); note=sel.review_note||""; renderDrawer(); };
+function closeDrawer(){ sel=null; $("drawer").innerHTML=""; }
+window.closeDrawer=closeDrawer;
+function setCond(code,v){ sel[colOf(code)]=v; }
+window._setCond=(el)=>setCond(el.dataset.code,el.value);
+window._setOvr=(v)=>{ sel.risk_override=v; renderDrawer(); };
+window._setOvrReason=(v)=>{ sel.override_reason=v; };
+window._setNote=(v)=>{ note=v; };
+
+function paramRows(instr){ return PARAMS.filter(p=>isInstr(p.code)===instr).map(p=>
+  '<label class="f">'+esc(p.label)+(Number(p.tier)===1?' <span style="color:#dc2626">· T1</span>':'')+'</label>'+
+  '<select data-code="'+p.code+'" onchange="_setCond(this)">'+optsFor(p.code).map(o=>'<option'+(o===(sel[colOf(p.code)]||"-")?' selected':'')+'>'+esc(o)+'</option>').join("")+'</select>'
+).join(""); }
+
+function renderDrawer(){
+  if(!sel){ $("drawer").innerHTML=""; return; }
+  const ovrLevel=sel.risk_override||sel.risk_model||sel.risk_final;
+  $("drawer").innerHTML='<div class="drawer" onclick="closeDrawer()"><div class="panelD" onclick="event.stopPropagation()">'+
+    '<div class="dhead"><div class="row" style="justify-content:space-between;align-items:flex-start">'+
+      '<div><div class="mono" style="font-size:10px;color:var(--mut)">INSPEKSI #'+sel.id+' · '+esc(sel.inspection_date||"")+'</div>'+
+      '<div style="font-size:17px;font-weight:800">'+esc((sel.locations&&sel.locations.name)||"—")+'</div>'+
+      '<div class="mono" style="font-size:11px;color:var(--mut)">'+esc((sel.locations&&sel.locations.area_code)||"")+' · '+esc(sel.inspector||"—")+'</div></div>'+
+      '<button class="btn" style="padding:8px" onclick="closeDrawer()">&times;</button></div></div>'+
+    '<div class="dbody">'+
+      '<div class="boxes">'+
+        box("COMPOSITE",sel.risk_composite)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8852;</div>'+
+        box("FLOOR · T1",sel.risk_floor)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8594;</div>'+
+        box("MODEL",sel.risk_model||sel.risk_final)+
+      '</div>'+
+      '<div class="mono" style="font-size:11px;color:var(--mut);margin-top:8px">Skor '+(sel.total_score||0)+' · model = MAX(composite, floor)'+(sel.risk_corroboration?' + koroborasi':'')+'</div>'+
+      // override
+      '<div class="ovr"><label class="f" style="margin-top:0">Override risk akhir · penilaian engineer</label>'+
+        '<div class="row" style="gap:8px"><select style="flex:1" onchange="_setOvr(this.value)">'+
+          ['','Low','Medium','High','Very High'].map(o=>'<option value="'+o+'"'+((sel.risk_override||"")===o?' selected':'')+'>'+(o===''?('Ikuti model ('+(sel.risk_model||sel.risk_final)+')'):o)+'</option>').join("")+
+        '</select><span class="pill '+cls(ovrLevel)+'">'+esc(ovrLevel)+'</span></div>'+
+        (sel.risk_override?'<label class="f">Alasan override (wajib)</label><textarea rows="2" oninput="_setOvrReason(this.value)" placeholder="mis. crack lama sudah stabil, monitoring tidak bergerak…">'+esc(sel.override_reason||"")+'</textarea>':'')+
+        '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Nilai ke dashboard = override (jika diisi), kalau tidak = model.</div></div>'+
+      // params
+      '<div class="eyebrow" style="margin:18px 0 6px">Parameter Visual</div>'+paramRows(false)+
+      '<div class="eyebrow" style="margin:18px 0 6px">Instrumentasi</div>'+paramRows(true)+
+      '<label class="f" style="margin-top:16px">Catatan validasi (opsional)</label>'+
+      '<textarea rows="3" oninput="_setNote(this.value)" placeholder="mis. verifikasi lapangan OK / minta re-inspeksi…">'+esc(note)+'</textarea>'+
+      '<div class="row" style="gap:8px;margin-top:16px">'+
+        '<button class="btn" '+(busy?'disabled':'')+' onclick="saveOnly()">Simpan</button>'+
+        '<button class="btn" '+(busy?'disabled':'')+' style="color:#dc2626;border-color:#fca5a5" onclick="decide(\'rejected\')">Reject</button>'+
+        '<button class="btn primary" '+(busy?'disabled':'')+' style="flex:1;background:#0d9488;border-color:#0d9488" onclick="decide(\'approved\')">'+(busy?'…':'Approve')+'</button>'+
+      '</div>'+
+    '</div></div></div>';
+}
+function box(label,level){ const col=RC[level]||RC.Low; return '<div class="box"><div class="k">'+label+'</div><div class="v" style="color:'+col+'">'+esc(level||"-")+'</div></div>'; }
+
+function condBody(){ const b={}; PARAMS.forEach(p=> b[colOf(p.code)]=sel[colOf(p.code)]||"-"); return b; }
+function ovrBody(){ return { risk_override: sel.risk_override||null, override_reason: sel.risk_override?(sel.override_reason||null):null }; }
+window.saveOnly=async()=>{ busy=true; renderDrawer();
+  try{ const {error}=await sb.from("inspections").update(Object.assign({},condBody(),ovrBody())).eq("id",sel.id); if(error)throw error;
+    const {data}=await sb.from("inspections").select("*, locations(name,area_code)").eq("id",sel.id).single(); if(data){sel=Object.assign(sel,data);} }
+  catch(e){ alert(e.message||e); } finally{ busy=false; renderDrawer(); }
+};
+window.decide=async(status)=>{
+  if(status==="approved" && sel.risk_override && !((sel.override_reason||"").trim())){ alert("Alasan override wajib diisi sebelum approve."); return; }
+  busy=true; renderDrawer();
+  try{ const body = status==="approved" ? Object.assign({},condBody(),ovrBody(),{approval_status:"approved",review_note:note||null})
+                                        : {approval_status:"rejected",review_note:note||null};
+    const {error}=await sb.from("inspections").update(body).eq("id",sel.id); if(error)throw error;
+    closeDrawer(); await loadPending(); }
+  catch(e){ alert(e.message||e); busy=false; renderDrawer(); }
+};
+
+(async()=>{
+  $("hdr").innerHTML=GMS.header("Validasi Inspeksi","Bahodopi Block 2 & 3");
+  const p=await GMS.guard({requireAdmin:true,mount:"#app"}); if(!p) return;
+  await loadAll();
+})();
+</script>
+</body>
+</html>
