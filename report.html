@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laporan — Geotech Monitoring</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  :root{--ink:#111827;--mut:#6b7280;--line:#d1d5db;--navy:#0b1f3a;--blue:#1d4ed8;
+    --green:#16a34a;--amber:#d97706;--orange:#ea580c;--red:#dc2626;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e9edf2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);}
+  .toolbar{position:sticky;top:0;background:var(--navy);color:#fff;padding:10px 16px;display:flex;gap:10px;align-items:center;z-index:10;}
+  .toolbar .sp{flex:1;font-size:14px;font-weight:600;}
+  .toolbar button,.toolbar a{background:#fff;color:var(--navy);border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;}
+  .toolbar a.ghost{background:rgba(255,255,255,.14);color:#fff;}
+  .page{background:#fff;width:210mm;min-height:297mm;margin:18px auto;padding:16mm 15mm;box-shadow:0 2px 16px rgba(0,0,0,.18);}
+  .rh{display:flex;align-items:flex-start;gap:14px;border-bottom:3px solid var(--navy);padding-bottom:12px;}
+  .rh .logo{width:46px;height:46px;border-radius:9px;background:var(--navy);color:#fb923c;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto;}
+  .rh h1{margin:0;font-size:18px;letter-spacing:.01em;}
+  .rh .co{font-size:11px;color:var(--mut);margin-top:2px;}
+  .rh .meta{margin-left:auto;text-align:right;font-size:10.5px;color:var(--mut);line-height:1.7;}
+  .rh .meta b{color:var(--ink);}
+  h2.sec{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin:18px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px;}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:12px;}
+  .kv .r{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dotted #e5e7eb;}
+  .kv .r .k{color:var(--mut);} .kv .r .v{font-weight:600;text-align:right;}
+  .hero{display:flex;align-items:center;gap:18px;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:4px;}
+  .hero .big{font-size:46px;font-weight:800;line-height:1;}
+  .hero .lv{font-size:18px;font-weight:800;}
+  .hero .tarp{font-size:11px;color:var(--mut);}
+  .hero .act{flex:1;font-size:11.5px;color:var(--ink);line-height:1.5;border-left:1px solid var(--line);padding-left:16px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;}
+  th{background:#f3f4f6;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);}
+  td.s{text-align:center;width:54px;font-weight:700;}
+  tr.hit td{background:#fff7ed;}
+  .badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:10px;font-weight:700;}
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .photos figure{margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .photos img{width:100%;height:150px;object-fit:cover;display:block;}
+  .photos figcaption{font-size:9.5px;color:var(--mut);padding:4px 6px;}
+  .foot{margin-top:26px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:var(--mut);}
+  .sign{text-align:center;}
+  .sign .line{width:160px;border-top:1px solid var(--ink);margin-top:42px;padding-top:4px;color:var(--ink);font-weight:600;}
+  .ans-Ya{color:var(--red);} .ans-Tidak{color:var(--green);} .ans-TidakTahu{color:var(--amber);}
+  .loading{padding:60px;text-align:center;color:var(--mut);}
+  @media print{
+    body{background:#fff;} .toolbar{display:none;}
+    .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
+    @page{size:A4;margin:14mm;}
+    .photos img{height:42mm;} .avoid{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span class="sp" id="tt">Laporan</span>
+  <a class="ghost" href="index.html">&#8592; Menu</a>
+  <button onclick="window.print()">&#128424; Simpan / Cetak PDF</button>
+</div>
+<div id="out"><div class="loading">Memuat laporan…</div></div>
+
+<script>
+"use strict";
+const sb = GMS.sb;
+const qs = new URLSearchParams(location.search);
+const TYPE = qs.get("type")||"inspeksi";
+const ID = qs.get("id");
+const RC = { Low:'#16a34a', Medium:'#d97706', High:'#ea580c', 'Very High':'#dc2626' };
+const esc = GMS.esc, fmt = GMS.fmtDate;
+
+async function signed(bucket, path){ try{ const {data}=await sb.storage.from(bucket).createSignedUrl(path,3600); return data&&data.signedUrl; }catch(e){ return null; } }
+
+function headerHTML(title, docid, dateStr){
+  return '<div class="rh"><div class="logo">&#9650;</div>'+
+    '<div><h1>'+title+'</h1><div class="co">PT Vale Indonesia &middot; IGP Morowali &middot; Bahodopi Block 2 &amp; 3</div></div>'+
+    '<div class="meta"><div>No. Dok: <b>'+esc(docid)+'</b></div><div>Tanggal: <b>'+esc(dateStr)+'</b></div><div>Dicetak: '+new Date().toLocaleDateString("id-ID")+'</div></div></div>';
+}
+function footHTML(name){
+  return '<div class="foot avoid"><div>Dokumen ini dihasilkan otomatis oleh Geotech Monitoring System.<br>Sah tanpa tanda tangan basah bila diverifikasi di sistem.</div>'+
+    '<div class="sign"><div>Inspektor,</div><div class="line">'+esc(name||"________________")+'</div></div></div>';
+}
+
+// ===================== INSPEKSI =====================
+async function renderInspeksi(){
+  const { data:ins, error } = await sb.from("inspections").select("*").eq("id",ID).single();
+  if(error||!ins){ out.innerHTML='<div class="loading">Data inspeksi tidak ditemukan / tidak punya akses.</div>'; return; }
+  const [{data:loc}, {data:params}, {data:crit}, {data:bands}, {data:phRows}] = await Promise.all([
+    sb.from("locations").select("*").eq("id",ins.location_id).maybeSingle(),
+    sb.from("parameters").select("code,label,category,tier,sort_order").order("sort_order"),
+    sb.from("scoring_criteria").select("parameter_code,condition_label,score"),
+    sb.from("risk_bands").select("*").order("min_score"),
+    sb.from("inspection_photos").select("storage_path").eq("inspection_id",ID),
+  ]);
+  const sc={}; (crit||[]).forEach(c=> sc[c.parameter_code+"||"+c.condition_label]=c.score);
+  const scoreOf=(code,lab)=> sc[code+"||"+(lab||"")]||0;
+  const level=ins.risk_final||"Low", col=RC[level]||RC.Low, tarp=ins.tarp_level||1, total=ins.total_score||0;
+  const band=(bands||[]).find(b=>total>=b.min_score&&total<=b.max_score)||{};
+  const rowFor=(p)=>{ const c=ins[p.code+"_condition"]||"-"; const s=scoreOf(p.code,c);
+    return '<tr class="'+(s>0?'hit':'')+'"><td>'+esc(p.label)+(p.tier===1?' <span style="color:#ea580c;font-size:8px;font-weight:700">T1</span>':'')+'</td><td>'+esc(c)+'</td><td class="s" style="color:'+(s>0?col:'#9ca3af')+'">'+(s>0?'+'+s:'0')+'</td></tr>'; };
+  const grp=(cat,title)=>{ const ps=(params||[]).filter(p=>p.category===cat); if(!ps.length)return"";
+    return '<h2 class="sec">'+title+'</h2><table><thead><tr><th>Parameter</th><th>Kondisi</th><th>Skor</th></tr></thead><tbody>'+ps.map(rowFor).join("")+'</tbody></table>'; };
+
+  // photos
+  let photosHTML="";
+  if(phRows&&phRows.length){
+    const urls=await Promise.all(phRows.map(p=>signed("inspection-photos",p.storage_path)));
+    photosHTML='<h2 class="sec">Dokumentasi Foto</h2><div class="photos avoid">'+
+      urls.map((u,i)=>u?'<figure><img src="'+u+'"><figcaption>Foto '+(i+1)+'</figcaption></figure>':'').join("")+'</div>';
+  }
+
+  out.innerHTML='<div class="page">'+
+    headerHTML("Laporan Inspeksi Geoteknik","INS-"+String(ins.id).padStart(5,"0"),(ins.inspection_date||"").slice(0,10))+
+    '<h2 class="sec">Informasi Lokasi &amp; Inspeksi</h2>'+
+    '<div class="kv">'+
+      kv("Lokasi",(loc&&loc.name)||("#"+ins.location_id))+
+      kv("Area",(loc&&(loc.owner_area||loc.area_code))||"-")+
+      kv("Inspektor",ins.inspector||"-")+
+      kv("Tanggal",(ins.inspection_date||"").slice(0,10))+
+      kv("Status Inspeksi",ins.status||"-")+
+      kv("Status Validasi",ins.approval_status||"-")+
+      kv("Koordinat GPS",(ins.inspector_lat!=null?(Number(ins.inspector_lat).toFixed(5)+", "+Number(ins.inspector_lng).toFixed(5)):"-")+(ins.inspector_accuracy_m!=null?" (±"+ins.inspector_accuracy_m+"m)":""))+
+      kv("Validasi Lokasi",ins.geo_validation||"-")+
+    '</div>'+
+    '<h2 class="sec">Hasil Penilaian Risiko</h2>'+
+    '<div class="hero avoid"><div><div class="big" style="color:'+col+'">'+total+'</div><div class="tarp">Total Skor</div></div>'+
+      '<div><div class="lv" style="color:'+col+'">'+level.toUpperCase()+'</div><div class="tarp">TARP Level '+tarp+'</div>'+
+      '<div class="tarp">Composite: '+(ins.risk_composite||"-")+' &middot; Floor: '+(ins.risk_floor||"-")+(ins.risk_corroboration?' &middot; Corroboration +1':'')+'</div></div>'+
+      '<div class="act"><b>Rekomendasi Tindakan:</b><br>'+esc(band.action||"-")+'</div></div>'+
+    grp("instrumentation","Instrumentation Scoring")+
+    grp("visual","Visual Inspection")+
+    photosHTML+
+    footHTML(ins.inspector)+
+  '</div>';
+  tt.textContent="Laporan Inspeksi · "+((loc&&loc.name)||("#"+ins.location_id));
+  document.title="INS-"+String(ins.id).padStart(5,"0")+" "+((loc&&loc.name)||"");
+}
+function kv(k,v){ return '<div class="r"><span class="k">'+esc(k)+'</span><span class="v">'+esc(v)+'</span></div>'; }
+
+// ===================== PERA =====================
+async function renderPera(){
+  const { data:a, error } = await sb.from("pera_assessments").select("*").eq("id",ID).single();
+  if(error||!a){ out.innerHTML='<div class="loading">Data PERA tidak ditemukan / tidak punya akses.</div>'; return; }
+  const ev=a.event_snapshot||{}; const sum=a.summary||{};
+  const answers=(a.answers||[]).slice().sort((x,y)=>(x.ord||0)-(y.ord||0));
+  // photos (collect all paths)
+  const allPaths=[]; answers.forEach(an=> (an.photos||[]).forEach(p=> allPaths.push({q:an.code||an.ord, path:p})));
+  const urlMap={};
+  await Promise.all(allPaths.map(async pp=>{ urlMap[pp.path]=await signed("pera-photos",pp.path); }));
+
+  const triage=sum.triage||"-";
+  const tcol = /merah|red|tidak aman|unsafe/i.test(triage)?"#dc2626": /kuning|terbatas|restrict/i.test(triage)?"#d97706":"#16a34a";
+  const rows=answers.map(an=>{
+    const ansCls="ans-"+String(an.answer||"").replace(/\s/g,"");
+    return '<tr class="'+(an.critical&&an.answer==="Ya"?'hit':'')+'"><td style="width:30px;text-align:center">'+(an.ord||"")+'</td>'+
+      '<td>'+esc(an.text||an.code||"")+(an.critical?' <span class="badge" style="background:#fee2e2;color:#b91c1c">KRITIS</span>':'')+'</td>'+
+      '<td style="width:80px;text-align:center;font-weight:700" class="'+ansCls+'">'+esc(an.answer||"-")+'</td>'+
+      '<td>'+esc(an.explanation||an.note||"")+(an.location?'<br><span style="color:#6b7280;font-size:9px">GPS '+Number(an.location.lat).toFixed(5)+", "+Number(an.location.lng).toFixed(5)+'</span>':'')+'</td></tr>';
+  }).join("");
+
+  let photosHTML="";
+  if(allPaths.length){
+    photosHTML='<h2 class="sec">Dokumentasi Foto</h2><div class="photos avoid">'+
+      allPaths.map(pp=> urlMap[pp.path]?'<figure><img src="'+urlMap[pp.path]+'"><figcaption>Pertanyaan '+esc(pp.q)+'</figcaption></figure>':'').join("")+'</div>';
+  }
+
+  out.innerHTML='<div class="page">'+
+    headerHTML("Laporan PERA (Post-Earthquake Rapid Assessment)","PERA-"+String(a.id).slice(0,8),fmt(a.created_at).split(",")[0])+
+    '<h2 class="sec">Informasi Kejadian Gempa</h2>'+
+    '<div class="kv">'+
+      kv("Event ID",a.event_id||"-")+
+      kv("Magnitudo",ev.magnitude!=null?("M "+ev.magnitude):"-")+
+      kv("Kedalaman",ev.depth!=null?(ev.depth+" km"):"-")+
+      kv("Waktu Gempa",ev.time?fmt(ev.time):"-")+
+      kv("Wilayah",ev.region||ev.place||"-")+
+      kv("Inspektor",a.inspector_name||"-")+
+    '</div>'+
+    '<h2 class="sec">Ringkasan Triase</h2>'+
+    '<div class="hero avoid"><div><div class="big" style="color:'+tcol+'">'+(sum.critical_yes!=null?sum.critical_yes:"-")+'</div><div class="tarp">Temuan Kritis "Ya"</div></div>'+
+      '<div><div class="lv" style="color:'+tcol+'">'+esc(String(triage).toUpperCase())+'</div>'+
+      '<div class="tarp">Terjawab '+(sum.total_answered!=null?sum.total_answered:"-")+' / '+(sum.total!=null?sum.total:answers.length)+' &middot; "Ya": '+(sum.yes_count!=null?sum.yes_count:"-")+'</div></div>'+
+      '<div class="act"><b>Catatan:</b><br>Penilaian cepat kelayakan/keamanan pasca-gempa. Tindak lanjut sesuai status triase.</div></div>'+
+    '<h2 class="sec">Daftar Pemeriksaan</h2>'+
+    '<table><thead><tr><th>No</th><th>Pertanyaan</th><th>Jawaban</th><th>Keterangan</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    photosHTML+
+    (a.gps_lat!=null?'<p style="font-size:10px;color:#6b7280;margin-top:10px">Lokasi penilaian: '+Number(a.gps_lat).toFixed(5)+", "+Number(a.gps_lng).toFixed(5)+'</p>':'')+
+    footHTML(a.inspector_name)+
+  '</div>';
+  tt.textContent="Laporan PERA";
+  document.title="PERA-"+String(a.id).slice(0,8);
+}
+
+// ===================== BOOT =====================
+const out=document.getElementById("out"), tt=document.getElementById("tt");
+(async()=>{
+  const s=await GMS.getSession();
+  if(!s){ out.innerHTML='<div class="loading">Perlu login. <a href="index.html">Masuk dulu</a> lalu buka ulang link laporan.</div>'; return; }
+  if(!ID){ out.innerHTML='<div class="loading">Parameter ?id= tidak ada.</div>'; return; }
+  try{ if(TYPE==="pera") await renderPera(); else await renderInspeksi(); }
+  catch(e){ out.innerHTML='<div class="loading">Gagal memuat: '+esc(e.message||String(e))+'</div>'; }
+})();
+</script>
+</body>
+</html>
