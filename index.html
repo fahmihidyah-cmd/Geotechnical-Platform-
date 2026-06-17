@@ -2107,6 +2107,7 @@ function Console({ sb, onLogout }){
   const TILES = [
     ...(canValidate ? [{ key:"dashboard", label:"Dashboard", sub:"Peta & daftar risiko", icon:"layers", color:"#2563eb" }] : []),
     { key:"inspect",   label:"Inspeksi Baru", sub:"Checklist · GPS · foto",   icon:"clip",   color:"#ea580c" },
+    { key:"pera",      label:"PERA",          sub:"Penilaian cepat pasca gempa", icon:"clip", color:"#0891b2" },
     ...(canValidate ? [{ key:"validasi", label:"Validasi", sub:"Verifikasi & approve inspeksi", icon:"shield", color:"#0d9488" }] : []),
     ...(canValidate ? [{ key:"database", label:"Database", sub:"Checklist · User · Reporting", icon:"layers", color:"#7c3aed" }] : []),
     { key:"eews",      label:"EEWS",          sub:"Peringatan dini gempa",    icon:"bell",   color:"#dc2626" },
@@ -2165,7 +2166,7 @@ function Console({ sb, onLogout }){
         <div className="home-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
           {TILES.map(t => (
             <button key={t.key}
-              onClick={()=> t.key==="logout" ? onLogout() : setView(t.key)}
+              onClick={()=> t.key==="logout" ? onLogout() : t.key==="pera" ? (window.location.href="pera.html") : setView(t.key)}
               style={{ background:t.color, border:"none", borderRadius:18, padding:"20px 16px", minHeight:128, textAlign:"left",
                        display:"flex", flexDirection:"column", justifyContent:"space-between", cursor:"pointer", color:"#fff",
                        boxShadow:"0 6px 18px rgba(0,0,0,.25)" }}>
