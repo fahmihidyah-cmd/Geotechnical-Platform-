@@ -12,8 +12,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <!-- Esri Leaflet untuk memakai ArcGIS ImageServer sebagai basemap -->
-  <script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.14/dist/esri-leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="common.js"></script>
 
@@ -154,7 +152,9 @@
       flex:1;min-height:0;
       padding:12px;
       overflow:hidden; /* tetap 1 layar */
+      display:flex;flex-direction:column;gap:10px;
     }
+    .page.scroll{overflow:auto}
 
     .card{
       background:linear-gradient(180deg, rgba(14,44,77,.85), rgba(10,32,55,.85));
@@ -199,8 +199,7 @@
     .dot{width:8px;height:8px;border-radius:999px;background:var(--c);display:inline-block}
 
     .dash{
-      margin-top:10px;
-      height:calc(100% - 0px);
+      flex:1;
       display:grid;
       grid-template-rows: 1fr 0.92fr;
       gap:10px;
@@ -797,6 +796,72 @@
         </div>`;
     }
 
+    // ====== Time-series + trendline (tab instrumen) ======
+    function groupBySensor(rows){
+      const g={};
+      (rows||[]).forEach(r=>{ const k=(r.external_device_id?('dev '+r.external_device_id+' · '):'')+r.sensor_name; (g[k]=g[k]||[]).push(r); });
+      return g;
+    }
+    function byName(rows, sub){
+      const s=sub.toLowerCase();
+      return (rows||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes(s)).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    }
+    function multiSeries(seriesList){
+      const tset=new Set();
+      seriesList.forEach(s=>(s.rows||[]).forEach(r=>tset.add(r.ts)));
+      const ts=[...tset].sort();
+      const labels=ts.map(t=>new Date(t).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}));
+      const datasets=seriesList.map(s=>{ const m={}; (s.rows||[]).forEach(r=>m[r.ts]=(isFinite(+r.value)?+r.value:null));
+        return {label:s.name,data:ts.map(t=>m[t]??null),borderColor:s.color,backgroundColor:s.color,borderWidth:1.6,pointRadius:0,tension:.25,spanGaps:true,fill:false}; });
+      return {labels,datasets};
+    }
+    function addTrend(ms,color){
+      if(!ms.datasets.length) return;
+      const d0=ms.datasets[0].data;
+      const pts=d0.map((y,i)=>({x:i,y})).filter(p=>p.y!=null&&isFinite(p.y));
+      const reg=linearRegression(pts); if(!reg) return;
+      ms.datasets.push({label:'Trendline',data:d0.map((_,i)=>reg.a+reg.b*i),borderColor:color||'#fbbf24',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:99});
+    }
+    function tsChart(canvasId,ms,unit){
+      const cv=document.getElementById(canvasId); if(!cv||!window.Chart) return;
+      charts[canvasId]=new Chart(cv,{type:'line',data:{labels:ms.labels,datasets:ms.datasets},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+          plugins:{legend:{display:true,labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8}}},
+          scales:{x:{ticks:{maxTicksLimit:6,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+                  y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}});
+    }
+
+    function instrumentView(){
+      const ext=groupBySensor(DATA.ext7||[]);
+      const extKeys=Object.keys(ext);
+      const extCards = extKeys.length ? extKeys.map((k,i)=>`
+        <div class="card"><div class="card-hd"><div class="t">📏 ${esc(k)}</div><div class="t" id="extrate_${i}" style="color:#9fb3cf"></div></div>
+          <div class="card-bd" style="height:180px"><canvas id="extc_${i}"></canvas></div></div>`).join('')
+        : `<div class="card"><div class="card-bd" style="color:var(--mut2)">Belum ada data extensometer 7 hari.</div></div>`;
+      const awsCards = `
+        <div class="card"><div class="card-hd"><div class="t">🌧️ Curah Hujan (menit & jam)</div></div><div class="card-bd" style="height:180px"><canvas id="awsRain"></canvas></div></div>
+        <div class="card"><div class="card-hd"><div class="t">🌡️ Suhu & Kelembapan</div></div><div class="card-bd" style="height:180px"><canvas id="awsTH"></canvas></div></div>
+        <div class="card"><div class="card-hd"><div class="t">💨 Kecepatan Angin & Radiasi</div></div><div class="card-bd" style="height:180px"><canvas id="awsWR"></canvas></div></div>`;
+      return `
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">EXTENSOMETER — TREND 7 HARI · garis putus-putus = trendline (laju mm/hari)</div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${extCards}</div>
+        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">AWS / CUACA — TREND 7 HARI</div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>`;
+    }
+    function drawInstrumentCharts(){
+      Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+      const ext=groupBySensor(DATA.ext7||[]);
+      Object.keys(ext).forEach((k,i)=>{
+        const ms=multiSeries([{name:k,rows:ext[k],color:'#a78bfa'}]); addTrend(ms,'#fbbf24');
+        tsChart('extc_'+i,ms,'mm');
+        const st=seriesStats(ext[k]); const el=document.getElementById('extrate_'+i);
+        if(el&&st.mmPerDay!=null) el.textContent=(st.mmPerDay>=0?'+':'')+fmt(st.mmPerDay,3)+' mm/hari';
+      });
+      tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
+      const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
+      tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+    }
+
     function instrumentLayout(title){
       return `
         <div class="card" style="height:100%">
@@ -820,6 +885,7 @@
       document.getElementById('siteStat').textContent = st.t;
 
       const page = document.getElementById('page');
+      page.classList.toggle('scroll', STATE.view!=='overview');
       document.getElementById('modeLbl').textContent = (STATE.view==='overview') ? 'Decision view' : 'Analysis view';
 
       if(STATE.view==='overview'){
@@ -827,14 +893,13 @@
         fillOverview(m, st);
         buildMap(m);
         drawCharts(m, st);
-      } else if(STATE.view==='instrument'){
-        page.innerHTML = instrumentLayout('Monitoring Instrument');
+      } else if(STATE.view==='instrument' || STATE.view==='trends'){
+        page.innerHTML = instrumentView();
+        drawInstrumentCharts();
       } else if(STATE.view==='inspection'){
         page.innerHTML = instrumentLayout('Inspection');
       } else if(STATE.view==='alerts'){
         page.innerHTML = instrumentLayout('Alerts');
-      } else if(STATE.view==='trends'){
-        page.innerHTML = instrumentLayout('Trends & Analysis');
       } else if(STATE.view==='reports'){
         page.innerHTML = instrumentLayout('Data & Reports');
       } else if(STATE.view==='docs'){
@@ -1011,43 +1076,24 @@
       const el = document.getElementById('map');
       if(!el) return;
 
+      // Re-init bila container di-render ulang (root.innerHTML ditulis ulang tiap render → node #map lama hilang)
+      if(map && map.getContainer() !== el){ try{ map.remove(); }catch(e){} map=null; overlays=null; }
+
       if(!map){
         map = L.map('map', { scrollWheelZoom:true, zoomControl:true });
-        // Basemap: ArcGIS ImageServer (sesuai link yang Anda kirim)
-        // Catatan: bila area coverage ImageServer tidak global / ada kendala CORS/token,
-        // layer akan tampak "blank". Karena itu saya sediakan opsi "World Imagery" sebagai fallback di layer control.
-        const aerialUrl = 'https://tiledimageservices3.arcgis.com/PI9ppMfSyzu6GVi7/arcgis/rest/services/WEEK21_2026_AERIALFOTO/ImageServer';
-        const worldUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-
-        const week21Layer = (L.esri && L.esri.imageMapLayer)
-          ? L.esri.imageMapLayer({ url: aerialUrl, useCors:true })
-          : L.tileLayer(worldUrl, { maxZoom: 19 });
-
-        // Jika request ImageServer gagal, otomatis jatuh ke World Imagery supaya peta tidak kosong.
-        if(week21Layer && week21Layer.on){
-          week21Layer.on('requesterror', ()=>{
-            try{
-              if(map && map.hasLayer(week21Layer)) map.removeLayer(week21Layer);
-              L.tileLayer(worldUrl, { maxZoom: 19 }).addTo(map);
-              console.warn('[Basemap] ImageServer gagal dimuat, fallback ke World Imagery.');
-            }catch(e){}
-          });
-        }
-
-        const baseLayers = {
-          'AerialFoto WEEK21 2026 (ImageServer)': week21Layer,
-          'World Imagery (fallback)': L.tileLayer(worldUrl, { maxZoom: 19 })
-        };
-
-        // Default: pakai ImageServer
-        week21Layer.addTo(map);
+        // Basemap: satelit ArcGIS (seperti referensi) + fallback OSM bila tile diblokir browser kantor
+        const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+        let satFailed = false;
+        sat.on('tileerror', ()=>{ if(!satFailed){ satFailed = true; try{ map.removeLayer(sat); }catch(e){} osm.addTo(map); } });
+        sat.addTo(map);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
           instruments: L.layerGroup().addTo(map),
           inspections: L.layerGroup().addTo(map),
         };
-        L.control.layers(baseLayers, {
+        L.control.layers(null, {
           'Instrument Symbols': overlays.instruments,
           'Inspection Symbols': overlays.inspections,
           'Risk Halo': overlays.halo,
@@ -1113,7 +1159,8 @@
       } else {
         map.setView([-2.74,122.01], 13);
       }
-      setTimeout(()=>map.invalidateSize(), 120);
+      [60,250,600,1200].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, d));
+      if(!window.__mapResizeBound){ window.__mapResizeBound=true; window.addEventListener('resize',()=>{ try{ map && map.invalidateSize(); }catch(e){} }); }
     }
 
     function donut(canvasId, valuePct, col){
@@ -1290,3 +1337,4 @@
   </script>
 </body>
 </html>
+
