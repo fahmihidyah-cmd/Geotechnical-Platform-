@@ -7,167 +7,287 @@
 <link rel="manifest" href="manifest.json">
 <title>Monitoring Terintegrasi — Bahodopi</title>
 <link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="common.js"></script>
 <style>
-  .wrap{max-width:1180px;}
-  .grid-kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
-  @media(min-width:760px){.grid-kpi{grid-template-columns:repeat(4,1fr);}}
-  .kpi{border-radius:14px;padding:14px 16px;color:#fff;}
-  .kpi .v{font-size:30px;font-weight:800;line-height:1;}
-  .kpi .l{font-size:11px;opacity:.92;margin-top:5px;}
-  .kpi .s{font-size:11px;opacity:.85;}
-  .sec-h{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);margin:22px 0 10px;display:flex;align-items:center;gap:8px;}
-  .sec-h .ln{flex:1;height:1px;background:var(--line);}
-  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-  @media(min-width:620px){.cards{grid-template-columns:repeat(3,1fr);}}
-  @media(min-width:920px){.cards{grid-template-columns:repeat(4,1fr);}}
-  .card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px;border-top:3px solid var(--c,#94a3b8);}
-  .card .ic{font-size:18px;}
-  .card .nm{font-size:11px;color:var(--mut);font-weight:600;margin-top:2px;}
-  .card .val{font-size:24px;font-weight:800;margin-top:6px;}
-  .card .val small{font-size:12px;font-weight:600;color:var(--mut);}
-  .card .sub{font-size:10px;color:var(--mut2);margin-top:3px;}
-  .ext .card{border-top-color:#ea580c;}
-  .spark{margin-top:6px;}
-  .lrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:#fff;margin-bottom:7px;text-decoration:none;color:var(--txt);}
-  .lrow .bar{width:5px;height:32px;border-radius:3px;background:var(--c);}
-  .stale{color:#dc2626;font-weight:700;}
-  .twocol{display:grid;grid-template-columns:1fr;gap:16px;}
-  @media(min-width:860px){.twocol{grid-template-columns:1fr 1fr;}}
+  body{background:#eef1f6;}
+  .shell{display:flex;min-height:100vh;}
+  .side{width:212px;flex:0 0 212px;background:var(--navy);color:#cdd9ec;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+  .side .brand{display:flex;align-items:center;gap:9px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .side .brand .lg{width:32px;height:32px;border-radius:8px;background:rgba(251,146,60,.16);border:1px solid rgba(251,146,60,.45);color:#fb923c;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .side .brand b{color:#fff;font-size:13px;line-height:1.15;}
+  .side .brand small{display:block;color:#7e93b4;font-size:9px;letter-spacing:.04em;}
+  .side nav{padding:10px 8px;flex:1;overflow:auto;}
+  .side nav button{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#aebfd8;padding:10px 12px;border-radius:9px;font-size:13px;cursor:pointer;text-align:left;margin-bottom:2px;}
+  .side nav button.act{background:rgba(37,99,235,.22);color:#fff;}
+  .side nav button:hover{background:rgba(255,255,255,.06);}
+  .side nav .grp{font-size:9px;letter-spacing:.12em;color:#5f769b;text-transform:uppercase;padding:12px 12px 5px;}
+  .side .foot{padding:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;}
+  .side .foot a{color:#aebfd8;text-decoration:none;}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .top{background:#fff;border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;}
+  .top h1{font-size:15px;margin:0;font-weight:800;letter-spacing:.02em;}
+  .top .meta{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--mut);}
+  .content{padding:14px 16px 30px;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:13px;}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr);}}
+  .kc{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px 14px;display:flex;gap:11px;align-items:center;}
+  .kc .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;}
+  .kc .v{font-size:21px;font-weight:800;line-height:1;}
+  .kc .l{font-size:10px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
+  .kc .s{font-size:10.5px;color:var(--mut2);}
+  .ov{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:12px;}
+  @media(max-width:1240px){.ov{grid-template-columns:1fr 1fr;}}
+  @media(max-width:820px){.ov{grid-template-columns:1fr;}}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;}
+  .panel h3{margin:0 0 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);display:flex;align-items:center;gap:7px;}
+  .panel h3 .sp{margin-left:auto;font-weight:400;color:var(--mut);text-transform:none;letter-spacing:0;}
+  #map{height:330px;border-radius:11px;overflow:hidden;z-index:0;}
+  .wx{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .wxi{border:1px solid var(--line2);border-radius:10px;padding:9px 10px;}
+  .wxi .l{font-size:10px;color:var(--mut);}
+  .wxi .v{font-size:18px;font-weight:800;}
+  .wxi .v small{font-size:11px;color:var(--mut);font-weight:600;}
+  .rainbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:9px;}
+  .rainbox .big{font-size:26px;font-weight:800;color:#1d4ed8;}
+  .tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .tbl th,.tbl td{padding:6px 8px;border-bottom:1px solid var(--line2);text-align:left;white-space:nowrap;}
+  .tbl th{font-size:9px;text-transform:uppercase;color:var(--mut);letter-spacing:.05em;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:8px;}
+  .legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px;}
+  .ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--mut2);height:150px;text-align:center;border:1px dashed var(--line);border-radius:11px;}
+  select.flt{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);}
+  .marker-tri{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid var(--c);filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));}
+  .marker-dot{width:15px;height:15px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+  .marker-sq{width:14px;height:14px;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
 </style>
 </head>
 <body>
-<div id="hdr"></div>
-<div id="app" class="wrap"><div class="center"><div class="spin"></div></div></div>
+<div id="root"><div class="center" style="min-height:100vh"><div class="spin"></div></div></div>
 <script>
 "use strict";
-const sb=GMS.sb,$=GMS.$,esc=GMS.esc;
+const sb=GMS.sb,esc=GMS.esc;
 const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
 const TARP_LV={1:'Low',2:'Medium',3:'High',4:'Very High'};
 const EEWS_C={LV1:'#16a34a',LV2:'#d97706',LV3:'#ea580c',LV4:'#dc2626'};
+let DATA={}, view='overview', map=null, layer=null, halo=null, mapFilter='all', charts={};
 
-function ago(ts){ if(!ts) return '—'; const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
-  if(m<1) return 'baru saja'; if(m<60) return m+' mnt lalu'; const h=Math.floor(m/60); if(h<24) return h+' jam lalu'; return Math.floor(h/24)+' hr lalu'; }
-function isStale(ts,maxMin){ return !ts || (Date.now()-new Date(ts).getTime())/60000 > (maxMin||15); }
+function ago(ts){ if(!ts)return'—';const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
+  if(m<1)return'baru saja';if(m<60)return m+' mnt';const h=Math.floor(m/60);if(h<24)return h+' jam';return Math.floor(h/24)+' hr';}
+function stale(ts,mx){return !ts||(Date.now()-new Date(ts).getTime())/60000>(mx||15);}
+function num(x){const n=parseFloat(x);return isNaN(n)?null:n;}
 
-// inline sparkline svg
-function spark(vals,color){ if(!vals||vals.length<2) return '';
-  const w=120,h=30,min=Math.min(...vals),max=Math.max(...vals),rng=(max-min)||1;
-  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*w).toFixed(1)},${(h-((v-min)/rng)*h).toFixed(1)}`).join(' ');
-  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${color}" stroke-width="1.6" points="${pts}"/></svg>`; }
+function extStatus(s){ const v=Math.abs(s.latest_value||0); const th=s.thresholds||{};
+  const rtc=num(th.rtc), rtw=num(th.rtw);
+  if(rtc!=null && v>=rtc) return 'Very High';
+  if(rtw!=null && v>=rtw) return 'High';
+  return 'Low'; }
+function deviceStatus(devId){ const ex=(DATA.sensors||[]).filter(s=>s.external_device_id===devId && s.kind==='extensometer');
+  let ord=1; ex.forEach(s=>{ const o={'Low':1,'Medium':2,'High':3,'Very High':4}[extStatus(s)]; if(o>ord)ord=o; }); return TARP_LV[ord]; }
 
-// AWS weather display config
-const WX={
-  'AIO Temperature':{ic:'🌡️',c:'#ef4444',lab:'Suhu'},
-  'AIO Humidity':{ic:'💧',c:'#0ea5e9',lab:'Kelembapan'},
-  'AIO Atmosphere':{ic:'🧭',c:'#6366f1',lab:'Tekanan Udara'},
-  'AIO Wind Speed':{ic:'💨',c:'#14b8a6',lab:'Kec. Angin'},
-  'AIO Wind Direction':{ic:'🧭',c:'#8b5cf6',lab:'Arah Angin'},
-  'AIO Radiation':{ic:'☀️',c:'#f59e0b',lab:'Radiasi'},
-  'Misole Rainfall Minute':{ic:'🌧️',c:'#2563eb',lab:'Hujan/menit'},
-  'Misole Rainfall Hour':{ic:'🌧️',c:'#1d4ed8',lab:'Hujan/jam'},
-};
-function fmtVal(s){
-  let v=s.latest_value, unit=s.unit;
-  if(v==null) return {v:'—',unit:''};
-  // koreksi Atmosphere: API label hPa tapi nilainya kPa
-  if(s.sensor_type_name==='AIO Atmosphere'){ return {v:(v).toFixed(2), unit:'kPa', extra:'≈ '+(v*10).toFixed(0)+' hPa'}; }
-  if(s.sensor_type_name==='AIO Wind Direction'){ const dirs=['U','TL','T','TG','S','BD','B','BL']; const d=dirs[Math.round(v/45)%8]; return {v:v.toFixed(0), unit:'°', extra:d}; }
-  const dec = Math.abs(v)>=100?0:(Math.abs(v)>=10?1:2);
-  return {v:Number(v).toFixed(dec), unit:unit||''};
-}
-
-async function load(){
-  const since = new Date(Date.now()-6*3600*1000).toISOString();
-  const [sensorsRes, extRes, inspRes, locRes, eqRes] = await Promise.all([
+async function loadAll(){
+  const since=new Date(Date.now()-12*3600*1000).toISOString();
+  const [sn,rain,insp,loc,eq,extr,wxr]=await Promise.all([
     sb.from('v_instrument_sensors').select('*'),
-    sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since).order('ts',{ascending:true}),
+    sb.from('v_rain_status').select('*'),
     sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
-    sb.from('locations').select('id,name,area_code'),
-    sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(6),
+    sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
+    sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(8),
+    sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since).order('ts',{ascending:true}),
+    sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since).order('ts',{ascending:true}),
   ]);
-  const sensors=sensorsRes.data||[], ext=extRes.data||[], insp=inspRes.data||[], locs=locRes.data||[], eqs=eqRes.data||[];
-
-  // ---- KPI ----
-  const locMap={}; locs.forEach(l=>locMap[l.id]=l);
-  const latestIns={}; insp.forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
-  const insRows=Object.values(latestIns);
-  const cnt={Low:0,Medium:0,High:0,'Very High':0}; let maxT=0;
-  insRows.forEach(r=>{ cnt[r.risk_final]=(cnt[r.risk_final]||0)+1; maxT=Math.max(maxT,r.tarp_level||0); });
-  const insLv=TARP_LV[maxT]||'Low';
-  const eqLast=eqs[0];
-  const eqTarp=eqLast?eqLast.status:'-';
-  const extSensors=sensors.filter(s=>s.kind==='extensometer');
-  const wxSensors=sensors.filter(s=>s.kind==='weather');
-  const newestSensorTs=sensors.reduce((mx,s)=> s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx, null);
-
-  const html=[];
-  html.push('<div class="grid-kpi">'+
-    kpi(EEWS_C[eqTarp]||'#475569', eqLast?('M '+eqLast.magnitude):'—', 'EEWS · Gempa terbaru', eqLast?(esc((eqLast.wilayah||'').slice(0,28))+' · '+ago(eqLast.tanggal)):'tidak ada data')+
-    kpi(RC[insLv]||'#16a34a', 'T'+(maxT||'–'), 'Inspeksi · TARP tertinggi', insRows.length+' lokasi terpantau')+
-    kpi('#0891b2', String(extSensors.length), 'Extensometer aktif', 'displacement (mm)')+
-    kpi('#0d9488', String(wxSensors.length), 'Sensor AWS aktif', 'cuaca / hidrologi')+
-  '</div>');
-  html.push('<div class="row" style="justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;color:var(--mut)">Instrumen update: '+(newestSensorTs?ago(newestSensorTs):'—')+(isStale(newestSensorTs,15)?' <span class="stale">(perlu dicek)</span>':'')+'</div><button class="btn" style="padding:6px 11px" onclick="load()">&#8635;</button></div>');
-
-  // ---- EXTENSOMETER ----
-  const extSeries={}; ext.forEach(r=>{ const k=r.external_device_id+'·'+r.sensor_name; (extSeries[k]=extSeries[k]||[]).push(r.value); });
-  html.push('<div class="sec-h">📏 Extensometer (Displacement)<span class="ln"></span></div>');
-  if(extSensors.length){
-    html.push('<div class="cards ext">'+extSensors.map(s=>{ const k=s.external_device_id+'·'+s.sensor_name; const series=extSeries[k]||[];
-      const f=fmtVal(s);
-      return '<div class="card"><div class="row" style="justify-content:space-between"><span class="ic">📏</span>'+
-        '<span class="sub">dev '+esc(s.external_device_id)+'</span></div>'+
-        '<div class="nm">'+esc(s.sensor_name)+'</div>'+
-        '<div class="val">'+f.v+' <small>'+f.unit+'</small></div>'+
-        spark(series,'#ea580c')+
-        '<div class="sub">'+(s.latest_ts?ago(s.latest_ts):'—')+'</div></div>';
-    }).join('')+'</div>');
-  } else html.push('<div style="color:var(--mut);font-size:13px">Belum ada data extensometer.</div>');
-
-  // ---- AWS WEATHER ----
-  html.push('<div class="sec-h">🌦️ AWS / Cuaca (Vaisala)<span class="ln"></span></div>');
-  if(wxSensors.length){
-    const order=['AIO Temperature','AIO Humidity','AIO Atmosphere','Misole Rainfall Minute','Misole Rainfall Hour','AIO Wind Speed','AIO Wind Direction','AIO Radiation'];
-    const sorted=wxSensors.slice().sort((a,b)=>order.indexOf(a.sensor_type_name)-order.indexOf(b.sensor_type_name));
-    html.push('<div class="cards">'+sorted.map(s=>{ const wx=WX[s.sensor_type_name]||{ic:'📟',c:'#64748b',lab:s.sensor_type_name}; const f=fmtVal(s);
-      return '<div class="card" style="--c:'+wx.c+'"><div class="row" style="justify-content:space-between"><span class="ic">'+wx.ic+'</span><span class="sub">dev '+esc(s.external_device_id)+'</span></div>'+
-        '<div class="nm">'+esc(wx.lab)+'</div>'+
-        '<div class="val" style="color:'+wx.c+'">'+f.v+' <small>'+f.unit+'</small></div>'+
-        '<div class="sub">'+(f.extra?esc(f.extra)+' · ':'')+(s.latest_ts?ago(s.latest_ts):'—')+'</div></div>';
-    }).join('')+'</div>');
-  } else html.push('<div style="color:var(--mut);font-size:13px">Belum ada data AWS.</div>');
-
-  // ---- INSPECTION RISK + EEWS LIST ----
-  html.push('<div class="twocol" style="margin-top:8px">');
-  // inspection
-  const sortedIns=insRows.slice().sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,6);
-  html.push('<div><div class="sec-h">⛰️ Risiko Inspeksi<span class="ln"></span></div>'+
-    '<div class="row" style="gap:6px;margin-bottom:8px">'+['Low','Medium','High','Very High'].map(k=>'<span class="pill '+k.replace(' ','')+'">'+k+' '+(cnt[k]||0)+'</span>').join('')+'</div>'+
-    sortedIns.map(r=>{const l=locMap[r.location_id]||{};const col=RC[r.risk_final]||RC.Low;
-      return '<a class="lrow" style="--c:'+col+'" href="report.html?type=inspeksi&id='+r.id+'"><div class="bar"></div><div style="flex:1"><div style="font-weight:700;font-size:13px">'+esc(l.name||('#'+r.location_id))+'</div><div class="sub">'+(r.inspection_date||'').slice(0,10)+' · '+esc(r.approval_status||'')+'</div></div><div style="text-align:right"><b style="color:'+col+'">'+(r.total_score||0)+'</b><div class="sub">TARP'+(r.tarp_level||0)+'</div></div></a>';
-    }).join('')+'</div>');
-  // eews list
-  html.push('<div><div class="sec-h">⚡ Gempa Terkini (EEWS)<span class="ln"></span></div>'+
-    eqs.map(e=>{const col=EEWS_C[e.status]||'#475569';
-      return '<div class="lrow" style="--c:'+col+'"><div class="bar"></div><div style="flex:1"><div style="font-weight:700;font-size:13px">M '+e.magnitude+' · '+esc((e.wilayah||'').slice(0,30))+'</div><div class="sub">'+esc(e.kedalaman||'')+' · '+ago(e.tanggal)+'</div></div><span class="pill" style="color:'+col+';border:1px solid '+col+'33;background:'+col+'14">'+esc(e.status||'')+'</span></div>';
-    }).join('')+'<a class="btn block" style="margin-top:6px;text-decoration:none" href="eews.html">Buka Dashboard EEWS →</a></div>');
-  html.push('</div>');
-
-  html.push('<p class="mono" style="font-size:10px;color:var(--mut2);text-align:center;margin-top:18px">Auto-refresh 5 mnt · diperbarui '+new Date().toLocaleTimeString('id-ID')+' · IGP Morowali · PT Vale</p>');
-
-  $("app").innerHTML=html.join('');
+  DATA={ sensors:sn.data||[], rain:rain.data||[], insp:insp.data||[], locs:loc.data||[], eq:eq.data||[], extSeries:extr.data||[], wxSeries:wxr.data||[] };
+  render();
 }
-function kpi(color,v,l,s){ return '<div class="kpi" style="background:'+color+'"><div class="v">'+esc(v)+'</div><div class="l">'+esc(l)+'</div><div class="s">'+esc(s)+'</div></div>'; }
-window.load=load;
+
+function utm(e,n){const a=6378137,ec=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;const mu=M/(a*(1-ec/4-3*ec*ec/64)),e1=(1-Math.sqrt(1-ec))/(1+Math.sqrt(1-ec));const phi=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);const N=a/Math.sqrt(1-ec*Math.sin(phi)**2),T=Math.tan(phi)**2,C=(ec/(1-ec))*Math.cos(phi)**2,R=a*(1-ec)/(1-ec*Math.sin(phi)**2)**1.5,D=x/(N*k0);const lat=phi-(N*Math.tan(phi)/R)*(D*D/2-(5+3*T+10*C-4*C*C-9*ec)*D**4/24);const lng=(123*Math.PI/180)+(D-(1+2*T+C)*D**3/6)/Math.cos(phi);return{lat:lat*180/Math.PI,lng:lng*180/Math.PI};}
+function locLatLng(l){ if(l.lat&&l.lng)return{lat:+l.lat,lng:+l.lng}; if(l.easting&&l.northing)return utm(+l.easting,+l.northing); return null; }
+
+function kpis(){
+  const sensors=DATA.sensors;
+  const total=sensors.length;
+  const online=sensors.filter(s=>!stale(s.latest_ts,15)).length;
+  const offline=total-online;
+  const newest=sensors.reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null);
+  const extAlerts=sensors.filter(s=>s.kind==='extensometer'&&extStatus(s)!=='Low').length;
+  const latestIns={}; DATA.insp.forEach(d=>{if(!latestIns[d.location_id])latestIns[d.location_id]=d;});
+  const insAlerts=Object.values(latestIns).filter(r=>r.risk_final==='High'||r.risk_final==='Very High').length;
+  const alerts=extAlerts+insAlerts;
+  const quality=total?Math.round(online/total*100):0;
+  const overall=alerts>0?(alerts>2?{t:'WASPADA',c:'#dc2626'}:{t:'PERHATIAN',c:'#d97706'}):{t:'NORMAL',c:'#16a34a'};
+  const card=(ic,icbg,icc,v,vc,l,s)=>`<div class="kc"><div class="ic" style="background:${icbg};color:${icc}">${ic}</div><div><div class="l">${l}</div><div class="v" style="color:${vc||'var(--txt)'}">${v}</div><div class="s">${s}</div></div></div>`;
+  return `<div class="kpis">
+    ${card('&#10003;','#f0fdf4','#16a34a',overall.t,overall.c,'Status Keseluruhan',alerts?(alerts+' perlu perhatian'):'Semua normal')}
+    ${card('&#9707;','#eef2ff','#4f46e5',total,'','Total Sensor','Online '+online+' · Offline '+offline)}
+    ${card('&#9888;','#fff7ed','#ea580c',alerts,alerts?'#ea580c':'#16a34a','Alert Aktif','Instrumen '+extAlerts+' · Inspeksi '+insAlerts)}
+    ${card('&#128337;','#eff6ff','#2563eb',newest?ago(newest):'—','','Update Terakhir',newest?new Date(newest).toLocaleTimeString('id-ID'):'—')}
+    ${card('&#9678;','#f0fdf4','#16a34a',quality+'%',quality>=90?'#16a34a':'#d97706','Kualitas Data',quality>=90?'Baik':'Periksa sensor')}
+  </div>`;
+}
+
+function buildMap(){
+  const el=document.getElementById('map'); if(!el) return;
+  const devs={}; (DATA.sensors||[]).forEach(s=>{ if(s.lat&&s.lng) devs[s.external_device_id]={lat:+s.lat,lng:+s.lng,id:s.external_device_id}; });
+  const insLatest={}; DATA.insp.forEach(d=>{if(!insLatest[d.location_id])insLatest[d.location_id]=d;});
+  const locMap={}; DATA.locs.forEach(l=>locMap[l.id]=l);
+  if(!map){ map=L.map('map',{scrollWheelZoom:false,zoomControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM'}).addTo(map); }
+  if(layer) layer.remove(); if(halo) halo.remove();
+  layer=L.layerGroup().addTo(map); halo=L.layerGroup().addTo(map);
+  const all=[];
+  if(mapFilter==='all'||mapFilter==='instrumen'){
+    Object.values(devs).forEach(d=>{ const lvl=deviceStatus(d.id), col=RC[lvl]; all.push([d.lat,d.lng]);
+      if(lvl==='High'||lvl==='Very High') L.circle([d.lat,d.lng],{radius:120,color:col,fillColor:col,fillOpacity:.12,weight:1}).addTo(halo);
+      L.marker([d.lat,d.lng],{icon:L.divIcon({className:'',html:'<div class="marker-tri" style="--c:'+col+'"></div>',iconSize:[16,15],iconAnchor:[8,15]})}).bindPopup(popupDevice(d.id,'extensometer')).addTo(layer);
+      L.marker([d.lat,d.lng+0.0007],{icon:L.divIcon({className:'',html:'<div class="marker-dot" style="--c:#0d9488"></div>',iconSize:[15,15],iconAnchor:[7,7]})}).bindPopup(popupDevice(d.id,'weather')).addTo(layer);
+    });
+  }
+  if(mapFilter==='all'||mapFilter==='inspeksi'){
+    Object.values(insLatest).forEach(r=>{ const l=locMap[r.location_id]; const ll=l&&locLatLng(l); if(!ll)return;
+      const col=RC[r.risk_final]||RC.Low; all.push([ll.lat,ll.lng]);
+      if(r.risk_final==='High'||r.risk_final==='Very High') L.circle([ll.lat,ll.lng],{radius:140,color:col,fillColor:col,fillOpacity:.12,weight:1}).addTo(halo);
+      L.marker([ll.lat,ll.lng],{icon:L.divIcon({className:'',html:'<div class="marker-sq" style="--c:'+col+'"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).bindPopup('<b>'+esc(l.name)+'</b><br>Risiko '+esc(r.risk_final||'')+' · TARP'+(r.tarp_level||0)+'<br>Skor '+(r.total_score||0)+'<br><a href="report.html?type=inspeksi&id='+r.id+'">Laporan PDF &rarr;</a>').addTo(layer);
+    });
+  }
+  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.3)); }catch(e){ map.setView(all[0],13); } } else map.setView([-2.74,122.01],12);
+  setTimeout(()=>map.invalidateSize(),120);
+}
+function popupDevice(id,kind){
+  const ss=(DATA.sensors||[]).filter(s=>s.external_device_id===id&&s.kind===kind);
+  const title=kind==='extensometer'?'📏 Extensometer':'🌦️ AWS';
+  const rows=ss.map(s=>{ const f=fmtSensor(s); return esc(s.sensor_name)+': <b>'+f.v+' '+f.unit+'</b>'; }).join('<br>');
+  const lvl=kind==='extensometer'?deviceStatus(id):null;
+  return '<b>'+title+' — dev '+esc(id)+'</b>'+(lvl?' · <span style="color:'+RC[lvl]+'">'+lvl+'</span>':'')+'<br>'+(rows||'—');
+}
+
+function fmtSensor(s){ let v=s.latest_value, unit=s.unit;
+  if(v==null) return {v:'—',unit:'',extra:''};
+  if(s.sensor_type_name==='AIO Atmosphere') return {v:Number(v).toFixed(2),unit:'kPa',extra:'≈'+(v*10).toFixed(0)+' hPa'};
+  if(s.sensor_type_name==='AIO Wind Direction'){const d=['U','TL','T','TG','S','BD','B','BL'][Math.round(v/45)%8];return{v:Number(v).toFixed(0),unit:'°',extra:d};}
+  const dec=Math.abs(v)>=100?0:Math.abs(v)>=10?1:2; return {v:Number(v).toFixed(dec),unit:unit||'',extra:''};
+}
+
+function awsPanel(){
+  const wx=(DATA.sensors||[]).filter(s=>s.kind==='weather');
+  const get=t=>wx.find(s=>s.sensor_type_name===t);
+  const rain=(DATA.rain&&DATA.rain[0])||{};
+  const chip=(t,lab,ic)=>{const s=get(t);if(!s)return'';const f=fmtSensor(s);return '<div class="wxi"><div class="l">'+ic+' '+lab+'</div><div class="v">'+f.v+' <small>'+f.unit+'</small></div>'+(f.extra?'<div class="l">'+esc(f.extra)+'</div>':'')+'</div>';};
+  const dur=rain.ongoing_rain_minutes||0;
+  return '<div class="panel"><h3>🌦️ AWS (Automatic Weather Station)<span class="sp">dev 372</span></h3>'+
+    '<div class="rainbox"><div class="l" style="font-size:11px;color:#1e40af">DURASI HUJAN BERLANGSUNG</div>'+
+    '<div class="big">'+(rain.is_raining?dur+' <small style="font-size:13px">menit</small>':'Tidak hujan')+'</div>'+
+    '<div class="l" style="font-size:10.5px;color:#3b6">Hari ini: '+(rain.rain_minutes_today||0)+' mnt · '+(rain.rain_total_today_mm||0)+' mm · update '+(rain.latest_ts?ago(rain.latest_ts):'—')+'</div></div>'+
+    '<div class="wx">'+
+      chip('AIO Temperature','Suhu','🌡️')+chip('AIO Humidity','Kelembapan','💧')+
+      chip('Misole Rainfall Minute','Hujan/mnt','🌧️')+chip('Misole Rainfall Hour','Hujan/jam','🌧️')+
+      chip('AIO Wind Speed','Angin','💨')+chip('AIO Wind Direction','Arah','🧭')+
+      chip('AIO Atmosphere','Tekanan','🧭')+chip('AIO Radiation','Radiasi','☀️')+
+    '</div><canvas id="rainChart" height="90" style="margin-top:10px"></canvas></div>';
+}
+
+function extPanel(big){
+  return '<div class="panel"><h3>📏 Extensometer<span class="sp">12 jam · mm</span></h3>'+
+    '<canvas id="extChart" height="'+(big?120:150)+'"></canvas><div class="legend" id="extLegend"></div></div>';
+}
+function drawExt(){
+  const cv=document.getElementById('extChart'); if(!cv||!window.Chart) return;
+  const byS={}; DATA.extSeries.forEach(r=>{const k=r.external_device_id+'·'+r.sensor_name;(byS[k]=byS[k]||[]).push(r);});
+  const palette=['#ea580c','#eab308','#2563eb','#7c3aed','#16a34a','#dc2626','#0891b2','#db2777','#65a30d','#0d9488'];
+  const labels=[...new Set(DATA.extSeries.map(r=>r.ts))].sort();
+  let i=0; const ds=Object.keys(byS).map(k=>{const m={};byS[k].forEach(r=>m[r.ts]=r.value);const c=palette[i++%palette.length];
+    return {label:k,data:labels.map(t=>m[t]??null),borderColor:c,backgroundColor:c,borderWidth:1.6,pointRadius:0,spanGaps:true,tension:.25};});
+  if(charts.ext)charts.ext.destroy();
+  charts.ext=new Chart(cv,{type:'line',data:{labels:labels.map(t=>new Date(t).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:7,font:{size:9}},grid:{display:false}},y:{ticks:{font:{size:9}},title:{display:true,text:'mm',font:{size:9}}}}}});
+  const leg=document.getElementById('extLegend'); if(leg) leg.innerHTML=ds.map(d=>'<i><span class="dot" style="background:'+d.borderColor+'"></span>'+esc(d.label)+'</i>').join('');
+}
+function drawRain(){
+  const cv=document.getElementById('rainChart'); if(!cv||!window.Chart) return;
+  const rs=DATA.wxSeries.filter(r=>r.sensor_name&&r.sensor_name.indexOf('RainFall Minute')>=0);
+  if(charts.rain)charts.rain.destroy();
+  charts.rain=new Chart(cv,{type:'bar',data:{labels:rs.map(r=>new Date(r.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),datasets:[{label:'Hujan',data:rs.map(r=>r.value),backgroundColor:'#2563eb'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:6,font:{size:8}},grid:{display:false}},y:{ticks:{font:{size:8}},beginAtZero:true}}}});
+}
+
+function riskPanel(){
+  const latestIns={}; DATA.insp.forEach(d=>{if(!latestIns[d.location_id])latestIns[d.location_id]=d;});
+  const rows=Object.values(latestIns); const cnt={Low:0,Medium:0,High:0,'Very High':0};
+  rows.forEach(r=>cnt[r.risk_final]=(cnt[r.risk_final]||0)+1);
+  const locMap={}; DATA.locs.forEach(l=>locMap[l.id]=l);
+  const top=rows.slice().sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,5);
+  return '<div class="panel"><h3>⛰️ Risiko Inspeksi<span class="sp">'+rows.length+' lokasi</span></h3>'+
+    '<div class="row" style="gap:5px;margin-bottom:9px;flex-wrap:wrap">'+['Low','Medium','High','Very High'].map(k=>'<span class="pill '+k.replace(' ','')+'">'+k+' '+(cnt[k]||0)+'</span>').join('')+'</div>'+
+    '<table class="tbl"><thead><tr><th>Lokasi</th><th>Risiko</th><th>Skor</th><th></th></tr></thead><tbody>'+
+    (top.map(r=>{const l=locMap[r.location_id]||{};return '<tr><td>'+esc(l.name||'#'+r.location_id)+'</td><td><span class="pill '+(r.risk_final||'Low').replace(' ','')+'">'+esc(r.risk_final||'')+'</span></td><td><b>'+(r.total_score||0)+'</b></td><td><a href="report.html?type=inspeksi&id='+r.id+'" style="color:var(--blue2)">PDF</a></td></tr>';}).join('')||'<tr><td colspan=4 style="color:var(--mut)">Belum ada inspeksi</td></tr>')+
+    '</tbody></table></div>';
+}
+function eewsPanel(){
+  return '<div class="panel"><h3>⚡ Gempa Terkini (EEWS)<span class="sp"><a href="eews.html" style="color:var(--blue2)">buka →</a></span></h3>'+
+    '<table class="tbl"><thead><tr><th>Mag</th><th>Wilayah</th><th>TARP</th><th>Waktu</th></tr></thead><tbody>'+
+    DATA.eq.map(e=>'<tr><td><b>M'+e.magnitude+'</b></td><td>'+esc((e.wilayah||'').slice(0,22))+'</td><td><span class="dot" style="background:'+(EEWS_C[e.status]||'#64748b')+'"></span> '+esc(e.status||'')+'</td><td>'+ago(e.tanggal)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+function placeholder(name){ return '<div class="panel"><h3>'+name+'</h3><div class="ph"><div style="font-size:26px">&#128268;</div><div style="font-size:13px;font-weight:600;color:var(--txt2)">Belum terhubung</div><div style="font-size:11px;max-width:340px">Sumber data '+name+' belum tersambung. Saat ini hanya Argatech (extensometer & AWS) yang aktif.</div></div></div>'; }
+
+function render(){
+  const nav=[['overview','&#9636; Overview'],['ext','&#128207; Extensometer'],['aws','&#127782; AWS'],['rts','&#127919; Robotic Total Station'],['inc','&#128207; In-Place Inclinometer'],['vwp','&#128167; VWP']];
+  let body='';
+  if(view==='overview'){
+    body = kpis() +
+      '<div class="ov">'+
+        '<div class="panel"><h3>🗺️ Peta Situs<span class="sp"><select class="flt" id="mapFlt"><option value="all">Semua</option><option value="instrumen">Instrumen</option><option value="inspeksi">Inspeksi</option></select></span></h3>'+
+          '<div id="map"></div>'+
+          '<div class="legend"><i><span class="marker-tri" style="--c:#16a34a;display:inline-block"></span> Extensometer</i><i><span class="dot" style="background:#0d9488"></span> AWS</i><i><span class="marker-sq" style="--c:#16a34a;display:inline-block"></span> Inspeksi</i><i>warna = level risiko / TARP</i></div></div>'+
+        awsPanel()+ extPanel(false)+ riskPanel()+ eewsPanel()+
+        '<div class="panel"><h3>🩺 System Health</h3><table class="tbl"><tbody>'+
+          '<tr><td>Argatech API</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> Online</td></tr>'+
+          '<tr><td>Database</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> Online</td></tr>'+
+          '<tr><td>EEWS (BMKG cron)</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> 1 mnt</td></tr>'+
+          '<tr><td>Pull instrumen</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> 2 mnt</td></tr>'+
+          '</tbody></table><div class="row" style="gap:6px;margin-top:10px"><a class="btn" style="flex:1;text-decoration:none;font-size:12px" href="dashboard.html">Risiko</a><a class="btn" style="flex:1;text-decoration:none;font-size:12px" href="database.html">Database</a></div></div>'+
+      '</div>';
+  } else if(view==='ext'){
+    const ex=(DATA.sensors||[]).filter(s=>s.kind==='extensometer');
+    body = extPanel(true) +
+      '<div class="panel" style="margin-top:12px"><h3>Daftar Sensor Extensometer</h3>'+
+      '<table class="tbl"><thead><tr><th>Device</th><th>Sensor</th><th>Nilai</th><th>Status</th><th>Update</th></tr></thead><tbody>'+
+      ex.map(s=>{const f=fmtSensor(s);const st=extStatus(s);return '<tr><td>'+esc(s.external_device_id)+'</td><td>'+esc(s.sensor_name)+'</td><td><b>'+f.v+' '+f.unit+'</b></td><td><span class="pill '+st.replace(' ','')+'">'+st+'</span></td><td>'+ago(s.latest_ts)+'</td></tr>';}).join('')+
+      '</tbody></table></div>';
+  } else if(view==='aws'){ body = awsPanel(); }
+  else if(view==='rts'){ body=placeholder('Robotic Total Station'); }
+  else if(view==='inc'){ body=placeholder('In-Place Inclinometer'); }
+  else if(view==='vwp'){ body=placeholder('Vibrating Wire Piezometer (VWP)'); }
+
+  const newest=(DATA.sensors||[]).reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null);
+  document.getElementById('root').innerHTML=
+  '<div class="shell"><aside class="side">'+
+      '<div class="brand"><div class="lg">&#9650;</div><div><b>GEOTECH</b><small>MONITORING</small></div></div>'+
+      '<nav>'+nav.map(n=>'<button class="'+(view===n[0]?'act':'')+'" onclick="setView(\''+n[0]+'\')">'+n[1]+'</button>').join('')+
+        '<div class="grp">Lainnya</div>'+
+        '<button onclick="location.href=\'inspeksi.html\'">&#9633; Inspeksi</button>'+
+        '<button onclick="location.href=\'pera.html\'">&#9888; PERA</button></nav>'+
+      '<div class="foot"><a href="index.html">&#8592; Menu Utama</a></div></aside>'+
+    '<div class="main"><div class="top"><h1>ONE PAGE DASHBOARD MONITORING</h1>'+
+        '<div class="meta"><span>&#128337; '+(newest?new Date(newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—')+'</span>'+
+        '<button class="btn" style="padding:6px 11px" onclick="loadAll()">&#8635;</button></div></div>'+
+      '<div class="content">'+body+'</div></div></div>';
+
+  if(view==='overview'){ buildMap(); drawExt(); drawRain(); const f=document.getElementById('mapFlt'); if(f){f.value=mapFilter;f.onchange=function(e){mapFilter=e.target.value;buildMap();};} }
+  if(view==='ext'){ drawExt(); }
+  if(view==='aws'){ drawRain(); }
+}
+function setView(v){ view=v; render(); }
+window.setView=setView; window.loadAll=loadAll;
 
 (async()=>{
-  $("hdr").innerHTML=GMS.header("Monitoring Terintegrasi","Bahodopi Block 2 & 3",{net:true,back:true}); GMS.setNet();
-  const p=await GMS.guard({mount:"#app"}); if(!p) return;
-  await load();
-  setInterval(()=>{ if(GMS.isOnline()) load().catch(()=>{}); }, 300000);
-  window.addEventListener("online",GMS.setNet); window.addEventListener("offline",GMS.setNet);
+  const p=await GMS.guard({mount:'#root'}); if(!p) return;
+  await loadAll();
+  setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 300000);
 })();
 </script>
 </body>
