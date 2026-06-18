@@ -1,294 +1,1077 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0b1f3a">
-<link rel="manifest" href="manifest.json">
-<title>Monitoring Terintegrasi — Bahodopi</title>
-<link rel="stylesheet" href="common.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="common.js"></script>
-<style>
-  body{background:#eef1f6;}
-  .shell{display:flex;min-height:100vh;}
-  .side{width:212px;flex:0 0 212px;background:var(--navy);color:#cdd9ec;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
-  .side .brand{display:flex;align-items:center;gap:9px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
-  .side .brand .lg{width:32px;height:32px;border-radius:8px;background:rgba(251,146,60,.16);border:1px solid rgba(251,146,60,.45);color:#fb923c;display:flex;align-items:center;justify-content:center;font-size:16px;}
-  .side .brand b{color:#fff;font-size:13px;line-height:1.15;}
-  .side .brand small{display:block;color:#7e93b4;font-size:9px;letter-spacing:.04em;}
-  .side nav{padding:10px 8px;flex:1;overflow:auto;}
-  .side nav button{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#aebfd8;padding:10px 12px;border-radius:9px;font-size:13px;cursor:pointer;text-align:left;margin-bottom:2px;}
-  .side nav button.act{background:rgba(37,99,235,.22);color:#fff;}
-  .side nav button:hover{background:rgba(255,255,255,.06);}
-  .side nav .grp{font-size:9px;letter-spacing:.12em;color:#5f769b;text-transform:uppercase;padding:12px 12px 5px;}
-  .side .foot{padding:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;}
-  .side .foot a{color:#aebfd8;text-decoration:none;}
-  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
-  .top{background:#fff;border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;}
-  .top h1{font-size:15px;margin:0;font-weight:800;letter-spacing:.02em;}
-  .top .meta{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--mut);}
-  .content{padding:14px 16px 30px;}
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:13px;}
-  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr);}}
-  .kc{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px 14px;display:flex;gap:11px;align-items:center;}
-  .kc .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;}
-  .kc .v{font-size:21px;font-weight:800;line-height:1;}
-  .kc .l{font-size:10px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
-  .kc .s{font-size:10.5px;color:var(--mut2);}
-  .ov{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:12px;}
-  @media(max-width:1240px){.ov{grid-template-columns:1fr 1fr;}}
-  @media(max-width:820px){.ov{grid-template-columns:1fr;}}
-  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;}
-  .panel h3{margin:0 0 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);display:flex;align-items:center;gap:7px;}
-  .panel h3 .sp{margin-left:auto;font-weight:400;color:var(--mut);text-transform:none;letter-spacing:0;}
-  #map{height:330px;border-radius:11px;overflow:hidden;z-index:0;}
-  .wx{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
-  .wxi{border:1px solid var(--line2);border-radius:10px;padding:9px 10px;}
-  .wxi .l{font-size:10px;color:var(--mut);}
-  .wxi .v{font-size:18px;font-weight:800;}
-  .wxi .v small{font-size:11px;color:var(--mut);font-weight:600;}
-  .rainbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:9px;}
-  .rainbox .big{font-size:26px;font-weight:800;color:#1d4ed8;}
-  .tbl{width:100%;border-collapse:collapse;font-size:12px;}
-  .tbl th,.tbl td{padding:6px 8px;border-bottom:1px solid var(--line2);text-align:left;white-space:nowrap;}
-  .tbl th{font-size:9px;text-transform:uppercase;color:var(--mut);letter-spacing:.05em;}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:8px;}
-  .legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px;}
-  .ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--mut2);height:150px;text-align:center;border:1px dashed var(--line);border-radius:11px;}
-  select.flt{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);}
-  .marker-tri{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid var(--c);filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));}
-  .marker-dot{width:15px;height:15px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-  .marker-sq{width:14px;height:14px;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1f3a" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Monitoring Terintegrasi — One Page Dashboard</title>
+  <link rel="stylesheet" href="common.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="common.js"></script>
+  <style>
+    body { background:#eef1f6; }
+    .shell{display:flex;min-height:100vh;}
+    .side{width:218px;flex:0 0 218px;background:var(--navy);color:#cdd9ec;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+    .side .brand{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+    .side .brand .lg{width:34px;height:34px;border-radius:10px;background:rgba(251,146,60,.16);border:1px solid rgba(251,146,60,.45);color:#fb923c;display:flex;align-items:center;justify-content:center;font-size:16px;}
+    .side .brand b{color:#fff;font-size:13px;line-height:1.15;}
+    .side .brand small{display:block;color:#7e93b4;font-size:9px;letter-spacing:.04em;}
+    .side nav{padding:10px 8px;flex:1;overflow:auto;}
+    .side nav button{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#aebfd8;padding:10px 12px;border-radius:9px;font-size:13px;cursor:pointer;text-align:left;margin-bottom:2px;}
+    .side nav button.act{background:rgba(37,99,235,.22);color:#fff;}
+    .side nav button:hover{background:rgba(255,255,255,.06);}
+    .side nav .grp{font-size:9px;letter-spacing:.12em;color:#5f769b;text-transform:uppercase;padding:12px 12px 5px;}
+    .side .foot{padding:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;}
+    .side .foot a{color:#aebfd8;text-decoration:none;}
+
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+    .top{background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;}
+    .top .ttl{display:flex;flex-direction:column;gap:2px;}
+    .top h1{font-size:14px;margin:0;font-weight:900;letter-spacing:.02em;}
+    .top .sub{font-size:11px;color:var(--mut);}
+    .top .meta{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut);}
+    .content{padding:14px 16px 30px;}
+
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:12px;}
+    @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr);}}
+    .kc{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;gap:11px;align-items:center;}
+    .kc .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;}
+    .kc .v{font-size:20px;font-weight:900;line-height:1;}
+    .kc .l{font-size:10px;color:var(--mut);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
+    .kc .s{font-size:10.5px;color:var(--mut2);}
+
+    .grid-ov{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;}
+    @media(max-width:1240px){.grid-ov{grid-template-columns:1fr 1fr;}}
+    @media(max-width:820px){.grid-ov{grid-template-columns:1fr;}}
+
+    .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;}
+    .panel h3{margin:0 0 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);display:flex;align-items:center;gap:7px;}
+    .panel h3 .sp{margin-left:auto;font-weight:500;color:var(--mut);text-transform:none;letter-spacing:0;font-size:11px;}
+
+    .hero{display:flex;flex-direction:column;gap:10px;}
+    .hero .row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+    .badge{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;border:1px solid var(--line2);font-size:12px;font-weight:800;letter-spacing:.01em;}
+    .badge .dot{width:9px;height:9px;border-radius:999px;display:inline-block;background:var(--c);}
+    .hero .lead{font-size:12px;color:var(--txt2);line-height:1.4;}
+    .hero .lead b{font-weight:900;}
+    .hero .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    @media(max-width:820px){.hero .mini{grid-template-columns:repeat(2,1fr);}}
+    .mini .box{border:1px solid var(--line2);border-radius:12px;padding:9px 10px;}
+    .mini .box .k{font-size:9px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;}
+    .mini .box .v{font-size:14px;font-weight:900;margin-top:4px;}
+    .mini .box .s{font-size:10.5px;color:var(--mut2);margin-top:2px;}
+
+    #map{height:420px;border-radius:12px;overflow:hidden;z-index:0;}
+    .map-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:8px;}
+    .map-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px;}
+
+    .tbl{width:100%;border-collapse:collapse;font-size:12px;}
+    .tbl th,.tbl td{padding:7px 8px;border-bottom:1px solid var(--line2);text-align:left;white-space:nowrap;}
+    .tbl th{font-size:9px;text-transform:uppercase;color:var(--mut);letter-spacing:.05em;}
+
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid var(--line2);background:#f8fafc;color:var(--txt2);}
+    .pill.Low{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
+    .pill.Medium{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+    .pill.High{background:#fff7ed;border-color:#fed7aa;color:#9a3412;}
+    .pill.VeryHigh{background:#fef2f2;border-color:#fecaca;color:#991b1b;}
+    .pill.Offline{background:#f1f5f9;border-color:#e2e8f0;color:#334155;}
+
+    .ctrlbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .ctrlbar .seg{display:inline-flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden;}
+    .ctrlbar .seg button{border:none;background:#fff;padding:7px 10px;font-size:12px;cursor:pointer;color:var(--txt2);}
+    .ctrlbar .seg button.act{background:#eff6ff;color:#1d4ed8;font-weight:900;}
+    select.flt, input.flt{font-size:12px;padding:7px 9px;border-radius:10px;border:1px solid var(--line2);background:#fff;}
+    .btn2{border:none;border-radius:10px;background:var(--blue2);color:#fff;font-weight:900;padding:8px 10px;font-size:12px;cursor:pointer;}
+    .btn2.ghost{background:#fff;color:var(--txt2);border:1px solid var(--line2);font-weight:800;}
+
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:10px 0 0;}
+    @media(max-width:1240px){.stats{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr);}}
+    .stat{border:1px solid var(--line2);border-radius:12px;padding:10px 10px;}
+    .stat .k{font-size:9px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;}
+    .stat .v{font-size:15px;font-weight:900;margin-top:5px;}
+    .stat .s{font-size:10.5px;color:var(--mut2);margin-top:2px;}
+
+    .marker-tri{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:15px solid var(--c);filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));}
+    .marker-dot{width:15px;height:15px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+    .marker-sq{width:14px;height:14px;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+
+    .ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--mut2);height:220px;text-align:center;border:1px dashed var(--line);border-radius:12px;}
+    .smallnote{font-size:11px;color:var(--mut2);line-height:1.35;}
+    .mut{color:var(--mut2);}
+    .hr{height:1px;background:var(--line2);margin:10px 0;}
+
+    .leaflet-control-layers{border-radius:12px;border:1px solid rgba(15,23,42,.12);box-shadow:0 10px 30px rgba(2,6,23,.08);}
+    .leaflet-control-layers label{font-size:12px;}
+    .leaflet-control-layers-expanded{padding:10px 10px 8px;}
+  </style>
 </head>
 <body>
-<div id="root"><div class="center" style="min-height:100vh"><div class="spin"></div></div></div>
-<script>
-"use strict";
-const sb=GMS.sb,esc=GMS.esc;
-const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
-const TARP_LV={1:'Low',2:'Medium',3:'High',4:'Very High'};
-const EEWS_C={LV1:'#16a34a',LV2:'#d97706',LV3:'#ea580c',LV4:'#dc2626'};
-let DATA={}, view='overview', map=null, layer=null, halo=null, mapFilter='all', charts={};
+  <div id="root"><div class="center" style="min-height:100vh"><div class="spin"></div></div></div>
 
-function ago(ts){ if(!ts)return'—';const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
-  if(m<1)return'baru saja';if(m<60)return m+' mnt';const h=Math.floor(m/60);if(h<24)return h+' jam';return Math.floor(h/24)+' hr';}
-function stale(ts,mx){return !ts||(Date.now()-new Date(ts).getTime())/60000>(mx||15);}
-function num(x){const n=parseFloat(x);return isNaN(n)?null:n;}
+  <script>
+  "use strict";
+  const sb = GMS.sb, esc = GMS.esc;
 
-function extStatus(s){ const v=Math.abs(s.latest_value||0); const th=s.thresholds||{};
-  const rtc=num(th.rtc), rtw=num(th.rtw);
-  if(rtc!=null && v>=rtc) return 'Very High';
-  if(rtw!=null && v>=rtw) return 'High';
-  return 'Low'; }
-function deviceStatus(devId){ const ex=(DATA.sensors||[]).filter(s=>s.external_device_id===devId && s.kind==='extensometer');
-  let ord=1; ex.forEach(s=>{ const o={'Low':1,'Medium':2,'High':3,'Very High':4}[extStatus(s)]; if(o>ord)ord=o; }); return TARP_LV[ord]; }
+  // Referensi warna trigger: hijau – kuning – oranye – merah
+  const RC = { Low:'#16a34a', Medium:'#eab308', High:'#f97316', 'Very High':'#dc2626' };
+  const TARP_LV = { 1:'Low', 2:'Medium', 3:'High', 4:'Very High' };
+  const EEWS_C = { LV1:'#16a34a', LV2:'#eab308', LV3:'#f97316', LV4:'#dc2626' };
 
-async function loadAll(){
-  const since=new Date(Date.now()-12*3600*1000).toISOString();
-  const [sn,rain,insp,loc,eq,extr,wxr]=await Promise.all([
-    sb.from('v_instrument_sensors').select('*'),
-    sb.from('v_rain_status').select('*'),
-    sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
-    sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
-    sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(8),
-    sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since).order('ts',{ascending:true}),
-    sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since).order('ts',{ascending:true}),
-  ]);
-  DATA={ sensors:sn.data||[], rain:rain.data||[], insp:insp.data||[], locs:loc.data||[], eq:eq.data||[], extSeries:extr.data||[], wxSeries:wxr.data||[] };
-  render();
-}
+  const STATE = {
+    view: 'overview',
+    range: { overview:'24h', ext:'7d', aws:'7d' },
+    ext: { dev:'all', mode:'raw', agg:'daily' },
+    aws: { dev:'372', mode:'rain', agg:'daily' },
+  };
 
-function utm(e,n){const a=6378137,ec=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;const mu=M/(a*(1-ec/4-3*ec*ec/64)),e1=(1-Math.sqrt(1-ec))/(1+Math.sqrt(1-ec));const phi=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);const N=a/Math.sqrt(1-ec*Math.sin(phi)**2),T=Math.tan(phi)**2,C=(ec/(1-ec))*Math.cos(phi)**2,R=a*(1-ec)/(1-ec*Math.sin(phi)**2)**1.5,D=x/(N*k0);const lat=phi-(N*Math.tan(phi)/R)*(D*D/2-(5+3*T+10*C-4*C*C-9*ec)*D**4/24);const lng=(123*Math.PI/180)+(D-(1+2*T+C)*D**3/6)/Math.cos(phi);return{lat:lat*180/Math.PI,lng:lng*180/Math.PI};}
-function locLatLng(l){ if(l.lat&&l.lng)return{lat:+l.lat,lng:+l.lng}; if(l.easting&&l.northing)return utm(+l.easting,+l.northing); return null; }
+  let DATA = {}, map = null, mapOverlays = null, charts = {};
 
-function kpis(){
-  const sensors=DATA.sensors;
-  const total=sensors.length;
-  const online=sensors.filter(s=>!stale(s.latest_ts,15)).length;
-  const offline=total-online;
-  const newest=sensors.reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null);
-  const extAlerts=sensors.filter(s=>s.kind==='extensometer'&&extStatus(s)!=='Low').length;
-  const latestIns={}; DATA.insp.forEach(d=>{if(!latestIns[d.location_id])latestIns[d.location_id]=d;});
-  const insAlerts=Object.values(latestIns).filter(r=>r.risk_final==='High'||r.risk_final==='Very High').length;
-  const alerts=extAlerts+insAlerts;
-  const quality=total?Math.round(online/total*100):0;
-  const overall=alerts>0?(alerts>2?{t:'WASPADA',c:'#dc2626'}:{t:'PERHATIAN',c:'#d97706'}):{t:'NORMAL',c:'#16a34a'};
-  const card=(ic,icbg,icc,v,vc,l,s)=>`<div class="kc"><div class="ic" style="background:${icbg};color:${icc}">${ic}</div><div><div class="l">${l}</div><div class="v" style="color:${vc||'var(--txt)'}">${v}</div><div class="s">${s}</div></div></div>`;
-  return `<div class="kpis">
-    ${card('&#10003;','#f0fdf4','#16a34a',overall.t,overall.c,'Status Keseluruhan',alerts?(alerts+' perlu perhatian'):'Semua normal')}
-    ${card('&#9707;','#eef2ff','#4f46e5',total,'','Total Sensor','Online '+online+' · Offline '+offline)}
-    ${card('&#9888;','#fff7ed','#ea580c',alerts,alerts?'#ea580c':'#16a34a','Alert Aktif','Instrumen '+extAlerts+' · Inspeksi '+insAlerts)}
-    ${card('&#128337;','#eff6ff','#2563eb',newest?ago(newest):'—','','Update Terakhir',newest?new Date(newest).toLocaleTimeString('id-ID'):'—')}
-    ${card('&#9678;','#f0fdf4','#16a34a',quality+'%',quality>=90?'#16a34a':'#d97706','Kualitas Data',quality>=90?'Baik':'Periksa sensor')}
-  </div>`;
-}
+  function ago(ts){
+    if(!ts) return '—';
+    const m = Math.round((Date.now() - new Date(ts).getTime())/60000);
+    if(m < 1) return 'baru saja';
+    if(m < 60) return m + ' mnt';
+    const h = Math.floor(m/60);
+    if(h < 24) return h + ' jam';
+    return Math.floor(h/24) + ' hr';
+  }
+  function stale(ts, mx){ return !ts || (Date.now()-new Date(ts).getTime())/60000 > (mx||15); }
+  function num(x){ const n = parseFloat(x); return isNaN(n) ? null : n; }
+  function fmt(n, dec){ const x = Number(n); if(!isFinite(x)) return '—'; return x.toFixed(dec ?? (Math.abs(x)>=100?0:Math.abs(x)>=10?1:2)); }
 
-function buildMap(){
-  const el=document.getElementById('map'); if(!el) return;
-  const devs={}; (DATA.sensors||[]).forEach(s=>{ if(s.lat&&s.lng) devs[s.external_device_id]={lat:+s.lat,lng:+s.lng,id:s.external_device_id}; });
-  const insLatest={}; DATA.insp.forEach(d=>{if(!insLatest[d.location_id])insLatest[d.location_id]=d;});
-  const locMap={}; DATA.locs.forEach(l=>locMap[l.id]=l);
-  if(!map){ map=L.map('map',{scrollWheelZoom:false,zoomControl:true});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OSM'}).addTo(map); }
-  if(layer) layer.remove(); if(halo) halo.remove();
-  layer=L.layerGroup().addTo(map); halo=L.layerGroup().addTo(map);
-  const all=[];
-  if(mapFilter==='all'||mapFilter==='instrumen'){
-    Object.values(devs).forEach(d=>{ const lvl=deviceStatus(d.id), col=RC[lvl]; all.push([d.lat,d.lng]);
-      if(lvl==='High'||lvl==='Very High') L.circle([d.lat,d.lng],{radius:120,color:col,fillColor:col,fillOpacity:.12,weight:1}).addTo(halo);
-      L.marker([d.lat,d.lng],{icon:L.divIcon({className:'',html:'<div class="marker-tri" style="--c:'+col+'"></div>',iconSize:[16,15],iconAnchor:[8,15]})}).bindPopup(popupDevice(d.id,'extensometer')).addTo(layer);
-      L.marker([d.lat,d.lng+0.0007],{icon:L.divIcon({className:'',html:'<div class="marker-dot" style="--c:#0d9488"></div>',iconSize:[15,15],iconAnchor:[7,7]})}).bindPopup(popupDevice(d.id,'weather')).addTo(layer);
+  function parseRange(range){
+    const h = { '12h':12, '24h':24, '48h':48, '7d':7*24, '14d':14*24, '30d':30*24 }[range];
+    const since = new Date(Date.now() - (h||24)*3600*1000).toISOString();
+    return { since, label: range };
+  }
+
+  function extStatus(s){
+    const v = Math.abs(s.latest_value || 0);
+    const th = s.thresholds || {};
+    const rtc = num(th.rtc), rtw = num(th.rtw);
+    if(rtc != null && v >= rtc) return 'Very High';
+    if(rtw != null && v >= rtw) return 'High';
+    return 'Low';
+  }
+  function deviceStatus(devId){
+    const ex = (DATA.sensors||[]).filter(s=>s.external_device_id===devId && s.kind==='extensometer');
+    let ord = 1;
+    ex.forEach(s=>{
+      const o = { 'Low':1, 'Medium':2, 'High':3, 'Very High':4 }[extStatus(s)];
+      if(o>ord) ord=o;
+    });
+    return TARP_LV[ord];
+  }
+
+  function linearRegression(points){
+    // points: [{x:number,y:number}]
+    const pts = (points||[]).filter(p=>isFinite(p.x) && isFinite(p.y));
+    if(pts.length < 2) return null;
+    let n = pts.length, sx=0, sy=0, sxx=0, sxy=0;
+    for(const p of pts){ sx+=p.x; sy+=p.y; sxx+=p.x*p.x; sxy+=p.x*p.y; }
+    const den = (n*sxx - sx*sx);
+    if(Math.abs(den) < 1e-12) return null;
+    const b = (n*sxy - sx*sy) / den;      // slope
+    const a = (sy - b*sx) / n;            // intercept
+    return { a, b };
+  }
+
+  function seriesStats(rows){
+    // rows: [{ts,value}]
+    const r = (rows||[]).filter(x=>x && x.ts && isFinite(+x.value)).map(x=>({t:new Date(x.ts).getTime(), v:+x.value})).sort((a,b)=>a.t-b.t);
+    if(r.length < 2) return { n:r.length, first:null, last:null, delta:null, slope:null, mmPerDay:null, gapPct:null };
+    const first = r[0], last = r[r.length-1];
+
+    // gap%: berbasis median sampling interval
+    const diffs = [];
+    for(let i=1;i<r.length;i++) diffs.push(r[i].t - r[i-1].t);
+    diffs.sort((a,b)=>a-b);
+    const med = diffs[Math.floor(diffs.length/2)] || 0;
+    const threshold = Math.max(med*2.5, 25*60*1000); // minimal 25 menit
+    const gaps = diffs.filter(d=>d>threshold).length;
+    const gapPct = diffs.length ? Math.round((gaps/diffs.length)*100) : 0;
+
+    const reg = linearRegression(r.map(p=>({x:p.t, y:p.v})));
+    const slope = reg ? reg.b : null;                 // unit per ms
+    const mmPerDay = (slope==null) ? null : slope * 86400000;
+    return {
+      n:r.length,
+      first, last,
+      delta:last.v-first.v,
+      slope, mmPerDay,
+      gapPct
+    };
+  }
+
+  function bucketKey(ts, agg){
+    const d = new Date(ts);
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    if(agg === 'daily') return `${y}-${m}-${day}`;
+    // weekly: ISO-like (approx) based on Monday start
+    if(agg === 'weekly'){
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const wd = (t.getUTCDay()+6)%7; // Mon=0..Sun=6
+      t.setUTCDate(t.getUTCDate()-wd);
+      const yy = t.getUTCFullYear(), mm = String(t.getUTCMonth()+1).padStart(2,'0'), dd = String(t.getUTCDate()).padStart(2,'0');
+      return `${yy}-${mm}-${dd}`;
+    }
+    // monthly
+    return `${y}-${m}`;
+  }
+
+  function aggregateSeries(rows, agg, kind){
+    // kind: 'delta' untuk extensometer (perubahan), 'sum' untuk rainfall
+    const r = (rows||[]).filter(x=>x && x.ts && isFinite(+x.value)).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    const buckets = {};
+    for(const x of r){
+      const k = bucketKey(x.ts, agg);
+      (buckets[k]=buckets[k]||[]).push({t:x.ts, v:+x.value});
+    }
+    const labels = Object.keys(buckets).sort();
+    const values = labels.map(k=>{
+      const arr = buckets[k];
+      if(!arr || arr.length===0) return null;
+      if(kind === 'sum') return arr.reduce((s,p)=>s+p.v,0);
+      return arr[arr.length-1].v - arr[0].v; // delta within bucket
+    });
+    return { labels, values };
+  }
+
+  async function loadBase(){
+    const [sn,rain,insp,loc,eq] = await Promise.all([
+      sb.from('v_instrument_sensors').select('*'),
+      sb.from('v_rain_status').select('*'),
+      sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
+      sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
+      sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(8),
+    ]);
+    DATA.sensors = sn.data || [];
+    DATA.rain = rain.data || [];
+    DATA.insp = insp.data || [];
+    DATA.locs = loc.data || [];
+    DATA.eq = eq.data || [];
+  }
+
+  async function loadSeriesForOverview(){
+    const { since } = parseRange(STATE.range.overview);
+    const [extr, wxr] = await Promise.all([
+      sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since).order('ts',{ascending:true}),
+      sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since).order('ts',{ascending:true}),
+    ]);
+    DATA.extSeries = extr.data || [];
+    DATA.wxSeries = wxr.data || [];
+  }
+
+  async function loadSeriesForTab(kind){
+    const range = STATE.range[kind] || '7d';
+    const { since } = parseRange(range);
+    if(kind === 'ext'){
+      const extr = await sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since).order('ts',{ascending:true});
+      DATA.extSeriesTab = extr.data || [];
+    }
+    if(kind === 'aws'){
+      const wxr = await sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since).order('ts',{ascending:true});
+      DATA.wxSeriesTab = wxr.data || [];
+    }
+  }
+
+  async function loadAll(){
+    await Promise.all([ loadBase(), loadSeriesForOverview() ]);
+    render();
+  }
+
+  function utm(e,n){
+    const a=6378137,ec=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;
+    const mu=M/(a*(1-ec/4-3*ec*ec/64)),e1=(1-Math.sqrt(1-ec))/(1+Math.sqrt(1-ec));
+    const phi=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);
+    const N=a/Math.sqrt(1-ec*Math.sin(phi)**2),T=Math.tan(phi)**2,C=(ec/(1-ec))*Math.cos(phi)**2,R=a*(1-ec)/(1-ec*Math.sin(phi)**2)**1.5,D=x/(N*k0);
+    const lat=phi-(N*Math.tan(phi)/R)*(D*D/2-(5+3*T+10*C-4*C*C-9*ec)*D**4/24);
+    const lng=(123*Math.PI/180)+(D-(1+2*T+C)*D**3/6)/Math.cos(phi);
+    return{lat:lat*180/Math.PI,lng:lng*180/Math.PI};
+  }
+  function locLatLng(l){
+    if(l.lat && l.lng) return { lat:+l.lat, lng:+l.lng };
+    if(l.easting && l.northing) return utm(+l.easting, +l.northing);
+    return null;
+  }
+
+  function kpis(){
+    const sensors = DATA.sensors || [];
+    const total = sensors.length;
+    const online = sensors.filter(s=>!stale(s.latest_ts,15)).length;
+    const offline = total - online;
+    const newest = sensors.reduce((mx,s)=>s.latest_ts && (!mx||s.latest_ts>mx) ? s.latest_ts : mx, null);
+    const extAlerts = sensors.filter(s=>s.kind==='extensometer' && extStatus(s)!=='Low').length;
+    const latestIns = {};
+    (DATA.insp||[]).forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
+    const insAlerts = Object.values(latestIns).filter(r=>r.risk_final==='High' || r.risk_final==='Very High').length;
+    const alerts = extAlerts + insAlerts;
+    const quality = total ? Math.round(online/total*100) : 0;
+    const overall = alerts>0 ? (alerts>2 ? {t:'WASPADA', c:'#dc2626'} : {t:'PERHATIAN', c:'#f97316'}) : {t:'NORMAL', c:'#16a34a'};
+
+    const card = (ic,icbg,icc,v,vc,l,s)=>`
+      <div class="kc">
+        <div class="ic" style="background:${icbg};color:${icc}">${ic}</div>
+        <div>
+          <div class="l">${l}</div>
+          <div class="v" style="color:${vc||'var(--txt)'}">${v}</div>
+          <div class="s">${s}</div>
+        </div>
+      </div>`;
+
+    return `
+      <div class="kpis">
+        ${card('&#10003;','#f0fdf4','#16a34a',overall.t,overall.c,'Status Site',alerts?`${alerts} item perlu perhatian`:'Semua normal')}
+        ${card('&#9888;','#fff7ed','#f97316',alerts,alerts?'#f97316':'#16a34a','Trigger Aktif',`Instrumen ${extAlerts} · Inspeksi ${insAlerts}`)}
+        ${card('&#9678;','#eff6ff','#2563eb',quality+'%',quality>=90?'#16a34a':'#eab308','Kualitas Data',quality>=90?'Coverage baik':'Perlu validasi data')}
+        ${card('&#9707;','#eef2ff','#4f46e5',total,'','Total Sensor',`Online ${online} · Offline ${offline}`)}
+        ${card('&#128337;','#eff6ff','#2563eb',newest?ago(newest):'—','','Update Terakhir',newest?new Date(newest).toLocaleTimeString('id-ID'):'—')}
+        ${card('&#128202;','#f8fafc','#0f172a',STATE.range.overview,'','Window Overview','Basis ringkasan & top risk')}
+      </div>`;
+  }
+
+  function executivePanel(){
+    const sensors = DATA.sensors || [];
+    const latestIns = {};
+    (DATA.insp||[]).forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
+
+    const triggeredExt = sensors
+      .filter(s=>s.kind==='extensometer')
+      .map(s=>({ sensor:s, lvl:extStatus(s) }))
+      .filter(x=>x.lvl!=='Low')
+      .sort((a,b)=>({Low:1,Medium:2,High:3,'Very High':4}[b.lvl])-({Low:1,Medium:2,High:3,'Very High':4}[a.lvl]));
+
+    const inspTop = Object.values(latestIns)
+      .slice()
+      .sort((a,b)=>(b.total_score||0)-(a.total_score||0))
+      .slice(0,3);
+
+    // Velocity: per device (menggunakan series overview)
+    const byDev = {};
+    (DATA.extSeries||[]).forEach(r=>{
+      if(!r.external_device_id) return;
+      (byDev[r.external_device_id]=byDev[r.external_device_id]||[]).push(r);
+    });
+    const vel = Object.keys(byDev).map(dev=>{
+      const st = seriesStats(byDev[dev]);
+      return { dev, mmPerDay: st.mmPerDay, gapPct: st.gapPct, n: st.n };
+    }).filter(x=>x.mmPerDay!=null).sort((a,b)=>Math.abs(b.mmPerDay)-Math.abs(a.mmPerDay));
+
+    const rain = (DATA.rain && DATA.rain[0]) || {};
+    const driver = triggeredExt.length ? 'Pergerakan (Extensometer)' : (inspTop.length ? 'Risiko Inspeksi' : (rain.is_raining ? 'Hujan Berlangsung' : 'Stabil'));
+    const overall = triggeredExt.length + inspTop.filter(x=>x.risk_final==='High'||x.risk_final==='Very High').length;
+    const badge = overall>2 ? {t:'WASPADA',c:'#dc2626'} : overall>0 ? {t:'PERHATIAN',c:'#f97316'} : {t:'NORMAL',c:'#16a34a'};
+
+    const v0 = vel[0] || null;
+
+    return `
+      <div class="panel">
+        <h3>🧭 Executive Overview <span class="sp">untuk principal/management</span></h3>
+        <div class="hero">
+          <div class="row">
+            <span class="badge" style="--c:${badge.c};border-color:${badge.c}33;background:${badge.c}10;color:${badge.c}">
+              <span class="dot"></span>${badge.t}
+            </span>
+            <span class="badge"><span class="dot" style="background:#64748b"></span>Driver: <b>${esc(driver)}</b></span>
+            <span class="badge"><span class="dot" style="background:#64748b"></span>Update: <b>${esc((DATA.sensors||[]).reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null)?ago((DATA.sensors||[]).reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null)):'—')}</b></span>
+          </div>
+          <div class="lead">
+            Fokus keputusan hari ini: <b>${esc(driver)}</b>.
+            ${triggeredExt.length ? `Terdapat <b>${triggeredExt.length}</b> sensor extensometer dalam kondisi trigger.` : 'Tidak ada trigger extensometer saat ini.'}
+            ${rain.is_raining ? `Hujan berlangsung <b>${rain.ongoing_rain_minutes||0} menit</b>.` : 'Tidak ada hujan saat ini.'}
+          </div>
+          <div class="mini">
+            <div class="box">
+              <div class="k">Top Escalation</div>
+              <div class="v">${v0 ? `dev ${esc(v0.dev)}` : '—'}</div>
+              <div class="s">${v0 && v0.mmPerDay!=null ? `rate ${fmt(v0.mmPerDay,2)} mm/hari` : 'data belum cukup'}</div>
+            </div>
+            <div class="box">
+              <div class="k">Top Trigger</div>
+              <div class="v">${triggeredExt[0] ? esc(triggeredExt[0].sensor.sensor_name) : '—'}</div>
+              <div class="s">${triggeredExt[0] ? `level ${triggeredExt[0].lvl}` : 'tidak ada trigger'}</div>
+            </div>
+            <div class="box">
+              <div class="k">Top Inspeksi</div>
+              <div class="v">${inspTop[0] ? `Skor ${inspTop[0].total_score||0}` : '—'}</div>
+              <div class="s">${inspTop[0] ? `${esc(inspTop[0].risk_final||'')} · ${ago(inspTop[0].inspection_date)}` : 'belum ada data'}</div>
+            </div>
+          </div>
+          <div class="smallnote">
+            Catatan principal: panel ini menyajikan ringkasan berbasis trigger, tren (velocity), hujan, dan kualitas data. Validasi teknis detail dilakukan pada tab instrumen.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function mapPanel(){
+    return `
+      <div class="panel">
+        <h3>🗺️ Map Monitoring <span class="sp">zoom + scroll · on/off symbol via layer control</span></h3>
+        <div id="map"></div>
+        <div class="map-legend">
+          <i><span class="marker-tri" style="--c:${RC.Low};display:inline-block"></span> Extensometer (warna = trigger)</i>
+          <i><span class="dot" style="width:10px;height:10px;border-radius:999px;background:#0d9488"></span> AWS</i>
+          <i><span class="marker-sq" style="--c:${RC.Low};display:inline-block"></span> Inspeksi (warna = risiko)</i>
+          <i>Hijau/Kuning/Oranye/Merah = level trigger</i>
+        </div>
+      </div>`;
+  }
+
+  function riskDecisionPanel(){
+    const sensors = DATA.sensors || [];
+    const locMap = {}; (DATA.locs||[]).forEach(l=>locMap[l.id]=l);
+    const latestIns = {}; (DATA.insp||[]).forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
+
+    // Top instruments by severity then by |velocity|
+    const byDev = {};
+    (DATA.extSeries||[]).forEach(r=>{
+      if(!r.external_device_id) return;
+      (byDev[r.external_device_id]=byDev[r.external_device_id]||[]).push(r);
+    });
+    const vel = Object.keys(byDev).map(dev=>{
+      const st = seriesStats(byDev[dev]);
+      return { dev, mmPerDay: st.mmPerDay, gapPct: st.gapPct, n: st.n };
+    });
+    const devSeverity = vel.map(v=>{
+      const lvl = deviceStatus(v.dev);
+      const sev = {Low:1,Medium:2,High:3,'Very High':4}[lvl] || 1;
+      return { ...v, lvl, sev, absRate: v.mmPerDay==null?0:Math.abs(v.mmPerDay) };
+    }).sort((a,b)=> (b.sev-a.sev) || (b.absRate-a.absRate));
+
+    const topDev = devSeverity.slice(0,5);
+
+    const inspRows = Object.values(latestIns)
+      .slice()
+      .sort((a,b)=>({Low:1,Medium:2,High:3,'Very High':4}[b.risk_final||'Low'])-({Low:1,Medium:2,High:3,'Very High':4}[a.risk_final||'Low']) || ((b.total_score||0)-(a.total_score||0)))
+      .slice(0,5);
+
+    const rowDev = (d)=>{
+      const pill = `<span class="pill ${d.lvl.replace(' ','')}">${d.lvl.replace(' ','')}</span>`;
+      const rate = d.mmPerDay==null ? '—' : `${fmt(d.mmPerDay,2)} mm/hari`;
+      const q = d.gapPct!=null ? `${d.gapPct}% gap` : '—';
+      return `<tr>
+        <td><b>dev ${esc(d.dev)}</b></td>
+        <td>${pill}</td>
+        <td>${rate}</td>
+        <td>${q}</td>
+        <td><a href="javascript:void(0)" style="color:var(--blue2);font-weight:800" onclick="openInstrument('ext','${esc(d.dev)}')">Analisis →</a></td>
+      </tr>`;
+    };
+
+    const rowIns = (r)=>{
+      const l = locMap[r.location_id] || {};
+      const rk = (r.risk_final||'Low').replace(' ','');
+      return `<tr>
+        <td><b>${esc(l.name||('#'+r.location_id))}</b></td>
+        <td><span class="pill ${rk}">${esc(r.risk_final||'Low')}</span></td>
+        <td>${r.total_score||0}</td>
+        <td>${ago(r.inspection_date)}</td>
+        <td><a href="report.html?type=inspeksi&id=${r.id}" style="color:var(--blue2);font-weight:800">PDF</a></td>
+      </tr>`;
+    };
+
+    const extAlerts = sensors.filter(s=>s.kind==='extensometer'&&extStatus(s)!=='Low').length;
+    const insAlerts = inspRows.filter(r=>r.risk_final==='High'||r.risk_final==='Very High').length;
+
+    return `
+      <div class="panel">
+        <h3>🎯 Top Risks & Decisions <span class="sp">prioritas untuk keputusan</span></h3>
+        <div class="smallnote">
+          Ranking instrument: level trigger (utama) + magnitude perubahan (velocity). Ranking inspeksi: level risiko + skor.
+        </div>
+        <div class="hr"></div>
+        <div class="row" style="display:flex;gap:12px;flex-wrap:wrap">
+          <span class="pill ${extAlerts?'High':'Low'}">${extAlerts?`Instrumen Trigger: ${extAlerts}`:'Instrumen: normal'}</span>
+          <span class="pill ${insAlerts?'High':'Low'}">${insAlerts?`Inspeksi High: ${insAlerts}`:'Inspeksi: stabil'}</span>
+        </div>
+        <div style="margin-top:10px;font-weight:900;color:var(--txt2);font-size:12px">Instrumen (Extensometer)</div>
+        <table class="tbl" style="margin-top:6px">
+          <thead><tr><th>Objek</th><th>Trigger</th><th>Rate</th><th>QC</th><th></th></tr></thead>
+          <tbody>${topDev.length?topDev.map(rowDev).join(''):`<tr><td colspan="5" class="mut">Belum ada series untuk perhitungan tren.</td></tr>`}</tbody>
+        </table>
+        <div style="margin-top:12px;font-weight:900;color:var(--txt2);font-size:12px">Inspeksi</div>
+        <table class="tbl" style="margin-top:6px">
+          <thead><tr><th>Lokasi</th><th>Risiko</th><th>Skor</th><th>Waktu</th><th></th></tr></thead>
+          <tbody>${inspRows.length?inspRows.map(rowIns).join(''):`<tr><td colspan="5" class="mut">Belum ada inspeksi.</td></tr>`}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function systemHealthPanel(){
+    const sensors = DATA.sensors || [];
+    const total = sensors.length;
+    const online = sensors.filter(s=>!stale(s.latest_ts,15)).length;
+    const noCoord = sensors.filter(s=>!(s.lat&&s.lng)).length;
+    const staleCnt = sensors.filter(s=>stale(s.latest_ts,15)).length;
+    return `
+      <div class="panel">
+        <h3>🩺 Data Health <span class="sp">confidence untuk keputusan</span></h3>
+        <table class="tbl">
+          <tbody>
+            <tr><td>Total sensor</td><td style="text-align:right"><b>${total}</b></td></tr>
+            <tr><td>Online (&lt;15 menit)</td><td style="text-align:right"><b>${online}</b></td></tr>
+            <tr><td>Stale/Offline</td><td style="text-align:right"><b>${staleCnt}</b></td></tr>
+            <tr><td>Tanpa koordinat</td><td style="text-align:right"><b>${noCoord}</b></td></tr>
+          </tbody>
+        </table>
+        <div class="smallnote" style="margin-top:10px">
+          Bila terjadi trigger, keputusan principal lebih kuat jika data health baik (coverage tinggi, gap rendah, update terkini).
+        </div>
+      </div>`;
+  }
+
+  function eewsPanel(){
+    return `
+      <div class="panel">
+        <h3>⚡ Gempa Terkini (EEWS)<span class="sp"><a href="eews.html" style="color:var(--blue2);font-weight:800">buka →</a></span></h3>
+        <table class="tbl">
+          <thead><tr><th>Mag</th><th>Wilayah</th><th>TARP</th><th>Waktu</th></tr></thead>
+          <tbody>
+            ${(DATA.eq||[]).map(e=>`
+              <tr>
+                <td><b>M${e.magnitude}</b></td>
+                <td>${esc((e.wilayah||'').slice(0,22))}</td>
+                <td><span class="dot" style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${EEWS_C[e.status]||'#64748b'}"></span> ${esc(e.status||'')}</td>
+                <td>${ago(e.tanggal)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function popupDevice(devId, kind){
+    const ss = (DATA.sensors||[]).filter(s=>s.external_device_id===devId && s.kind===kind);
+    const title = kind==='extensometer' ? '📏 Extensometer' : '🌦️ AWS';
+    const rows = ss.map(s=>{
+      const f = fmtSensor(s);
+      const st = kind==='extensometer' ? extStatus(s) : null;
+      const stChip = st ? ` <span class="pill ${st.replace(' ','')}">${st.replace(' ','')}</span>` : '';
+      return `${esc(s.sensor_name)}: <b>${f.v} ${f.unit}</b>${stChip}`;
+    }).join('<br>');
+    const lvl = kind==='extensometer' ? deviceStatus(devId) : null;
+    const lvlChip = lvl ? ` <span class="pill ${lvl.replace(' ','')}">${lvl.replace(' ','')}</span>` : '';
+    return `<b>${title} — dev ${esc(devId)}</b>${lvlChip}<br>${rows||'—'}<div style="margin-top:8px"><a href="javascript:void(0)" style="color:var(--blue2);font-weight:900" onclick="openInstrument('${kind==='extensometer'?'ext':'aws'}','${esc(devId)}')">Buka Analisis →</a></div>`;
+  }
+
+  function fmtSensor(s){
+    let v = s.latest_value, unit = s.unit;
+    if(v == null) return { v:'—', unit:'', extra:'' };
+    if(s.sensor_type_name==='AIO Atmosphere') return { v:fmt(v,2), unit:'kPa', extra:'≈ '+fmt(v*10,0)+' hPa' };
+    if(s.sensor_type_name==='AIO Wind Direction'){
+      const d = ['U','TL','T','TG','S','BD','B','BL'][Math.round(v/45)%8];
+      return { v:fmt(v,0), unit:'°', extra:d };
+    }
+    return { v:fmt(v), unit:unit||'', extra:'' };
+  }
+
+  function buildMap(){
+    const el = document.getElementById('map');
+    if(!el) return;
+
+    const devs = {};
+    (DATA.sensors||[]).forEach(s=>{
+      if(s.lat && s.lng) devs[s.external_device_id] = { lat:+s.lat, lng:+s.lng, id:s.external_device_id };
+    });
+
+    const insLatest = {};
+    (DATA.insp||[]).forEach(d=>{ if(!insLatest[d.location_id]) insLatest[d.location_id]=d; });
+    const locMap = {}; (DATA.locs||[]).forEach(l=>locMap[l.id]=l);
+
+    if(!map){
+      map = L.map('map',{ scrollWheelZoom:true, zoomControl:true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OSM' }).addTo(map);
+      mapOverlays = {
+        ext: L.layerGroup().addTo(map),
+        aws: L.layerGroup().addTo(map),
+        insp: L.layerGroup().addTo(map),
+        halo: L.layerGroup().addTo(map),
+      };
+      L.control.layers(null, {
+        'Extensometer': mapOverlays.ext,
+        'AWS': mapOverlays.aws,
+        'Inspeksi': mapOverlays.insp
+      }, { collapsed:false }).addTo(map);
+    }
+
+    Object.values(mapOverlays).forEach(g=>g && g.clearLayers && g.clearLayers());
+    const all = [];
+
+    // Ext + AWS markers (per device)
+    Object.values(devs).forEach(d=>{
+      const lvl = deviceStatus(d.id);
+      const col = RC[lvl] || RC.Low;
+      all.push([d.lat,d.lng]);
+      if(lvl==='High' || lvl==='Very High'){
+        L.circle([d.lat,d.lng],{ radius:140, color:col, fillColor:col, fillOpacity:.12, weight:1 }).addTo(mapOverlays.halo);
+      }
+      L.marker([d.lat,d.lng],{
+        icon:L.divIcon({ className:'', html:`<div class="marker-tri" style="--c:${col}"></div>`, iconSize:[16,15], iconAnchor:[8,15] })
+      }).bindPopup(popupDevice(d.id,'extensometer')).addTo(mapOverlays.ext);
+
+      // AWS dot (teal); jika tidak ada sensor AWS untuk device tsb, tetap tampil sebagai referensi lokasi
+      L.marker([d.lat,d.lng+0.0007],{
+        icon:L.divIcon({ className:'', html:`<div class="marker-dot" style="--c:#0d9488"></div>`, iconSize:[15,15], iconAnchor:[7,7] })
+      }).bindPopup(popupDevice(d.id,'weather')).addTo(mapOverlays.aws);
+    });
+
+    // Inspection markers
+    Object.values(insLatest).forEach(r=>{
+      const l = locMap[r.location_id];
+      const ll = l && locLatLng(l);
+      if(!ll) return;
+      const col = RC[r.risk_final] || RC.Low;
+      all.push([ll.lat,ll.lng]);
+      if(r.risk_final==='High' || r.risk_final==='Very High'){
+        L.circle([ll.lat,ll.lng],{ radius:160, color:col, fillColor:col, fillOpacity:.12, weight:1 }).addTo(mapOverlays.halo);
+      }
+      L.marker([ll.lat,ll.lng],{
+        icon:L.divIcon({ className:'', html:`<div class="marker-sq" style="--c:${col}"></div>`, iconSize:[14,14], iconAnchor:[7,7] })
+      }).bindPopup(`<b>${esc(l.name)}</b><br>Risiko <span style="color:${col};font-weight:900">${esc(r.risk_final||'')}</span> · TARP${r.tarp_level||0}<br>Skor <b>${r.total_score||0}</b><br><a href="report.html?type=inspeksi&id=${r.id}" style="color:var(--blue2);font-weight:800">Laporan PDF →</a>`).addTo(mapOverlays.insp);
+    });
+
+    if(all.length){
+      try{ map.fitBounds(L.latLngBounds(all).pad(0.25)); }
+      catch(e){ map.setView(all[0], 13); }
+    } else {
+      map.setView([-2.74,122.01], 12);
+    }
+    setTimeout(()=>map.invalidateSize(), 120);
+  }
+
+  function drawExtOverview(){
+    const cv = document.getElementById('ovExtChart');
+    if(!cv || !window.Chart) return;
+
+    // Untuk overview: ringkasan 1 seri gabungan (median) agar ringan
+    const rows = (DATA.extSeries||[]).filter(r=>isFinite(+r.value)).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    if(!rows.length) return;
+    const labels = rows.map(r=>r.ts);
+    const vals = rows.map(r=>+r.value);
+    const pts = rows.map(r=>({ x:new Date(r.ts).getTime(), y:+r.value }));
+    const reg = linearRegression(pts);
+    const trend = reg ? pts.map(p=>reg.a + reg.b*p.x) : pts.map(()=>null);
+
+    if(charts.ovExt) charts.ovExt.destroy();
+    charts.ovExt = new Chart(cv,{
+      type:'line',
+      data:{
+        labels: labels.map(t=>new Date(t).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),
+        datasets:[
+          { label:'Extensometer (raw)', data:vals, borderColor:'#2563eb', backgroundColor:'#2563eb', borderWidth:1.6, pointRadius:0, tension:.25 },
+          { label:'Trendline', data:trend, borderColor:'#0f172a', borderWidth:1.2, pointRadius:0, borderDash:[6,5], tension:0 }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } },
+        interaction:{ mode:'index', intersect:false },
+        scales:{ x:{ ticks:{ maxTicksLimit:7, font:{size:9} }, grid:{ display:false } }, y:{ ticks:{ font:{size:9} }, grid:{ color:'rgba(148,163,184,.25)' } } }
+      }
     });
   }
-  if(mapFilter==='all'||mapFilter==='inspeksi'){
-    Object.values(insLatest).forEach(r=>{ const l=locMap[r.location_id]; const ll=l&&locLatLng(l); if(!ll)return;
-      const col=RC[r.risk_final]||RC.Low; all.push([ll.lat,ll.lng]);
-      if(r.risk_final==='High'||r.risk_final==='Very High') L.circle([ll.lat,ll.lng],{radius:140,color:col,fillColor:col,fillOpacity:.12,weight:1}).addTo(halo);
-      L.marker([ll.lat,ll.lng],{icon:L.divIcon({className:'',html:'<div class="marker-sq" style="--c:'+col+'"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).bindPopup('<b>'+esc(l.name)+'</b><br>Risiko '+esc(r.risk_final||'')+' · TARP'+(r.tarp_level||0)+'<br>Skor '+(r.total_score||0)+'<br><a href="report.html?type=inspeksi&id='+r.id+'">Laporan PDF &rarr;</a>').addTo(layer);
+
+  function drawExtTab(){
+    const cv = document.getElementById('extMainChart');
+    const cv2 = document.getElementById('extAggChart');
+    if(!cv || !window.Chart) return;
+
+    const rowsAll = (DATA.extSeriesTab||[]).filter(r=>isFinite(+r.value));
+    const dev = STATE.ext.dev;
+    const rows = (dev==='all') ? rowsAll : rowsAll.filter(r=>String(r.external_device_id)===String(dev));
+    const byS = {};
+    rows.forEach(r=>{ const k=(r.external_device_id||'')+' · '+(r.sensor_name||''); (byS[k]=byS[k]||[]).push(r); });
+
+    const palette=['#2563eb','#7c3aed','#16a34a','#dc2626','#0891b2','#db2777','#f97316','#eab308','#0d9488','#65a30d'];
+    const labels = [...new Set(rows.map(r=>r.ts))].sort();
+    let i = 0;
+
+    const datasets = Object.keys(byS).slice(0,8).map(k=>{
+      const m = {}; byS[k].forEach(r=>m[r.ts]=+r.value);
+      const c = palette[i++%palette.length];
+      const pts = labels.map(t=>({ x:new Date(t).getTime(), y:(m[t]??null) }));
+      const reg = linearRegression(pts.filter(p=>p.y!=null));
+      const trend = reg ? pts.map(p=>p.y==null?null:(reg.a + reg.b*p.x)) : pts.map(()=>null);
+      return [
+        { label:k, data:labels.map(t=>m[t]??null), borderColor:c, backgroundColor:c, borderWidth:1.6, pointRadius:0, spanGaps:true, tension:.25 },
+        { label:k+' (trend)', data:trend, borderColor:c, borderWidth:1.2, pointRadius:0, borderDash:[6,5], spanGaps:true, tension:0 }
+      ];
+    }).flat();
+
+    if(charts.extMain) charts.extMain.destroy();
+    charts.extMain = new Chart(cv,{
+      type:'line',
+      data:{ labels:labels.map(t=>new Date(t).toLocaleString('id-ID',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})), datasets },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } },
+        interaction:{ mode:'index', intersect:false },
+        scales:{
+          x:{ ticks:{ maxTicksLimit:9, font:{size:9} }, grid:{ display:false } },
+          y:{ ticks:{ font:{size:9} }, title:{ display:true, text:'mm', font:{size:9} }, grid:{ color:'rgba(148,163,184,.25)' } }
+        }
+      }
     });
+
+    // Aggregation / accumulation (berbasis 1 seri gabungan: sensor pertama)
+    const oneKey = Object.keys(byS)[0];
+    const oneRows = oneKey ? byS[oneKey] : [];
+    const agg = STATE.ext.agg;
+    const aggData = aggregateSeries(oneRows, agg, 'delta');
+
+    if(cv2 && window.Chart){
+      if(charts.extAgg) charts.extAgg.destroy();
+      charts.extAgg = new Chart(cv2,{
+        type:'bar',
+        data:{ labels:aggData.labels, datasets:[{ label:`Δ ${agg}`, data:aggData.values, backgroundColor:'#0f172a' }] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ display:false } },
+          scales:{ x:{ ticks:{ maxTicksLimit:8, font:{size:9} }, grid:{ display:false } }, y:{ ticks:{ font:{size:9} }, grid:{ color:'rgba(148,163,184,.25)' } } }
+        }
+      });
+    }
+
+    // Stats
+    const st = seriesStats(oneRows);
+    const statsEl = document.getElementById('extStats');
+    if(statsEl){
+      statsEl.innerHTML = `
+        <div class="stat"><div class="k">Data points</div><div class="v">${st.n||0}</div><div class="s">${STATE.range.ext}</div></div>
+        <div class="stat"><div class="k">Latest</div><div class="v">${st.last?fmt(st.last.v):'—'} mm</div><div class="s">${st.last?ago(new Date(st.last.t).toISOString()):'—'}</div></div>
+        <div class="stat"><div class="k">Delta range</div><div class="v">${st.delta!=null?fmt(st.delta,2):'—'} mm</div><div class="s">awal → akhir</div></div>
+        <div class="stat"><div class="k">Velocity</div><div class="v">${st.mmPerDay!=null?fmt(st.mmPerDay,2):'—'} mm/hari</div><div class="s">trendline slope</div></div>
+        <div class="stat"><div class="k">QC gap</div><div class="v">${st.gapPct!=null?st.gapPct+'%':'—'}</div><div class="s">indikasi missing</div></div>
+      `;
+    }
   }
-  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.3)); }catch(e){ map.setView(all[0],13); } } else map.setView([-2.74,122.01],12);
-  setTimeout(()=>map.invalidateSize(),120);
-}
-function popupDevice(id,kind){
-  const ss=(DATA.sensors||[]).filter(s=>s.external_device_id===id&&s.kind===kind);
-  const title=kind==='extensometer'?'📏 Extensometer':'🌦️ AWS';
-  const rows=ss.map(s=>{ const f=fmtSensor(s); return esc(s.sensor_name)+': <b>'+f.v+' '+f.unit+'</b>'; }).join('<br>');
-  const lvl=kind==='extensometer'?deviceStatus(id):null;
-  return '<b>'+title+' — dev '+esc(id)+'</b>'+(lvl?' · <span style="color:'+RC[lvl]+'">'+lvl+'</span>':'')+'<br>'+(rows||'—');
-}
 
-function fmtSensor(s){ let v=s.latest_value, unit=s.unit;
-  if(v==null) return {v:'—',unit:'',extra:''};
-  if(s.sensor_type_name==='AIO Atmosphere') return {v:Number(v).toFixed(2),unit:'kPa',extra:'≈'+(v*10).toFixed(0)+' hPa'};
-  if(s.sensor_type_name==='AIO Wind Direction'){const d=['U','TL','T','TG','S','BD','B','BL'][Math.round(v/45)%8];return{v:Number(v).toFixed(0),unit:'°',extra:d};}
-  const dec=Math.abs(v)>=100?0:Math.abs(v)>=10?1:2; return {v:Number(v).toFixed(dec),unit:unit||'',extra:''};
-}
+  function drawAwsTab(){
+    const cv = document.getElementById('awsRainChart');
+    const cv2 = document.getElementById('awsAggChart');
+    if(!cv || !window.Chart) return;
 
-function awsPanel(){
-  const wx=(DATA.sensors||[]).filter(s=>s.kind==='weather');
-  const get=t=>wx.find(s=>s.sensor_type_name===t);
-  const rain=(DATA.rain&&DATA.rain[0])||{};
-  const chip=(t,lab,ic)=>{const s=get(t);if(!s)return'';const f=fmtSensor(s);return '<div class="wxi"><div class="l">'+ic+' '+lab+'</div><div class="v">'+f.v+' <small>'+f.unit+'</small></div>'+(f.extra?'<div class="l">'+esc(f.extra)+'</div>':'')+'</div>';};
-  const dur=rain.ongoing_rain_minutes||0;
-  return '<div class="panel"><h3>🌦️ AWS (Automatic Weather Station)<span class="sp">dev 372</span></h3>'+
-    '<div class="rainbox"><div class="l" style="font-size:11px;color:#1e40af">DURASI HUJAN BERLANGSUNG</div>'+
-    '<div class="big">'+(rain.is_raining?dur+' <small style="font-size:13px">menit</small>':'Tidak hujan')+'</div>'+
-    '<div class="l" style="font-size:10.5px;color:#3b6">Hari ini: '+(rain.rain_minutes_today||0)+' mnt · '+(rain.rain_total_today_mm||0)+' mm · update '+(rain.latest_ts?ago(rain.latest_ts):'—')+'</div></div>'+
-    '<div class="wx">'+
-      chip('AIO Temperature','Suhu','🌡️')+chip('AIO Humidity','Kelembapan','💧')+
-      chip('Misole Rainfall Minute','Hujan/mnt','🌧️')+chip('Misole Rainfall Hour','Hujan/jam','🌧️')+
-      chip('AIO Wind Speed','Angin','💨')+chip('AIO Wind Direction','Arah','🧭')+
-      chip('AIO Atmosphere','Tekanan','🧭')+chip('AIO Radiation','Radiasi','☀️')+
-    '</div><div style="position:relative;height:90px;margin-top:10px"><canvas id="rainChart"></canvas></div></div>';
-}
+    const rowsAll = (DATA.wxSeriesTab||[]).filter(r=>r.sensor_name && isFinite(+r.value));
+    // Rainfall Minute series
+    const rain = rowsAll.filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
+    const labels = rain.map(r=>r.ts);
+    const vals = rain.map(r=>+r.value);
 
-function extPanel(big){
-  return '<div class="panel"><h3>📏 Extensometer<span class="sp">12 jam · mm</span></h3>'+
-    '<div style="position:relative;height:'+(big?280:190)+'px"><canvas id="extChart"></canvas></div><div class="legend" id="extLegend"></div></div>';
-}
-function drawExt(){
-  const cv=document.getElementById('extChart'); if(!cv||!window.Chart) return;
-  const byS={}; DATA.extSeries.forEach(r=>{const k=r.external_device_id+'·'+r.sensor_name;(byS[k]=byS[k]||[]).push(r);});
-  const palette=['#ea580c','#eab308','#2563eb','#7c3aed','#16a34a','#dc2626','#0891b2','#db2777','#65a30d','#0d9488'];
-  const labels=[...new Set(DATA.extSeries.map(r=>r.ts))].sort();
-  let i=0; const ds=Object.keys(byS).map(k=>{const m={};byS[k].forEach(r=>m[r.ts]=r.value);const c=palette[i++%palette.length];
-    return {label:k,data:labels.map(t=>m[t]??null),borderColor:c,backgroundColor:c,borderWidth:1.6,pointRadius:0,spanGaps:true,tension:.25};});
-  if(charts.ext)charts.ext.destroy();
-  charts.ext=new Chart(cv,{type:'line',data:{labels:labels.map(t=>new Date(t).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),datasets:ds},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false}},
-      scales:{x:{ticks:{maxTicksLimit:7,font:{size:9}},grid:{display:false}},y:{ticks:{font:{size:9}},title:{display:true,text:'mm',font:{size:9}}}}}});
-  const leg=document.getElementById('extLegend'); if(leg) leg.innerHTML=ds.map(d=>'<i><span class="dot" style="background:'+d.borderColor+'"></span>'+esc(d.label)+'</i>').join('');
-}
-function drawRain(){
-  const cv=document.getElementById('rainChart'); if(!cv||!window.Chart) return;
-  const rs=DATA.wxSeries.filter(r=>r.sensor_name&&r.sensor_name.indexOf('RainFall Minute')>=0);
-  if(charts.rain)charts.rain.destroy();
-  charts.rain=new Chart(cv,{type:'bar',data:{labels:rs.map(r=>new Date(r.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),datasets:[{label:'Hujan',data:rs.map(r=>r.value),backgroundColor:'#2563eb'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:6,font:{size:8}},grid:{display:false}},y:{ticks:{font:{size:8}},beginAtZero:true}}}});
-}
+    if(charts.awsRain) charts.awsRain.destroy();
+    charts.awsRain = new Chart(cv,{
+      type:'bar',
+      data:{ labels:labels.map(t=>new Date(t).toLocaleString('id-ID',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})),
+        datasets:[{ label:'Rain (minute)', data:vals, backgroundColor:'#2563eb' }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{ x:{ ticks:{ maxTicksLimit:8, font:{size:9} }, grid:{ display:false } }, y:{ ticks:{ font:{size:9} }, beginAtZero:true, grid:{ color:'rgba(148,163,184,.25)' } } }
+      }
+    });
 
-function riskPanel(){
-  const latestIns={}; DATA.insp.forEach(d=>{if(!latestIns[d.location_id])latestIns[d.location_id]=d;});
-  const rows=Object.values(latestIns); const cnt={Low:0,Medium:0,High:0,'Very High':0};
-  rows.forEach(r=>cnt[r.risk_final]=(cnt[r.risk_final]||0)+1);
-  const locMap={}; DATA.locs.forEach(l=>locMap[l.id]=l);
-  const top=rows.slice().sort((a,b)=>(b.total_score||0)-(a.total_score||0)).slice(0,5);
-  return '<div class="panel"><h3>⛰️ Risiko Inspeksi<span class="sp">'+rows.length+' lokasi</span></h3>'+
-    '<div class="row" style="gap:5px;margin-bottom:9px;flex-wrap:wrap">'+['Low','Medium','High','Very High'].map(k=>'<span class="pill '+k.replace(' ','')+'">'+k+' '+(cnt[k]||0)+'</span>').join('')+'</div>'+
-    '<table class="tbl"><thead><tr><th>Lokasi</th><th>Risiko</th><th>Skor</th><th></th></tr></thead><tbody>'+
-    (top.map(r=>{const l=locMap[r.location_id]||{};return '<tr><td>'+esc(l.name||'#'+r.location_id)+'</td><td><span class="pill '+(r.risk_final||'Low').replace(' ','')+'">'+esc(r.risk_final||'')+'</span></td><td><b>'+(r.total_score||0)+'</b></td><td><a href="report.html?type=inspeksi&id='+r.id+'" style="color:var(--blue2)">PDF</a></td></tr>';}).join('')||'<tr><td colspan=4 style="color:var(--mut)">Belum ada inspeksi</td></tr>')+
-    '</tbody></table></div>';
-}
-function eewsPanel(){
-  return '<div class="panel"><h3>⚡ Gempa Terkini (EEWS)<span class="sp"><a href="eews.html" style="color:var(--blue2)">buka →</a></span></h3>'+
-    '<table class="tbl"><thead><tr><th>Mag</th><th>Wilayah</th><th>TARP</th><th>Waktu</th></tr></thead><tbody>'+
-    DATA.eq.map(e=>'<tr><td><b>M'+e.magnitude+'</b></td><td>'+esc((e.wilayah||'').slice(0,22))+'</td><td><span class="dot" style="background:'+(EEWS_C[e.status]||'#64748b')+'"></span> '+esc(e.status||'')+'</td><td>'+ago(e.tanggal)+'</td></tr>').join('')+
-    '</tbody></table></div>';
-}
-function placeholder(name){ return '<div class="panel"><h3>'+name+'</h3><div class="ph"><div style="font-size:26px">&#128268;</div><div style="font-size:13px;font-weight:600;color:var(--txt2)">Belum terhubung</div><div style="font-size:11px;max-width:340px">Sumber data '+name+' belum tersambung. Saat ini hanya Argatech (extensometer & AWS) yang aktif.</div></div></div>'; }
+    const agg = STATE.aws.agg;
+    const aggData = aggregateSeries(rain, agg, 'sum');
+    if(cv2 && window.Chart){
+      if(charts.awsAgg) charts.awsAgg.destroy();
+      charts.awsAgg = new Chart(cv2,{
+        type:'bar',
+        data:{ labels:aggData.labels, datasets:[{ label:`Σ rain ${agg}`, data:aggData.values, backgroundColor:'#0f172a' }] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ display:false } },
+          scales:{ x:{ ticks:{ maxTicksLimit:8, font:{size:9} }, grid:{ display:false } }, y:{ ticks:{ font:{size:9} }, beginAtZero:true, grid:{ color:'rgba(148,163,184,.25)' } } }
+        }
+      });
+    }
 
-function render(){
-  const nav=[['overview','&#9636; Overview'],['ext','&#128207; Extensometer'],['aws','&#127782; AWS'],['rts','&#127919; Robotic Total Station'],['inc','&#128207; In-Place Inclinometer'],['vwp','&#128167; VWP']];
-  let body='';
-  if(view==='overview'){
-    body = kpis() +
-      '<div class="ov">'+
-        '<div class="panel"><h3>🗺️ Peta Situs<span class="sp"><select class="flt" id="mapFlt"><option value="all">Semua</option><option value="instrumen">Instrumen</option><option value="inspeksi">Inspeksi</option></select></span></h3>'+
-          '<div id="map"></div>'+
-          '<div class="legend"><i><span class="marker-tri" style="--c:#16a34a;display:inline-block"></span> Extensometer</i><i><span class="dot" style="background:#0d9488"></span> AWS</i><i><span class="marker-sq" style="--c:#16a34a;display:inline-block"></span> Inspeksi</i><i>warna = level risiko / TARP</i></div></div>'+
-        awsPanel()+ extPanel(false)+ riskPanel()+ eewsPanel()+
-        '<div class="panel"><h3>🩺 System Health</h3><table class="tbl"><tbody>'+
-          '<tr><td>Argatech API</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> Online</td></tr>'+
-          '<tr><td>Database</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> Online</td></tr>'+
-          '<tr><td>EEWS (BMKG cron)</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> 1 mnt</td></tr>'+
-          '<tr><td>Pull instrumen</td><td style="text-align:right"><span class="dot" style="background:#16a34a"></span> 2 mnt</td></tr>'+
-          '</tbody></table><div class="row" style="gap:6px;margin-top:10px"><a class="btn" style="flex:1;text-decoration:none;font-size:12px" href="dashboard.html">Risiko</a><a class="btn" style="flex:1;text-decoration:none;font-size:12px" href="database.html">Database</a></div></div>'+
-      '</div>';
-  } else if(view==='ext'){
-    const ex=(DATA.sensors||[]).filter(s=>s.kind==='extensometer');
-    body = extPanel(true) +
-      '<div class="panel" style="margin-top:12px"><h3>Daftar Sensor Extensometer</h3>'+
-      '<table class="tbl"><thead><tr><th>Device</th><th>Sensor</th><th>Nilai</th><th>Status</th><th>Update</th></tr></thead><tbody>'+
-      ex.map(s=>{const f=fmtSensor(s);const st=extStatus(s);return '<tr><td>'+esc(s.external_device_id)+'</td><td>'+esc(s.sensor_name)+'</td><td><b>'+f.v+' '+f.unit+'</b></td><td><span class="pill '+st.replace(' ','')+'">'+st+'</span></td><td>'+ago(s.latest_ts)+'</td></tr>';}).join('')+
-      '</tbody></table></div>';
-  } else if(view==='aws'){ body = awsPanel(); }
-  else if(view==='rts'){ body=placeholder('Robotic Total Station'); }
-  else if(view==='inc'){ body=placeholder('In-Place Inclinometer'); }
-  else if(view==='vwp'){ body=placeholder('Vibrating Wire Piezometer (VWP)'); }
+    const st = seriesStats(rain);
+    const statsEl = document.getElementById('awsStats');
+    if(statsEl){
+      statsEl.innerHTML = `
+        <div class="stat"><div class="k">Data points</div><div class="v">${st.n||0}</div><div class="s">${STATE.range.aws}</div></div>
+        <div class="stat"><div class="k">Latest rain/min</div><div class="v">${st.last?fmt(st.last.v,2):'—'}</div><div class="s">${st.last?ago(new Date(st.last.t).toISOString()):'—'}</div></div>
+        <div class="stat"><div class="k">QC gap</div><div class="v">${st.gapPct!=null?st.gapPct+'%':'—'}</div><div class="s">indikasi missing</div></div>
+        <div class="stat"><div class="k">Akumulasi ${STATE.aws.agg}</div><div class="v">${(aggData.values||[]).reduce((s,x)=>s+(+x||0),0).toFixed(1)} mm</div><div class="s">Σ per bucket</div></div>
+        <div class="stat"><div class="k">Status hujan</div><div class="v">${((DATA.rain&&DATA.rain[0])||{}).is_raining?'Hujan':'Tidak'}</div><div class="s">${((DATA.rain&&DATA.rain[0])||{}).ongoing_rain_minutes||0} menit</div></div>
+      `;
+    }
+  }
 
-  const newest=(DATA.sensors||[]).reduce((mx,s)=>s.latest_ts&&(!mx||s.latest_ts>mx)?s.latest_ts:mx,null);
-  document.getElementById('root').innerHTML=
-  '<div class="shell"><aside class="side">'+
-      '<div class="brand"><div class="lg">&#9650;</div><div><b>GEOTECH</b><small>MONITORING</small></div></div>'+
-      '<nav>'+nav.map(n=>'<button class="'+(view===n[0]?'act':'')+'" onclick="setView(\''+n[0]+'\')">'+n[1]+'</button>').join('')+
-        '<div class="grp">Lainnya</div>'+
-        '<button onclick="location.href=\'inspeksi.html\'">&#9633; Inspeksi</button>'+
-        '<button onclick="location.href=\'pera.html\'">&#9888; PERA</button></nav>'+
-      '<div class="foot"><a href="index.html">&#8592; Menu Utama</a></div></aside>'+
-    '<div class="main"><div class="top"><h1>ONE PAGE DASHBOARD MONITORING</h1>'+
-        '<div class="meta"><span>&#128337; '+(newest?new Date(newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—')+'</span>'+
-        '<button class="btn" style="padding:6px 11px" onclick="loadAll()">&#8635;</button></div></div>'+
-      '<div class="content">'+body+'</div></div></div>';
+  function exportCsv(kind){
+    let rows = [];
+    if(kind==='ext'){
+      rows = (DATA.extSeriesTab||[]).slice();
+      if(STATE.ext.dev!=='all') rows = rows.filter(r=>String(r.external_device_id)===String(STATE.ext.dev));
+      rows = rows.map(r=>({ ts:r.ts, external_device_id:r.external_device_id, sensor_name:r.sensor_name, value:r.value }));
+    }
+    if(kind==='aws'){
+      rows = (DATA.wxSeriesTab||[]).slice().map(r=>({ ts:r.ts, sensor_name:r.sensor_name, value:r.value }));
+    }
+    const head = Object.keys(rows[0]||{});
+    const csv = [head.join(',')].concat(rows.map(o=>head.map(k=>JSON.stringify(o[k]??'')).join(','))).join('\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${kind}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+  }
 
-  if(view==='overview'){ buildMap(); drawExt(); drawRain(); const f=document.getElementById('mapFlt'); if(f){f.value=mapFilter;f.onchange=function(e){mapFilter=e.target.value;buildMap();};} }
-  if(view==='ext'){ drawExt(); }
-  if(view==='aws'){ drawRain(); }
-}
-function setView(v){ view=v; render(); }
-window.setView=setView; window.loadAll=loadAll;
+  function generateReport(kind){
+    const now = new Date().toLocaleString('id-ID');
+    let title = 'Report';
+    let img1 = null, img2 = null;
+    let summary = '';
+    if(kind==='ext'){
+      title = 'Report Extensometer';
+      const c1 = document.getElementById('extMainChart');
+      const c2 = document.getElementById('extAggChart');
+      img1 = c1 ? c1.toDataURL('image/png') : null;
+      img2 = c2 ? c2.toDataURL('image/png') : null;
+      summary = `Range: ${STATE.range.ext} · Device: ${STATE.ext.dev} · Aggregation: ${STATE.ext.agg}`;
+    }
+    if(kind==='aws'){
+      title = 'Report AWS';
+      const c1 = document.getElementById('awsRainChart');
+      const c2 = document.getElementById('awsAggChart');
+      img1 = c1 ? c1.toDataURL('image/png') : null;
+      img2 = c2 ? c2.toDataURL('image/png') : null;
+      summary = `Range: ${STATE.range.aws} · Aggregation: ${STATE.aws.agg}`;
+    }
+    const w = window.open('', '_blank');
+    const html = `
+      <html lang="id"><head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${esc(title)}</title>
+        <style>
+          body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; padding:26px; color:#0f172a;}
+          h1{margin:0 0 6px;font-size:20px;}
+          .mut{color:#64748b;font-size:12px;margin-bottom:14px;}
+          .box{border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-top:12px;}
+          img{max-width:100%;border:1px solid #e2e8f0;border-radius:12px;}
+          .btn{margin-top:16px;padding:10px 12px;border-radius:10px;border:1px solid #e2e8f0;background:#0f172a;color:#fff;font-weight:800;cursor:pointer;}
+        </style>
+      </head><body>
+        <h1>${esc(title)}</h1>
+        <div class="mut">Generated: ${esc(now)}<br>${esc(summary)}</div>
+        <div class="box">
+          <div style="font-weight:900;margin-bottom:8px">Chart 1</div>
+          ${img1?`<img src="${img1}" />`:'<div class="mut">Chart belum tersedia</div>'}
+        </div>
+        <div class="box">
+          <div style="font-weight:900;margin-bottom:8px">Chart 2</div>
+          ${img2?`<img src="${img2}" />`:'<div class="mut">Chart belum tersedia</div>'}
+        </div>
+        <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+      </body></html>`;
+    w.document.open(); w.document.write(html); w.document.close();
+  }
 
-(async()=>{
-  const p=await GMS.guard({mount:'#root'}); if(!p) return;
-  await loadAll();
-  setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 300000);
-})();
-</script>
+  function placeholder(name){
+    return `
+      <div class="panel">
+        <h3>${esc(name)} <span class="sp">analysis workbench</span></h3>
+        <div class="ph">
+          <div style="font-size:26px">&#128268;</div>
+          <div style="font-size:13px;font-weight:900;color:var(--txt2)">Sumber data belum terhubung</div>
+          <div class="smallnote" style="max-width:520px">
+            Layout analisis sudah disiapkan untuk senior engineer (range, trendline, accumulation, QC, export, report).
+            Saat datasource ${esc(name)} tersedia, modul tinggal diaktifkan pada query & mapping.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function overviewBody(){
+    return `
+      ${kpis()}
+      <div class="grid-ov">
+        ${executivePanel()}
+        ${systemHealthPanel()}
+        <div class="panel">
+          <h3>📈 Trend Snapshot <span class="sp">extensometer + trendline</span></h3>
+          <div style="position:relative;height:190px"><canvas id="ovExtChart"></canvas></div>
+          <div class="smallnote" style="margin-top:8px">Grafik ringkas untuk membaca arah tren. Detail & validasi: tab Extensometer.</div>
+        </div>
+        ${mapPanel()}
+        ${riskDecisionPanel()}
+        ${eewsPanel()}
+      </div>`;
+  }
+
+  function extBody(){
+    const devs = [...new Set((DATA.sensors||[]).filter(s=>s.kind==='extensometer').map(s=>String(s.external_device_id)))].sort();
+    const rangeOpts = ['24h','48h','7d','14d','30d'];
+    const aggOpts = ['daily','weekly','monthly'];
+    return `
+      <div class="panel">
+        <h3>📏 Extensometer <span class="sp">workbench senior engineer</span></h3>
+        <div class="ctrlbar" style="margin-bottom:10px">
+          <select class="flt" id="extDev">
+            <option value="all">Semua device</option>
+            ${devs.map(d=>`<option value="${esc(d)}">dev ${esc(d)}</option>`).join('')}
+          </select>
+          <select class="flt" id="extRange">
+            ${rangeOpts.map(r=>`<option value="${r}">${r}</option>`).join('')}
+          </select>
+          <select class="flt" id="extAgg">
+            ${aggOpts.map(a=>`<option value="${a}">accumulation ${a}</option>`).join('')}
+          </select>
+          <button class="btn2 ghost" onclick="exportCsv('ext')">Export CSV</button>
+          <button class="btn2" onclick="generateReport('ext')">Generate Report</button>
+        </div>
+        <div class="smallnote">
+          Menampilkan raw series + trendline per sensor (maks 8 seri agar tetap jelas). Accumulation dihitung sebagai delta dalam bucket (harian/mingguan/bulanan).
+        </div>
+        <div id="extStats" class="stats"></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>📈 Raw + Trendline <span class="sp">mm</span></h3>
+        <div style="position:relative;height:330px"><canvas id="extMainChart"></canvas></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>🧮 Accumulation <span class="sp">${esc(STATE.ext.agg)}</span></h3>
+        <div style="position:relative;height:220px"><canvas id="extAggChart"></canvas></div>
+      </div>`;
+  }
+
+  function awsBody(){
+    const rangeOpts = ['24h','48h','7d','14d','30d'];
+    const aggOpts = ['daily','weekly','monthly'];
+    return `
+      <div class="panel">
+        <h3>🌦️ AWS (Automatic Weather Station) <span class="sp">workbench senior engineer</span></h3>
+        <div class="ctrlbar" style="margin-bottom:10px">
+          <select class="flt" id="awsRange">
+            ${rangeOpts.map(r=>`<option value="${r}">${r}</option>`).join('')}
+          </select>
+          <select class="flt" id="awsAgg">
+            ${aggOpts.map(a=>`<option value="${a}">akumulasi ${a}</option>`).join('')}
+          </select>
+          <button class="btn2 ghost" onclick="exportCsv('aws')">Export CSV</button>
+          <button class="btn2" onclick="generateReport('aws')">Generate Report</button>
+        </div>
+        <div class="smallnote">
+          Fokus AWS untuk pengambilan keputusan: hujan terkini, intensitas, serta akumulasi (daily/weekly/monthly) sebagai pemicu perubahan perilaku lereng.
+        </div>
+        <div id="awsStats" class="stats"></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>🌧️ Rainfall Minute <span class="sp">raw</span></h3>
+        <div style="position:relative;height:260px"><canvas id="awsRainChart"></canvas></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>🧮 Akumulasi Hujan <span class="sp">${esc(STATE.aws.agg)}</span></h3>
+        <div style="position:relative;height:220px"><canvas id="awsAggChart"></canvas></div>
+      </div>`;
+  }
+
+  function render(){
+    const nav = [
+      ['overview','&#9636; Overview (Decision)'],
+      ['ext','&#128207; Extensometer (Analysis)'],
+      ['aws','&#127782; AWS (Analysis)'],
+      ['rts','&#127919; Robotic Total Station'],
+      ['inc','&#128207; In-Place Inclinometer'],
+      ['vwp','&#128167; VWP'],
+    ];
+
+    const newest = (DATA.sensors||[]).reduce((mx,s)=>s.latest_ts && (!mx||s.latest_ts>mx) ? s.latest_ts : mx, null);
+
+    let body = '';
+    if(STATE.view==='overview') body = overviewBody();
+    else if(STATE.view==='ext') body = extBody();
+    else if(STATE.view==='aws') body = awsBody();
+    else if(STATE.view==='rts') body = placeholder('Robotic Total Station');
+    else if(STATE.view==='inc') body = placeholder('In-Place Inclinometer');
+    else if(STATE.view==='vwp') body = placeholder('Vibrating Wire Piezometer (VWP)');
+
+    document.getElementById('root').innerHTML = `
+      <div class="shell">
+        <aside class="side">
+          <div class="brand">
+            <div class="lg">&#9650;</div>
+            <div><b>GEOTECH</b><small>MONITORING</small></div>
+          </div>
+          <nav>
+            ${nav.map(n=>`<button class="${STATE.view===n[0]?'act':''}" onclick="setView('${n[0]}')">${n[1]}</button>`).join('')}
+            <div class="grp">Lainnya</div>
+            <button onclick="location.href='inspeksi.html'">&#9633; Inspeksi</button>
+            <button onclick="location.href='pera.html'">&#9888; PERA</button>
+          </nav>
+          <div class="foot"><a href="index.html">&#8592; Menu Utama</a></div>
+        </aside>
+
+        <div class="main">
+          <div class="top">
+            <div class="ttl">
+              <h1>ONE PAGE DASHBOARD MONITORING</h1>
+              <div class="sub">${STATE.view==='overview'?'Mode decision (principal/management)':'Mode analysis (senior engineer)'}</div>
+            </div>
+            <div class="meta">
+              <span>&#128337; ${newest?new Date(newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</span>
+              <button class="btn2 ghost" onclick="loadAll()">&#8635; Refresh</button>
+            </div>
+          </div>
+          <div class="content">${body}</div>
+        </div>
+      </div>`;
+
+    // Post-render hooks
+    if(STATE.view==='overview'){
+      buildMap();
+      drawExtOverview();
+    }
+
+    if(STATE.view==='ext'){
+      // bind controls (semua perubahan state cukup memanggil render; render akan reload series & redraw chart)
+      const devEl = document.getElementById('extDev');
+      const rangeEl = document.getElementById('extRange');
+      const aggEl = document.getElementById('extAgg');
+      if(devEl){ devEl.value = STATE.ext.dev; devEl.onchange = (e)=>{ STATE.ext.dev = e.target.value; render(); }; }
+      if(rangeEl){ rangeEl.value = STATE.range.ext; rangeEl.onchange = (e)=>{ STATE.range.ext = e.target.value; render(); }; }
+      if(aggEl){ aggEl.value = STATE.ext.agg; aggEl.onchange = (e)=>{ STATE.ext.agg = e.target.value; drawExtTab(); }; }
+      ensureTab('ext').then(()=>drawExtTab());
+    }
+
+    if(STATE.view==='aws'){
+      const rangeEl = document.getElementById('awsRange');
+      const aggEl = document.getElementById('awsAgg');
+      if(rangeEl){ rangeEl.value = STATE.range.aws; rangeEl.onchange = (e)=>{ STATE.range.aws = e.target.value; render(); }; }
+      if(aggEl){ aggEl.value = STATE.aws.agg; aggEl.onchange = (e)=>{ STATE.aws.agg = e.target.value; drawAwsTab(); }; }
+      ensureTab('aws').then(()=>drawAwsTab());
+    }
+  }
+
+  async function ensureTab(kind){
+    if(kind==='ext') await loadSeriesForTab('ext');
+    if(kind==='aws') await loadSeriesForTab('aws');
+  }
+
+  function setView(v){ STATE.view = v; render(); }
+  function openInstrument(kind, dev){
+    if(kind==='ext'){ STATE.view='ext'; STATE.ext.dev = dev || 'all'; }
+    if(kind==='aws'){ STATE.view='aws'; /* dev reserved */ }
+    render();
+  }
+  window.setView = setView;
+  window.loadAll = loadAll;
+  window.openInstrument = openInstrument;
+  window.exportCsv = exportCsv;
+  window.generateReport = generateReport;
+
+  (async()=>{
+    const ok = await GMS.guard({ mount:'#root' });
+    if(!ok) return;
+    await loadAll();
+    setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 300000);
+  })();
+  </script>
 </body>
 </html>
