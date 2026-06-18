@@ -1,10 +1,10 @@
 /* GMS service worker v3 — multi-page offline shell */
 "use strict";
-const CACHE = "gms-shell-v4";
+const CACHE = "gms-shell-v6";
 const SUPA_CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
 const PRECACHE = [
   "common.css", "common.js",
-  "index.html", "pera.html", "inspeksi.html", "dashboard.html", "report.html",
+  "index.html", "pera.html", "inspeksi.html", "dashboard.html", "report.html", "eews.html", "validasi.html", "database.html", "monitoring.html",
   "manifest.json", SUPA_CDN
 ];
 
