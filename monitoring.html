@@ -219,8 +219,10 @@
     }
 
     /* Map */
-    #map{height:100%;min-height:0;border-radius:14px;overflow:hidden}
-    .map-wrap{height:100%;min-height:0}
+    #map{flex:1;height:100%;min-height:260px;border-radius:14px;overflow:hidden}
+    .map-wrap{height:100%;min-height:260px}
+    .mapcard{display:flex;flex-direction:column}
+    .mapcard > .card-bd{flex:1;min-height:260px;display:flex;flex-direction:column;position:relative}
     .legend{
       position:absolute;left:12px;bottom:12px;
       background:rgba(2,6,23,.55);
@@ -443,7 +445,7 @@
       const since24 = parseRange('24h');
       const since7d = parseRange('7d');
 
-      const [sn,rain,insp,loc,eq,ext24,wx24,ext7,wx7] = await Promise.all([
+      const [sn,rain,insp,loc,eq,ext24,wx24,ext7,wx7,rsum,rdaily,astats] = await Promise.all([
         sb.from('v_instrument_sensors').select('*'),
         sb.from('v_rain_status').select('*'),
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
@@ -453,6 +455,9 @@
         sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since24).order('ts',{ascending:true}),
         sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since7d).order('ts',{ascending:true}),
         sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since7d).order('ts',{ascending:true}),
+        sb.from('v_rain_summary').select('*'),
+        sb.from('v_rain_daily').select('*'),
+        sb.from('v_aws_stats').select('*'),
       ]);
 
       DATA = {
@@ -465,6 +470,9 @@
         wx24:wx24.data||[],
         ext7:ext7.data||[],
         wx7:wx7.data||[],
+        rainSum:(rsum.data||[])[0]||{},
+        rainDaily:rdaily.data||[],
+        awsStats:astats.data||[],
       };
 
       render();
@@ -667,7 +675,7 @@
 
         <div class="dash">
           <div class="upper">
-            <div class="card" style="position:relative;min-height:0">
+            <div class="card mapcard" style="position:relative;min-height:0">
               <div class="card-hd"><div class="t">Peta Risiko Geoteknik</div><div class="ic">🗺️</div></div>
               <div class="card-bd map-wrap">
                 <div id="map"></div>
@@ -831,6 +839,21 @@
                   y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}});
     }
 
+    function miniKpi(label,val,color){
+      return `<div style="padding:9px 11px;border-radius:12px;background:rgba(2,6,23,.18);border:1px solid rgba(148,163,184,.12)">
+        <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3cf;font-weight:900">${esc(label)}</div>
+        <div style="font-size:18px;font-weight:950;color:${color};margin-top:5px">${esc(val)}</div></div>`;
+    }
+    function statsTable(){
+      const order={extensometer:0,weather:1};
+      const rows=(DATA.awsStats||[]).slice().sort((a,b)=>(order[a.kind]-order[b.kind])||String(a.sensor_name).localeCompare(b.sensor_name));
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">STATISTIK SENSOR — 7 HARI (avg / min / max)</div></div>
+        <div class="card"><div class="card-bd" style="overflow:auto;max-height:240px">
+          <table class="tbl"><thead><tr><th>Sensor</th><th>Jenis</th><th>Avg (7h)</th><th>Min</th><th>Max</th><th>Data</th></tr></thead><tbody>
+          ${rows.map(s=>{const u=s.sensor_type_name==='AIO Atmosphere'?'kPa':(s.unit||'');
+            return `<tr><td>${esc(s.sensor_name)}</td><td>${s.kind==='extensometer'?'Extensometer':'AWS'}</td><td><b>${fmt(s.avg_7d,2)}</b> ${esc(u)}</td><td>${fmt(s.min_7d,2)}</td><td>${fmt(s.max_7d,2)}</td><td>${s.n_7d||0}</td></tr>`;}).join('')}
+          </tbody></table></div></div>`;
+    }
     function instrumentView(){
       const ext=groupBySensor(DATA.ext7||[]);
       const extKeys=Object.keys(ext);
@@ -842,11 +865,27 @@
         <div class="card"><div class="card-hd"><div class="t">🌧️ Curah Hujan (menit & jam)</div></div><div class="card-bd" style="height:180px"><canvas id="awsRain"></canvas></div></div>
         <div class="card"><div class="card-hd"><div class="t">🌡️ Suhu & Kelembapan</div></div><div class="card-bd" style="height:180px"><canvas id="awsTH"></canvas></div></div>
         <div class="card"><div class="card-hd"><div class="t">💨 Kecepatan Angin & Radiasi</div></div><div class="card-bd" style="height:180px"><canvas id="awsWR"></canvas></div></div>`;
-      return `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">EXTENSOMETER — TREND 7 HARI · garis putus-putus = trendline (laju mm/hari)</div></div>
+      const rs=DATA.rainSum||{}, rn=DATA.rain||{};
+      const hidro = `
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HIDROLOGI · DATABASE HUJAN (durasi · akumulasi · peak)</div></div>
+        <div class="card"><div class="card-bd">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+            ${miniKpi('Durasi hujan kini', rn.is_raining?((rn.ongoing_rain_minutes||0)+' mnt'):'Tidak hujan', '#38bdf8')}
+            ${miniKpi('Akumulasi hari ini', fmt(rs.today_mm,1)+' mm', '#22d3ee')}
+            ${miniKpi('Akumulasi 7 hari', fmt(rs.week_mm,1)+' mm', '#3b82f6')}
+            ${miniKpi('Akumulasi 30 hari', fmt(rs.month_mm,1)+' mm', '#6366f1')}
+            ${miniKpi('Peak menit (24j)', fmt(rs.peak_minute_24h_mm,2)+' mm', '#f59e0b')}
+            ${miniKpi('Peak jam (24j)', fmt(rs.peak_hour_24h_mm,1)+' mm/jam', '#f97316')}
+          </div>
+          <div style="margin-top:7px;font-size:10.5px;color:#9fb3cf">Menit hujan: hari ini <b>${rs.rain_minutes_today||0}</b> · 24 jam <b>${rs.rain_minutes_24h||0}</b>. ${(Number(rs.peak_hour_24h_mm)>0 && Number(rs.today_mm)===0)?'<span style="color:#f59e0b">⚠ Channel hujan/menit membaca 0 tetapi hujan/jam ada nilai — perlu verifikasi sensor.</span>':''}</div>
+          <div style="height:150px;margin-top:8px"><canvas id="rainDaily"></canvas></div>
+        </div></div>`;
+      return hidro + `
+        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">EXTENSOMETER — TREND 7 HARI · garis putus-putus = trendline (laju mm/hari)</div></div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${extCards}</div>
         <div class="card-hd" style="padding:12px 2px 2px"><div class="t">AWS / CUACA — TREND 7 HARI</div></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>`;
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>`
+        + statsTable();
     }
     function drawInstrumentCharts(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
@@ -860,6 +899,16 @@
       tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
       const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
       tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+      // Akumulasi hujan harian (bar)
+      const rd=DATA.rainDaily||[]; const cvd=document.getElementById('rainDaily');
+      if(cvd&&window.Chart){
+        charts['rainDaily']=new Chart(cvd,{type:'bar',
+          data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})),
+            datasets:[{label:'Akumulasi (mm/hari)',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
+          options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+            scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+                    y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/hari',color:'#9fb3cf',font:{size:9}}}}}});
+      }
     }
 
     function instrumentLayout(title){
@@ -1093,7 +1142,10 @@
           instruments: L.layerGroup().addTo(map),
           inspections: L.layerGroup().addTo(map),
         };
-        L.control.layers(null, {
+        L.control.layers({
+          'Satelit (Esri)': sat,
+          'Peta Jalan (OSM)': osm,
+        }, {
           'Instrument Symbols': overlays.instruments,
           'Inspection Symbols': overlays.inspections,
           'Risk Halo': overlays.halo,
