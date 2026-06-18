@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- Esri Leaflet untuk memakai ArcGIS ImageServer sebagai basemap -->
+  <script src="https://unpkg.com/esri-leaflet@3.0.14/dist/esri-leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="common.js"></script>
 
@@ -1011,11 +1013,17 @@
 
       if(!map){
         map = L.map('map', { scrollWheelZoom:true, zoomControl:true });
-        // Satellite basemap seperti referensi
-        L.tileLayer(
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          { maxZoom: 19 }
-        ).addTo(map);
+        // Basemap: ArcGIS ImageServer (sesuai link yang Anda kirim)
+        const aerialUrl = 'https://tiledimageservices3.arcgis.com/PI9ppMfSyzu6GVi7/arcgis/rest/services/WEEK21_2026_AERIALFOTO/ImageServer';
+        if(L.esri && L.esri.imageMapLayer){
+          L.esri.imageMapLayer({ url: aerialUrl }).addTo(map);
+        } else {
+          // Fallback jika plugin gagal load
+          L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { maxZoom: 19 }
+          ).addTo(map);
+        }
 
         overlays = {
           halo: L.layerGroup().addTo(map),
@@ -1265,4 +1273,3 @@
   </script>
 </body>
 </html>
-
