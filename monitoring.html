@@ -186,12 +186,12 @@ function awsPanel(){
       chip('Misole Rainfall Minute','Hujan/mnt','🌧️')+chip('Misole Rainfall Hour','Hujan/jam','🌧️')+
       chip('AIO Wind Speed','Angin','💨')+chip('AIO Wind Direction','Arah','🧭')+
       chip('AIO Atmosphere','Tekanan','🧭')+chip('AIO Radiation','Radiasi','☀️')+
-    '</div><canvas id="rainChart" height="90" style="margin-top:10px"></canvas></div>';
+    '</div><div style="position:relative;height:90px;margin-top:10px"><canvas id="rainChart"></canvas></div></div>';
 }
 
 function extPanel(big){
   return '<div class="panel"><h3>📏 Extensometer<span class="sp">12 jam · mm</span></h3>'+
-    '<canvas id="extChart" height="'+(big?120:150)+'"></canvas><div class="legend" id="extLegend"></div></div>';
+    '<div style="position:relative;height:'+(big?280:190)+'px"><canvas id="extChart"></canvas></div><div class="legend" id="extLegend"></div></div>';
 }
 function drawExt(){
   const cv=document.getElementById('extChart'); if(!cv||!window.Chart) return;
