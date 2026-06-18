@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <!-- Esri Leaflet untuk memakai ArcGIS ImageServer sebagai basemap -->
-  <script src="https://unpkg.com/esri-leaflet@3.0.14/dist/esri-leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.14/dist/esri-leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <script src="common.js"></script>
 
@@ -1014,23 +1014,40 @@
       if(!map){
         map = L.map('map', { scrollWheelZoom:true, zoomControl:true });
         // Basemap: ArcGIS ImageServer (sesuai link yang Anda kirim)
+        // Catatan: bila area coverage ImageServer tidak global / ada kendala CORS/token,
+        // layer akan tampak "blank". Karena itu saya sediakan opsi "World Imagery" sebagai fallback di layer control.
         const aerialUrl = 'https://tiledimageservices3.arcgis.com/PI9ppMfSyzu6GVi7/arcgis/rest/services/WEEK21_2026_AERIALFOTO/ImageServer';
-        if(L.esri && L.esri.imageMapLayer){
-          L.esri.imageMapLayer({ url: aerialUrl }).addTo(map);
-        } else {
-          // Fallback jika plugin gagal load
-          L.tileLayer(
-            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            { maxZoom: 19 }
-          ).addTo(map);
+        const worldUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+        const week21Layer = (L.esri && L.esri.imageMapLayer)
+          ? L.esri.imageMapLayer({ url: aerialUrl, useCors:true })
+          : L.tileLayer(worldUrl, { maxZoom: 19 });
+
+        // Jika request ImageServer gagal, otomatis jatuh ke World Imagery supaya peta tidak kosong.
+        if(week21Layer && week21Layer.on){
+          week21Layer.on('requesterror', ()=>{
+            try{
+              if(map && map.hasLayer(week21Layer)) map.removeLayer(week21Layer);
+              L.tileLayer(worldUrl, { maxZoom: 19 }).addTo(map);
+              console.warn('[Basemap] ImageServer gagal dimuat, fallback ke World Imagery.');
+            }catch(e){}
+          });
         }
+
+        const baseLayers = {
+          'AerialFoto WEEK21 2026 (ImageServer)': week21Layer,
+          'World Imagery (fallback)': L.tileLayer(worldUrl, { maxZoom: 19 })
+        };
+
+        // Default: pakai ImageServer
+        week21Layer.addTo(map);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
           instruments: L.layerGroup().addTo(map),
           inspections: L.layerGroup().addTo(map),
         };
-        L.control.layers(null, {
+        L.control.layers(baseLayers, {
           'Instrument Symbols': overlays.instruments,
           'Inspection Symbols': overlays.inspections,
           'Risk Halo': overlays.halo,
