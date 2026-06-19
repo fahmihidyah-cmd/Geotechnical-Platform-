@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="common.js"></script>
 
   <style>
@@ -565,7 +566,7 @@
       const nav = [
         ['overview','Overview'],
         ['instrument','Extensometer'],
-        ['aws','AWS / Cuaca'],
+        ['aws','AWS / Weather'],
         ['inspection','Inspection'],
         ['alerts','Alerts'],
         ['reports','Data & Reports'],
@@ -915,18 +916,19 @@
       }
     }
 
-    // ===================== TAB EXTENSOMETER & AWS =====================
+    // ===================== EXTENSOMETER & AWS TABS =====================
     function hexA(hex,a){ const h=hex.replace('#',''); const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16); return `rgba(${r},${g},${b},${a})`; }
     function sensorVU(s){ if(s.latest_value==null) return {v:'—',unit:''};
       if(s.sensor_type_name==='AIO Atmosphere') return {v:fmt(s.latest_value,2),unit:'kPa'};
       return {v:fmt(s.latest_value,2),unit:s.unit||''}; }
-    function statusOf(s){ if(s.manual_state==='on') return {t:'AKTIF (manual)',c:'#22c55e'};
-      if(s.manual_state==='off') return {t:'NONAKTIF (manual)',c:'#94a3b8'};
-      return stale(s.latest_ts,15)?{t:'DOWN',c:'#ef4444'}:{t:'AKTIF',c:'#22c55e'}; }
-    function trendArrow(v){ if(v==null||!isFinite(v)) return '<span class="trend-st">→ stabil</span>';
-      if(v>0.005) return `<span class="trend-up">↑ naik (+${fmt(v,3)} mm/hari)</span>`;
-      if(v<-0.005) return `<span class="trend-dn">↓ turun (${fmt(v,3)} mm/hari)</span>`;
-      return `<span class="trend-st">→ stabil (${fmt(v,3)} mm/hari)</span>`; }
+    function statusOf(s){ if(s.manual_state==='on') return {t:'ACTIVE (manual)',c:'#22c55e'};
+      if(s.manual_state==='off') return {t:'OFF (manual)',c:'#94a3b8'};
+      return stale(s.latest_ts,15)?{t:'DOWN',c:'#ef4444'}:{t:'ACTIVE',c:'#22c55e'}; }
+    function trendArrow(mmPerDay){ if(mmPerDay==null||!isFinite(mmPerDay)) return '<span class="trend-st">→ stable</span>';
+      const v=mmPerDay/24;
+      if(v>0.0005) return `<span class="trend-up">↑ rising (+${fmt(v,4)} mm/hour)</span>`;
+      if(v<-0.0005) return `<span class="trend-dn">↓ falling (${fmt(v,4)} mm/hour)</span>`;
+      return `<span class="trend-st">→ stable (${fmt(v,4)} mm/hour)</span>`; }
     function trendOfRows(rows){ const byS={}; (rows||[]).forEach(r=>{(byS[r.sensor_name]=byS[r.sensor_name]||[]).push(r);});
       const sl=Object.values(byS).map(rs=>seriesStats(rs).mmPerDay).filter(x=>x!=null&&isFinite(x));
       return sl.length? sl.reduce((a,b)=>a+b,0)/sl.length : null; }
@@ -935,23 +937,25 @@
         plugins:{legend:{display:true,position:'top',labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8,usePointStyle:true}}},
         scales:{x:{ticks:{maxTicksLimit:7,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
                 y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}}; }
+    function dStr(off){ return new Date(Date.now()+off*86400000).toISOString().slice(0,10); }
+    function areaLabel(dev){ return dev==='373'?'WOC':dev==='372'?'Water Intake':('dev '+dev); }
 
     function batteryPanel(kind){
       const devs=[...new Set((DATA.sensors||[]).filter(s=>s.kind===kind).map(s=>s.external_device_id))];
-      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">BATERAI PER UNIT</div></div>
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">BATTERY PER UNIT</div></div>
        <div style="display:grid;grid-template-columns:repeat(${Math.max(devs.length,1)},1fr);gap:10px">
-       ${devs.map(d=>`<div class="card"><div class="card-bd"><div class="t" style="color:#9fb3cf">Unit dev ${esc(d)}</div>
+       ${devs.map(d=>`<div class="card"><div class="card-bd"><div class="t" style="color:#9fb3cf">Unit ${esc(areaLabel(d))}</div>
          <div style="font-size:22px;font-weight:950;color:#64748b;margin-top:6px">— %</div>
-         <div style="font-size:10px;color:#9fb3cf;margin-top:4px">Belum tersedia — perlu endpoint device-status Argatech (payload sensor saat ini tidak memuat baterai).</div></div></div>`).join('')}
+         <div style="font-size:10px;color:#9fb3cf;margin-top:4px">Not available — Argatech sensor payload has no battery field (needs device-status endpoint).</div></div></div>`).join('')}
        </div>`;
     }
     function statusPanel(kind){
       const list=(DATA.sensors||[]).filter(s=>s.kind===kind).sort((a,b)=>String(a.external_device_id+a.sensor_name).localeCompare(b.external_device_id+b.sensor_name));
-      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">STATUS SENSOR · otomatis dari data masuk (≤15 mnt = aktif) · override manual</div></div>
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">SENSOR STATUS · auto from incoming data (≤15 min = active) · manual override</div></div>
        <div class="card"><div class="card-bd" style="overflow:auto;max-height:300px">
-       <table class="tbl"><thead><tr><th>Sensor</th><th>Dev</th><th>Nilai terakhir</th><th>Update</th><th>Status</th><th>Override</th></tr></thead><tbody>
+       <table class="tbl"><thead><tr><th>Sensor</th><th>Area</th><th>Last value</th><th>Updated</th><th>Status</th><th>Override</th></tr></thead><tbody>
        ${list.map(s=>{const st=statusOf(s);const vu=sensorVU(s);
-         return `<tr><td>${esc(s.sensor_name)}</td><td>${esc(s.external_device_id)}</td><td>${vu.v} ${esc(vu.unit)}</td><td>${ago(s.latest_ts)}</td>
+         return `<tr><td>${esc(s.sensor_name)}</td><td>${esc(areaLabel(s.external_device_id))}</td><td>${vu.v} ${esc(vu.unit)}</td><td>${ago(s.latest_ts)}</td>
            <td><span style="color:${st.c};font-weight:900">● ${esc(st.t)}</span></td>
            <td style="text-align:right;white-space:nowrap">
              <button class="btn-ghost xs ${s.manual_state==='auto'?'on':''}" onclick="toggleSensor('${s.sensor_id}','auto')">Auto</button>
@@ -960,76 +964,107 @@
            </td></tr>`;}).join('')}
        </tbody></table></div></div>`;
     }
-    function rawPanel(scope){
-      const kind = scope==='aws'?'weather':'extensometer';
-      const opts=(DATA.sensors||[]).filter(s=>s.kind===kind)
-        .map(s=>`<option value="${s.sensor_id}" data-name="${esc(s.sensor_name)}" data-unit="${esc(s.unit||'')}">${esc(s.external_device_id)} · ${esc(s.sensor_name)}</option>`).join('');
-      const rainOpt = scope==='aws' ? `<option value="__rain__">🌧️ Durasi Hujan (event mulai/berhenti)</option>` : '';
-      const today=new Date().toISOString().slice(0,10);
-      const wk=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
-      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">DATA RAW & PENGOLAHAN · pilih sensor + rentang tanggal</div></div>
-       <div class="card"><div class="card-bd">
-         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Sensor</div><select id="rawSensor_${scope}" class="flt">${rainOpt}${opts}</select></div>
-           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Dari</div><input type="date" id="rawFrom_${scope}" class="flt" value="${wk}"></div>
-           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Sampai</div><input type="date" id="rawTo_${scope}" class="flt" value="${today}"></div>
-           <button class="btn-ghost" onclick="renderRaw('${scope}')">▶ Render</button>
-         </div>
-         <div id="rawResult_${scope}" style="margin-top:12px;color:#9fb3cf;font-size:12px">Pilih sensor & rentang, lalu klik Render. Olahan: min · max · average · sum.</div>
+
+    function rawControls(p, sensorSelectHtml, defStat){
+      return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        ${sensorSelectHtml}
+        <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Interval</div><select id="${p}_bucket" class="flt"><option value="hourly">Hourly</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
+        <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Statistic</div><select id="${p}_stat" class="flt">
+          <option value="sum"${defStat==='sum'?' selected':''}>Sum</option>
+          <option value="average"${defStat==='average'?' selected':''}>Average</option>
+          <option value="min">Min</option><option value="max">Max</option></select></div>
+        <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">From</div><input type="date" id="${p}_from" class="flt" value="${dStr(-7)}"></div>
+        <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">To</div><input type="date" id="${p}_to" class="flt" value="${dStr(0)}"></div>
+        <button class="btn-ghost" onclick="${p==='ex'?'renderExt()':'renderAwsRaw()'}">▶ Render</button>
+        <button class="btn-ghost" onclick="exportTable('${p}_result','${p==='ex'?'extensometer':'aws'}')">⬇ Excel</button>
+      </div>`;
+    }
+    function rawPanelExt(){
+      const sel=`<div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Area</div><select id="ex_area" class="flt"><option value="373">WOC (D1–D5)</option><option value="372">Water Intake (D1–D4)</option></select></div>`;
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">RAW DATA & PROCESSING</div></div>
+       <div class="card"><div class="card-bd">${rawControls('ex',sel,'average')}
+         <div id="ex_result" style="margin-top:12px;color:#9fb3cf;font-size:12px">Pick Area · Interval · Statistic · date range, then Render. Each cell = chosen statistic of that sensor within the interval.</div>
        </div></div>`;
     }
-    async function renderRaw(scope){
-      const sel=document.getElementById('rawSensor_'+scope); if(!sel) return;
-      const sid=sel.value;
-      const from=document.getElementById('rawFrom_'+scope).value, to=document.getElementById('rawTo_'+scope).value;
-      const res=document.getElementById('rawResult_'+scope);
-      if(!from||!to){ res.textContent='Lengkapi tanggal.'; return; }
+    function rawPanelAws(){
+      const opts=(DATA.sensors||[]).filter(s=>s.kind==='weather').map(s=>`<option value="${s.sensor_id}" data-name="${esc(s.sensor_name)}" data-unit="${esc(s.unit||'')}">${esc(s.sensor_name)}</option>`).join('');
+      const sel=`<div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Data</div><select id="aw_sensor" class="flt"><option value="__rain__">🌧️ Rain duration (events: start/stop)</option>${opts}</select></div>`;
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">RAW DATA & PROCESSING</div></div>
+       <div class="card"><div class="card-bd">${rawControls('aw',sel,'sum')}
+         <div id="aw_result" style="margin-top:12px;color:#9fb3cf;font-size:12px">For rainfall accumulation use Sum. For "Rain duration" the interval/statistic are ignored (event list).</div>
+       </div></div>`;
+    }
+    function pivotTable(rows){
+      const buckets=[...new Set(rows.map(r=>r.bucket_label))].sort();
+      const sensors=[...new Set(rows.map(r=>r.sensor_name))].sort();
+      const m={}; rows.forEach(r=>{ m[r.bucket_label+'|'+r.sensor_name]=r.val; });
+      let h='<table class="tbl"><thead><tr><th>Interval</th>'+sensors.map(s=>'<th>'+esc(s)+'</th>').join('')+'</tr></thead><tbody>';
+      buckets.forEach(b=>{ h+='<tr><td>'+esc(b)+'</td>'+sensors.map(s=>{const v=m[b+'|'+s]; return '<td>'+(v==null?'—':fmt(v,3))+'</td>';}).join('')+'</tr>'; });
+      return h+'</tbody></table>';
+    }
+    async function renderExt(){
+      const dev=document.getElementById('ex_area').value, bucket=document.getElementById('ex_bucket').value, stat=document.getElementById('ex_stat').value;
+      const from=document.getElementById('ex_from').value, to=document.getElementById('ex_to').value, res=document.getElementById('ex_result');
+      if(!from||!to){res.textContent='Please complete the date range.';return;}
+      res.innerHTML='<div class="spin"></div>';
+      try{
+        const {data,error}=await sb.rpc('instrument_bucketed',{p_device:dev,p_kind:'extensometer',p_from:new Date(from+'T00:00:00').toISOString(),p_to:new Date(to+'T23:59:59').toISOString(),p_bucket:bucket,p_stat:stat});
+        if(error) throw error; const rows=data||[];
+        res.innerHTML=`<div style="margin-bottom:8px">${esc(areaLabel(dev))} · ${stat.toUpperCase()} per ${bucket} · ${[...new Set(rows.map(r=>r.bucket_label))].length} intervals</div>
+          <div style="max-height:340px;overflow:auto">${rows.length?pivotTable(rows):'No data in range.'}</div>`;
+      }catch(e){ res.textContent='Failed: '+(e.message||e); }
+    }
+    async function renderAwsRaw(){
+      const sel=document.getElementById('aw_sensor'), sid=sel.value, bucket=document.getElementById('aw_bucket').value, stat=document.getElementById('aw_stat').value;
+      const from=document.getElementById('aw_from').value, to=document.getElementById('aw_to').value, res=document.getElementById('aw_result');
+      if(!from||!to){res.textContent='Please complete the date range.';return;}
       const fromTs=new Date(from+'T00:00:00').toISOString(), toTs=new Date(to+'T23:59:59').toISOString();
       res.innerHTML='<div class="spin"></div>';
       try{
         if(sid==='__rain__'){
           const {data}=await sb.from('v_rain_events').select('*').gte('started_at',fromTs).lte('started_at',toTs).order('started_at',{ascending:false});
           const ev=data||[]; const totMin=ev.reduce((a,b)=>a+(b.duration_minutes||0),0), totMm=ev.reduce((a,b)=>a+Number(b.total_mm||0),0);
-          res.innerHTML=`<div style="margin-bottom:8px">Durasi hujan terekam: <b>${ev.length}</b> event · total <b>${totMin}</b> menit · <b>${totMm.toFixed(1)}</b> mm</div>
-            <div style="max-height:300px;overflow:auto"><table class="tbl"><thead><tr><th>Tanggal</th><th>Mulai</th><th>Berhenti</th><th>Durasi (mnt)</th><th>Total (mm)</th><th>Peak (mm/mnt)</th></tr></thead><tbody>
-            ${ev.map(e=>`<tr><td>${e.day}</td><td>${new Date(e.started_at).toLocaleTimeString('id-ID')}</td><td>${new Date(e.ended_at).toLocaleTimeString('id-ID')}</td><td>${e.duration_minutes}</td><td>${Number(e.total_mm).toFixed(2)}</td><td>${Number(e.peak_minute_mm).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">Tidak ada hujan pada rentang ini.</td></tr>'}
+          res.innerHTML=`<div style="margin-bottom:8px">Recorded rain: <b>${ev.length}</b> events · total <b>${totMin}</b> min · <b>${totMm.toFixed(1)}</b> mm</div>
+            <div style="max-height:340px;overflow:auto"><table class="tbl"><thead><tr><th>Date</th><th>Start</th><th>Stop</th><th>Duration (min)</th><th>Total (mm)</th><th>Peak (mm/min)</th></tr></thead><tbody>
+            ${ev.map(e=>`<tr><td>${e.day}</td><td>${new Date(e.started_at).toLocaleTimeString('en-GB')}</td><td>${new Date(e.ended_at).toLocaleTimeString('en-GB')}</td><td>${e.duration_minutes}</td><td>${Number(e.total_mm).toFixed(2)}</td><td>${Number(e.peak_minute_mm).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">No rain in this range.</td></tr>'}
             </tbody></table></div>`;
           return;
         }
-        const name=sel.selectedOptions[0].getAttribute('data-name')||''; const unit=sel.selectedOptions[0].getAttribute('data-unit')||'';
-        const [{data:agg},{data:rows}]=await Promise.all([
-          sb.rpc('sensor_aggregate',{p_sensor_id:sid,p_from:fromTs,p_to:toTs}),
-          sb.from('v_instrument_readings').select('ts,value').eq('sensor_id',sid).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(2000),
-        ]);
-        const a=(agg&&agg[0])||{};
-        res.innerHTML=`
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px">
-            ${miniKpi('Jumlah data',(a.n||0)+'','#22d3ee')}
-            ${miniKpi('Min',fmt(a.v_min,2)+' '+unit,'#22c55e')}
-            ${miniKpi('Max',fmt(a.v_max,2)+' '+unit,'#ef4444')}
-            ${miniKpi('Average',fmt(a.v_avg,2)+' '+unit,'#3b82f6')}
-            ${miniKpi('Sum',fmt(a.v_sum,2)+' '+unit,'#f59e0b')}
-            ${miniKpi('Rentang',(a.first_ts?new Date(a.first_ts).toLocaleDateString('id-ID'):'—')+' → '+(a.last_ts?new Date(a.last_ts).toLocaleDateString('id-ID'):'—'),'#a78bfa')}
-          </div>
-          <div style="font-size:10.5px;color:#9fb3cf;margin-bottom:6px">${esc(name)} · menampilkan ${(rows||[]).length} baris terbaru (maks 2000)</div>
-          <div style="max-height:300px;overflow:auto"><table class="tbl"><thead><tr><th>Waktu</th><th>Nilai (${esc(unit)})</th></tr></thead><tbody>
-          ${(rows||[]).map(r=>`<tr><td>${new Date(r.ts).toLocaleString('id-ID')}</td><td>${fmt(r.value,3)}</td></tr>`).join('')}
+        const name=sel.selectedOptions[0].getAttribute('data-name')||'', unit=sel.selectedOptions[0].getAttribute('data-unit')||'';
+        const {data,error}=await sb.rpc('instrument_bucketed',{p_device:'372',p_kind:'weather',p_from:fromTs,p_to:toTs,p_bucket:bucket,p_stat:stat});
+        if(error) throw error; const rows=(data||[]).filter(r=>r.sensor_name===name);
+        res.innerHTML=`<div style="margin-bottom:8px">${esc(name)} (${esc(unit)}) · ${stat.toUpperCase()} per ${bucket}</div>
+          <div style="max-height:340px;overflow:auto"><table class="tbl"><thead><tr><th>Interval</th><th>${esc(stat)} (${esc(unit)})</th></tr></thead><tbody>
+          ${rows.map(r=>`<tr><td>${esc(r.bucket_label)}</td><td>${fmt(r.val,3)}</td></tr>`).join('')||'<tr><td colspan="2">No data.</td></tr>'}
           </tbody></table></div>`;
-      }catch(e){ res.textContent='Gagal memuat: '+(e.message||e); }
+      }catch(e){ res.textContent='Failed: '+(e.message||e); }
     }
-    async function toggleSensor(id,state){ try{ await sb.rpc('set_sensor_manual_state',{p_sensor_id:id,p_state:state}); await loadAll(); }catch(e){ alert('Gagal ubah status: '+(e.message||e)); } }
+    function exportTable(containerId, fname){
+      const cont=document.getElementById(containerId); const tbl=cont&&cont.querySelector('table');
+      if(!tbl){ alert('Render data first.'); return; }
+      const rows=[...tbl.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>td.innerText));
+      const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+      if(window.XLSX){
+        const ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,ws,'Data'); XLSX.writeFile(wb, fname+'_'+stamp+'.xlsx');
+      } else {
+        const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+        const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=fname+'_'+stamp+'.csv'; a.click();
+      }
+    }
+    async function toggleSensor(id,state){ try{ await sb.rpc('set_sensor_manual_state',{p_sensor_id:id,p_state:state}); await loadAll(); }catch(e){ alert('Failed to change status: '+(e.message||e)); } }
 
     function extensometerView(){
       const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
       const cards=groups.map((g,gi)=>`
-        <div class="card"><div class="card-hd"><div class="t">📏 Extensometer ${esc(g.key)} (dev ${g.dev})</div><div class="t" id="exttrend_${gi}" style="color:#9fb3cf"></div></div>
+        <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — ${esc(g.key)}</div><div class="t" id="exttrend_${gi}" style="color:#9fb3cf"></div></div>
           <div class="card-bd" style="height:240px"><canvas id="extchart_${gi}"></canvas></div></div>`).join('');
       return `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">GRAFIK AREA 7 HARI · klik nama sensor di legend untuk on/off · garis putus = trendline</div></div>
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AREA CHART (7 DAYS) · click a legend item to toggle that sensor · dashed = trendline</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
         ${batteryPanel('extensometer')}
         ${statusPanel('extensometer')}
-        ${rawPanel('ext')}`;
+        ${rawPanelExt()}`;
     }
     function drawExtTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
@@ -1051,37 +1086,37 @@
     function awsView(){
       const rs=DATA.rainSum||{}, rn=DATA.rain||{};
       return `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HIDROLOGI · durasi · akumulasi · peak (database hujan)</div></div>
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HYDROLOGY · duration · accumulation · peak</div></div>
         <div class="card"><div class="card-bd">
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
-            ${miniKpi('Durasi hujan kini', rn.is_raining?((rn.ongoing_rain_minutes||0)+' mnt'):'Tidak hujan','#38bdf8')}
-            ${miniKpi('Akumulasi hari ini',fmt(rs.today_mm,1)+' mm','#22d3ee')}
-            ${miniKpi('Akumulasi 7 hari',fmt(rs.week_mm,1)+' mm','#3b82f6')}
-            ${miniKpi('Akumulasi 30 hari',fmt(rs.month_mm,1)+' mm','#6366f1')}
-            ${miniKpi('Peak menit 24j',fmt(rs.peak_minute_24h_mm,2)+' mm','#f59e0b')}
-            ${miniKpi('Peak jam 24j',fmt(rs.peak_hour_24h_mm,1)+' mm/jam','#f97316')}
+            ${miniKpi('Rain duration (now)', rn.is_raining?((rn.ongoing_rain_minutes||0)+' min'):'No rain','#38bdf8')}
+            ${miniKpi('Accumulation today',fmt(rs.today_mm,1)+' mm','#22d3ee')}
+            ${miniKpi('Accumulation 7 days',fmt(rs.week_mm,1)+' mm','#3b82f6')}
+            ${miniKpi('Accumulation 30 days',fmt(rs.month_mm,1)+' mm','#6366f1')}
+            ${miniKpi('Peak minute 24h',fmt(rs.peak_minute_24h_mm,2)+' mm','#f59e0b')}
+            ${miniKpi('Peak hourly 24h',fmt(rs.peak_hour_24h_mm,1)+' mm/hr','#f97316')}
           </div>
           <div style="height:150px;margin-top:10px"><canvas id="awsDaily"></canvas></div>
         </div></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
-          <div class="card"><div class="card-hd"><div class="t">🌧️ Curah Hujan</div></div><div class="card-bd" style="height:190px"><canvas id="awsRain"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">🌡️ Suhu & Kelembapan</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">💨 Angin & Radiasi</div></div><div class="card-bd" style="height:190px"><canvas id="awsWR"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall</div></div><div class="card-bd" style="height:190px"><canvas id="awsRain"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">🌡️ Temperature & Humidity</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">💨 Wind & Radiation</div></div><div class="card-bd" style="height:190px"><canvas id="awsWR"></canvas></div></div>
         </div>
         ${statusPanel('weather')}
-        ${rawPanel('aws')}`;
+        ${rawPanelAws()}`;
     }
     function drawAwsTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
-      tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
-      const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
-      tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+      tsChart('awsRain', multiSeries([{name:'Rain/min (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Rain/hour (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
+      const th=multiSeries([{name:'Temp (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Humidity (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
+      tsChart('awsWR', multiSeries([{name:'Wind (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiation (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
       const rd=DATA.rainDaily||[]; const cvd=document.getElementById('awsDaily');
       if(cvd&&window.Chart) charts['awsDaily']=new Chart(cvd,{type:'bar',
-        data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})),datasets:[{label:'Akumulasi',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
+        data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})),datasets:[{label:'Accumulation',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
         options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
           scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
-                  y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/hari',color:'#9fb3cf',font:{size:9}}}}}});
+                  y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/day',color:'#9fb3cf',font:{size:9}}}}}});
     }
 
     function instrumentLayout(title){
@@ -1556,7 +1591,9 @@
 
     function setView(v){ STATE.view=v; render(); }
     window.setView=setView;
-    window.renderRaw=renderRaw;
+    window.renderExt=renderExt;
+    window.renderAwsRaw=renderAwsRaw;
+    window.exportTable=exportTable;
     window.toggleSensor=toggleSensor;
     window.loadAll=loadAll;
     window.exportDashboard=exportDashboard;
