@@ -362,6 +362,9 @@
       color:#fff;font-weight:950;font-size:11px;
     }
     .halo{filter:drop-shadow(0 12px 20px rgba(2,6,23,.5))}
+    select.flt,input.flt{font-size:12px;padding:6px 8px;border-radius:9px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.30);color:#e5e7eb}
+    .btn-ghost.xs{padding:4px 8px;font-size:10px;margin-left:3px}
+    .btn-ghost.on{background:rgba(59,130,246,.38);border-color:rgba(59,130,246,.55);color:#fff}
   </style>
 </head>
 
@@ -561,10 +564,10 @@
     function tpl(){
       const nav = [
         ['overview','Overview'],
-        ['instrument','Monitoring Instrument'],
+        ['instrument','Extensometer'],
+        ['aws','AWS / Cuaca'],
         ['inspection','Inspection'],
         ['alerts','Alerts'],
-        ['trends','Trends & Analysis'],
         ['reports','Data & Reports'],
         ['docs','Documents'],
         ['settings','Settings'],
@@ -584,7 +587,7 @@
             <div class="nav">
               ${nav.map(([k,n])=>`
                 <button class="${STATE.view===k?'act':''}" onclick="setView('${k}')">
-                  <span class="ico">${k==='overview'?'▣':k==='instrument'?'⌁':k==='inspection'?'▦':k==='alerts'?'⚠':k==='trends'?'⌗':k==='reports'?'⧉':k==='docs'?'⎘':'⚙'}</span>
+                  <span class="ico">${k==='overview'?'▣':k==='instrument'?'⌁':k==='aws'?'☁':k==='inspection'?'▦':k==='alerts'?'⚠':k==='trends'?'⌗':k==='reports'?'⧉':k==='docs'?'⎘':'⚙'}</span>
                   <span>${esc(n)}</span>
                 </button>`).join('')}
             </div>
@@ -602,6 +605,7 @@
               <h1>EXECUTIVE MONITORING</h1>
               <div class="sub" id="modeLbl">Decision view</div>
               <div class="spacer"></div>
+              <span class="chip"><span class="dot" style="--c:#22c55e;animation:none"></span> LIVE · 60s</span>
               <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
               <button class="btn-ghost" onclick="loadAll()">⟳ Refresh</button>
@@ -911,6 +915,175 @@
       }
     }
 
+    // ===================== TAB EXTENSOMETER & AWS =====================
+    function hexA(hex,a){ const h=hex.replace('#',''); const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16); return `rgba(${r},${g},${b},${a})`; }
+    function sensorVU(s){ if(s.latest_value==null) return {v:'—',unit:''};
+      if(s.sensor_type_name==='AIO Atmosphere') return {v:fmt(s.latest_value,2),unit:'kPa'};
+      return {v:fmt(s.latest_value,2),unit:s.unit||''}; }
+    function statusOf(s){ if(s.manual_state==='on') return {t:'AKTIF (manual)',c:'#22c55e'};
+      if(s.manual_state==='off') return {t:'NONAKTIF (manual)',c:'#94a3b8'};
+      return stale(s.latest_ts,15)?{t:'DOWN',c:'#ef4444'}:{t:'AKTIF',c:'#22c55e'}; }
+    function trendArrow(v){ if(v==null||!isFinite(v)) return '<span class="trend-st">→ stabil</span>';
+      if(v>0.005) return `<span class="trend-up">↑ naik (+${fmt(v,3)} mm/hari)</span>`;
+      if(v<-0.005) return `<span class="trend-dn">↓ turun (${fmt(v,3)} mm/hari)</span>`;
+      return `<span class="trend-st">→ stabil (${fmt(v,3)} mm/hari)</span>`; }
+    function trendOfRows(rows){ const byS={}; (rows||[]).forEach(r=>{(byS[r.sensor_name]=byS[r.sensor_name]||[]).push(r);});
+      const sl=Object.values(byS).map(rs=>seriesStats(rs).mmPerDay).filter(x=>x!=null&&isFinite(x));
+      return sl.length? sl.reduce((a,b)=>a+b,0)/sl.length : null; }
+    function areaCfg(ms,unit){ return {type:'line',data:{labels:ms.labels,datasets:ms.datasets},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:true,position:'top',labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8,usePointStyle:true}}},
+        scales:{x:{ticks:{maxTicksLimit:7,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+                y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}}; }
+
+    function batteryPanel(kind){
+      const devs=[...new Set((DATA.sensors||[]).filter(s=>s.kind===kind).map(s=>s.external_device_id))];
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">BATERAI PER UNIT</div></div>
+       <div style="display:grid;grid-template-columns:repeat(${Math.max(devs.length,1)},1fr);gap:10px">
+       ${devs.map(d=>`<div class="card"><div class="card-bd"><div class="t" style="color:#9fb3cf">Unit dev ${esc(d)}</div>
+         <div style="font-size:22px;font-weight:950;color:#64748b;margin-top:6px">— %</div>
+         <div style="font-size:10px;color:#9fb3cf;margin-top:4px">Belum tersedia — perlu endpoint device-status Argatech (payload sensor saat ini tidak memuat baterai).</div></div></div>`).join('')}
+       </div>`;
+    }
+    function statusPanel(kind){
+      const list=(DATA.sensors||[]).filter(s=>s.kind===kind).sort((a,b)=>String(a.external_device_id+a.sensor_name).localeCompare(b.external_device_id+b.sensor_name));
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">STATUS SENSOR · otomatis dari data masuk (≤15 mnt = aktif) · override manual</div></div>
+       <div class="card"><div class="card-bd" style="overflow:auto;max-height:300px">
+       <table class="tbl"><thead><tr><th>Sensor</th><th>Dev</th><th>Nilai terakhir</th><th>Update</th><th>Status</th><th>Override</th></tr></thead><tbody>
+       ${list.map(s=>{const st=statusOf(s);const vu=sensorVU(s);
+         return `<tr><td>${esc(s.sensor_name)}</td><td>${esc(s.external_device_id)}</td><td>${vu.v} ${esc(vu.unit)}</td><td>${ago(s.latest_ts)}</td>
+           <td><span style="color:${st.c};font-weight:900">● ${esc(st.t)}</span></td>
+           <td style="text-align:right;white-space:nowrap">
+             <button class="btn-ghost xs ${s.manual_state==='auto'?'on':''}" onclick="toggleSensor('${s.sensor_id}','auto')">Auto</button>
+             <button class="btn-ghost xs ${s.manual_state==='on'?'on':''}" onclick="toggleSensor('${s.sensor_id}','on')">On</button>
+             <button class="btn-ghost xs ${s.manual_state==='off'?'on':''}" onclick="toggleSensor('${s.sensor_id}','off')">Off</button>
+           </td></tr>`;}).join('')}
+       </tbody></table></div></div>`;
+    }
+    function rawPanel(scope){
+      const kind = scope==='aws'?'weather':'extensometer';
+      const opts=(DATA.sensors||[]).filter(s=>s.kind===kind)
+        .map(s=>`<option value="${s.sensor_id}" data-name="${esc(s.sensor_name)}" data-unit="${esc(s.unit||'')}">${esc(s.external_device_id)} · ${esc(s.sensor_name)}</option>`).join('');
+      const rainOpt = scope==='aws' ? `<option value="__rain__">🌧️ Durasi Hujan (event mulai/berhenti)</option>` : '';
+      const today=new Date().toISOString().slice(0,10);
+      const wk=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">DATA RAW & PENGOLAHAN · pilih sensor + rentang tanggal</div></div>
+       <div class="card"><div class="card-bd">
+         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Sensor</div><select id="rawSensor_${scope}" class="flt">${rainOpt}${opts}</select></div>
+           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Dari</div><input type="date" id="rawFrom_${scope}" class="flt" value="${wk}"></div>
+           <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Sampai</div><input type="date" id="rawTo_${scope}" class="flt" value="${today}"></div>
+           <button class="btn-ghost" onclick="renderRaw('${scope}')">▶ Render</button>
+         </div>
+         <div id="rawResult_${scope}" style="margin-top:12px;color:#9fb3cf;font-size:12px">Pilih sensor & rentang, lalu klik Render. Olahan: min · max · average · sum.</div>
+       </div></div>`;
+    }
+    async function renderRaw(scope){
+      const sel=document.getElementById('rawSensor_'+scope); if(!sel) return;
+      const sid=sel.value;
+      const from=document.getElementById('rawFrom_'+scope).value, to=document.getElementById('rawTo_'+scope).value;
+      const res=document.getElementById('rawResult_'+scope);
+      if(!from||!to){ res.textContent='Lengkapi tanggal.'; return; }
+      const fromTs=new Date(from+'T00:00:00').toISOString(), toTs=new Date(to+'T23:59:59').toISOString();
+      res.innerHTML='<div class="spin"></div>';
+      try{
+        if(sid==='__rain__'){
+          const {data}=await sb.from('v_rain_events').select('*').gte('started_at',fromTs).lte('started_at',toTs).order('started_at',{ascending:false});
+          const ev=data||[]; const totMin=ev.reduce((a,b)=>a+(b.duration_minutes||0),0), totMm=ev.reduce((a,b)=>a+Number(b.total_mm||0),0);
+          res.innerHTML=`<div style="margin-bottom:8px">Durasi hujan terekam: <b>${ev.length}</b> event · total <b>${totMin}</b> menit · <b>${totMm.toFixed(1)}</b> mm</div>
+            <div style="max-height:300px;overflow:auto"><table class="tbl"><thead><tr><th>Tanggal</th><th>Mulai</th><th>Berhenti</th><th>Durasi (mnt)</th><th>Total (mm)</th><th>Peak (mm/mnt)</th></tr></thead><tbody>
+            ${ev.map(e=>`<tr><td>${e.day}</td><td>${new Date(e.started_at).toLocaleTimeString('id-ID')}</td><td>${new Date(e.ended_at).toLocaleTimeString('id-ID')}</td><td>${e.duration_minutes}</td><td>${Number(e.total_mm).toFixed(2)}</td><td>${Number(e.peak_minute_mm).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">Tidak ada hujan pada rentang ini.</td></tr>'}
+            </tbody></table></div>`;
+          return;
+        }
+        const name=sel.selectedOptions[0].getAttribute('data-name')||''; const unit=sel.selectedOptions[0].getAttribute('data-unit')||'';
+        const [{data:agg},{data:rows}]=await Promise.all([
+          sb.rpc('sensor_aggregate',{p_sensor_id:sid,p_from:fromTs,p_to:toTs}),
+          sb.from('v_instrument_readings').select('ts,value').eq('sensor_id',sid).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(2000),
+        ]);
+        const a=(agg&&agg[0])||{};
+        res.innerHTML=`
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px">
+            ${miniKpi('Jumlah data',(a.n||0)+'','#22d3ee')}
+            ${miniKpi('Min',fmt(a.v_min,2)+' '+unit,'#22c55e')}
+            ${miniKpi('Max',fmt(a.v_max,2)+' '+unit,'#ef4444')}
+            ${miniKpi('Average',fmt(a.v_avg,2)+' '+unit,'#3b82f6')}
+            ${miniKpi('Sum',fmt(a.v_sum,2)+' '+unit,'#f59e0b')}
+            ${miniKpi('Rentang',(a.first_ts?new Date(a.first_ts).toLocaleDateString('id-ID'):'—')+' → '+(a.last_ts?new Date(a.last_ts).toLocaleDateString('id-ID'):'—'),'#a78bfa')}
+          </div>
+          <div style="font-size:10.5px;color:#9fb3cf;margin-bottom:6px">${esc(name)} · menampilkan ${(rows||[]).length} baris terbaru (maks 2000)</div>
+          <div style="max-height:300px;overflow:auto"><table class="tbl"><thead><tr><th>Waktu</th><th>Nilai (${esc(unit)})</th></tr></thead><tbody>
+          ${(rows||[]).map(r=>`<tr><td>${new Date(r.ts).toLocaleString('id-ID')}</td><td>${fmt(r.value,3)}</td></tr>`).join('')}
+          </tbody></table></div>`;
+      }catch(e){ res.textContent='Gagal memuat: '+(e.message||e); }
+    }
+    async function toggleSensor(id,state){ try{ await sb.rpc('set_sensor_manual_state',{p_sensor_id:id,p_state:state}); await loadAll(); }catch(e){ alert('Gagal ubah status: '+(e.message||e)); } }
+
+    function extensometerView(){
+      const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
+      const cards=groups.map((g,gi)=>`
+        <div class="card"><div class="card-hd"><div class="t">📏 Extensometer ${esc(g.key)} (dev ${g.dev})</div><div class="t" id="exttrend_${gi}" style="color:#9fb3cf"></div></div>
+          <div class="card-bd" style="height:240px"><canvas id="extchart_${gi}"></canvas></div></div>`).join('');
+      return `
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">GRAFIK AREA 7 HARI · klik nama sensor di legend untuk on/off · garis putus = trendline</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+        ${batteryPanel('extensometer')}
+        ${statusPanel('extensometer')}
+        ${rawPanel('ext')}`;
+    }
+    function drawExtTab(){
+      Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+      const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
+      const pal=['#a78bfa','#22d3ee','#f97316','#22c55e','#ef4444','#eab308'];
+      groups.forEach((g,gi)=>{
+        const rows=(DATA.ext7||[]).filter(r=>String(r.external_device_id)===g.dev);
+        const byS={}; rows.forEach(r=>{(byS[r.sensor_name]=byS[r.sensor_name]||[]).push(r);});
+        const series=Object.keys(byS).sort().map((nm,i)=>({name:nm,rows:byS[nm],color:pal[i%pal.length]}));
+        const ms=multiSeries(series);
+        ms.datasets.forEach(d=>{ d.fill=true; d.backgroundColor=hexA(d.borderColor,0.08); });
+        addTrend(ms,'#fbbf24');
+        const cv=document.getElementById('extchart_'+gi);
+        if(cv&&window.Chart) charts['extchart_'+gi]=new Chart(cv,areaCfg(ms,'mm'));
+        const el=document.getElementById('exttrend_'+gi); if(el) el.innerHTML=trendArrow(trendOfRows(rows));
+      });
+    }
+
+    function awsView(){
+      const rs=DATA.rainSum||{}, rn=DATA.rain||{};
+      return `
+        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HIDROLOGI · durasi · akumulasi · peak (database hujan)</div></div>
+        <div class="card"><div class="card-bd">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+            ${miniKpi('Durasi hujan kini', rn.is_raining?((rn.ongoing_rain_minutes||0)+' mnt'):'Tidak hujan','#38bdf8')}
+            ${miniKpi('Akumulasi hari ini',fmt(rs.today_mm,1)+' mm','#22d3ee')}
+            ${miniKpi('Akumulasi 7 hari',fmt(rs.week_mm,1)+' mm','#3b82f6')}
+            ${miniKpi('Akumulasi 30 hari',fmt(rs.month_mm,1)+' mm','#6366f1')}
+            ${miniKpi('Peak menit 24j',fmt(rs.peak_minute_24h_mm,2)+' mm','#f59e0b')}
+            ${miniKpi('Peak jam 24j',fmt(rs.peak_hour_24h_mm,1)+' mm/jam','#f97316')}
+          </div>
+          <div style="height:150px;margin-top:10px"><canvas id="awsDaily"></canvas></div>
+        </div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+          <div class="card"><div class="card-hd"><div class="t">🌧️ Curah Hujan</div></div><div class="card-bd" style="height:190px"><canvas id="awsRain"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">🌡️ Suhu & Kelembapan</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">💨 Angin & Radiasi</div></div><div class="card-bd" style="height:190px"><canvas id="awsWR"></canvas></div></div>
+        </div>
+        ${statusPanel('weather')}
+        ${rawPanel('aws')}`;
+    }
+    function drawAwsTab(){
+      Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+      tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
+      const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
+      tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+      const rd=DATA.rainDaily||[]; const cvd=document.getElementById('awsDaily');
+      if(cvd&&window.Chart) charts['awsDaily']=new Chart(cvd,{type:'bar',
+        data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})),datasets:[{label:'Akumulasi',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+          scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+                  y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/hari',color:'#9fb3cf',font:{size:9}}}}}});
+    }
+
     function instrumentLayout(title){
       return `
         <div class="card" style="height:100%">
@@ -942,7 +1115,13 @@
         fillOverview(m, st);
         buildMap(m);
         drawCharts(m, st);
-      } else if(STATE.view==='instrument' || STATE.view==='trends'){
+      } else if(STATE.view==='instrument'){
+        page.innerHTML = extensometerView();
+        drawExtTab();
+      } else if(STATE.view==='aws'){
+        page.innerHTML = awsView();
+        drawAwsTab();
+      } else if(STATE.view==='trends'){
         page.innerHTML = instrumentView();
         drawInstrumentCharts();
       } else if(STATE.view==='inspection'){
@@ -1377,6 +1556,8 @@
 
     function setView(v){ STATE.view=v; render(); }
     window.setView=setView;
+    window.renderRaw=renderRaw;
+    window.toggleSensor=toggleSensor;
     window.loadAll=loadAll;
     window.exportDashboard=exportDashboard;
 
@@ -1384,7 +1565,7 @@
       const ok = await GMS.guard({ mount:'#root' });
       if(!ok) return;
       await loadAll();
-      setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 300000);
+      setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 60000);
     })();
   </script>
 </body>
