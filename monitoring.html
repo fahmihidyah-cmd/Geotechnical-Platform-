@@ -468,10 +468,11 @@
       const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
         sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
-        sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(8),
+        sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status,lintang,bujur').order('tanggal',{ascending:false}).limit(8),
         sb.rpc('instrument_series',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
         sb.rpc('instrument_series',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
         sb.from('v_aws_stats').select('*'),
+        sb.from('v_rain_hours').select('*'),
       ]) : null;
 
       const [base, active, heavyR] = await Promise.all([baseP, activeP, heavyP]);
@@ -481,7 +482,7 @@
       if(active && activeTarget) DATA[activeTarget]=active.data||[];
       if(heavyR){
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
-        DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[];
+        DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
         lastHeavy=nowMs;
       }
       render();
@@ -496,6 +497,23 @@
     function setExRange(r){ STATE.exRange=r; loadAll(); }
     function setAwRange(r){ STATE.awRange=r; loadAll(); }
     window.setExRange=setExRange; window.setAwRange=setAwRange;
+
+    // ── EEWS PGA (replica of fetch-bmkg) ──
+    function haversineKm(la1,lo1,la2,lo2){ const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+      const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2; return R*2*Math.asin(Math.sqrt(a)); }
+    function pgaDonovan(M,R){ return 1.096*Math.exp(0.664*M)*Math.pow(R+25,-1.55); }
+    function parseCoordNum(str,neg){ const n=parseFloat(String(str||'').replace(/[^0-9.]/g,'')); return String(str||'').includes(neg)?-n:n; }
+    function tarpInfo(pga){ if(pga<0.02) return {lv:'LV1',c:'#22c55e'}; if(pga<0.05) return {lv:'LV2',c:'#eab308'}; if(pga<0.10) return {lv:'LV3',c:'#f97316'}; return {lv:'LV4',c:'#ef4444'}; }
+    function shortWil(w){ w=w||''; return w.length>24? w.slice(0,24)+'…':(w||'—'); }
+    function latestPga(q){
+      const M=Number(q.magnitude), depth=parseFloat(String(q.kedalaman||'').replace(/[^0-9.]/g,''));
+      const lat=parseCoordNum(q.lintang,'LS'), lon=parseCoordNum(q.bujur,'BB');
+      if(![M,depth,lat,lon].every(Number.isFinite)) return null;
+      const sites=[{n:'WOC',la:-2.748761,lo:122.000297},{n:'Port',la:-2.725700,lo:122.028042}];
+      let best={g:-1,site:'',epi:0};
+      sites.forEach(s=>{ const epi=haversineKm(lat,lon,s.la,s.lo); const R=Math.sqrt(epi*epi+depth*depth); const g=pgaDonovan(M,R); if(g>best.g) best={g,site:s.n,epi:Math.round(epi)}; });
+      const t=tarpInfo(best.g); return {g:best.g, site:best.site, tarp:t.lv, color:t.c, epi:best.epi};
+    }
 
     function utm(e,n){
       const a=6378137,ec=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;
@@ -677,18 +695,22 @@
           </div>
 
           <div class="card">
-            <div class="card-hd"><div class="t">Last Inspection</div><div class="ic">🧾</div></div>
+            <div class="card-hd"><div class="t">Rain Hours</div><div class="ic">🌧️</div></div>
             <div class="card-bd">
-              <div class="kpi-val" id="kLastInsp">—</div>
-              <div class="kpi-sub" id="kLastInspSub">—</div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap">
+                <div><div class="kpi-val" id="rh1" style="font-size:22px">—</div><div class="kpi-sub">Today</div></div>
+                <div><div class="kpi-val" id="rh7" style="font-size:22px">—</div><div class="kpi-sub">7 days</div></div>
+                <div><div class="kpi-val" id="rh30" style="font-size:22px">—</div><div class="kpi-sub">30 days</div></div>
+                <div><div class="kpi-val" id="rhM" style="font-size:22px">—</div><div class="kpi-sub">This month</div></div>
+              </div>
             </div>
           </div>
 
           <div class="card">
-            <div class="card-hd"><div class="t">Next Inspection</div><div class="ic">📅</div></div>
+            <div class="card-hd"><div class="t">Latest PGA · EEWS</div><div class="ic">📈</div></div>
             <div class="card-bd">
-              <div class="kpi-val" id="kNextInsp">—</div>
-              <div class="kpi-sub" id="kNextInspSub">—</div>
+              <div class="kpi-val" id="kPga">—</div>
+              <div class="kpi-sub" id="kPgaSub">—</div>
             </div>
           </div>
         </div>
@@ -987,7 +1009,7 @@
         <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Statistic</div><select id="${p}_stat" class="flt">
           <option value="sum"${defStat==='sum'?' selected':''}>Sum</option>
           <option value="average"${defStat==='average'?' selected':''}>Average</option>
-          <option value="min">Min</option><option value="max">Max</option></select></div>
+          <option value="min">Min</option><option value="max">Max</option><option value="none">None (raw)</option></select></div>
         <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">From</div><input type="date" id="${p}_from" class="flt" value="${dStr(-7)}"></div>
         <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">To</div><input type="date" id="${p}_to" class="flt" value="${dStr(0)}"></div>
         <button class="btn-ghost" onclick="${p==='ex'?'renderExt()':'renderAwsRaw()'}">▶ Render</button>
@@ -1003,7 +1025,7 @@
     }
     function rawPanelAws(){
       const opts=(DATA.sensors||[]).filter(s=>s.kind==='weather').map(s=>`<option value="${s.sensor_id}" data-name="${esc(s.sensor_name)}" data-unit="${esc(s.unit||'')}">${esc(s.sensor_name)}</option>`).join('');
-      const sel=`<div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Data</div><select id="aw_sensor" class="flt"><option value="__rain__">🌧️ Rain duration (events: start/stop)</option>${opts}</select></div>`;
+      const sel=`<div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Data</div><select id="aw_sensor" class="flt"><option value="__rain__">🌧️ Rain hours (hourly channel)</option>${opts}</select></div>`;
       return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">RAW DATA & PROCESSING</div></div>
        <div class="card"><div class="card-bd">${rawControls('aw',sel,'sum')}
          <div id="aw_result" style="margin-top:12px;color:#9fb3cf;font-size:12px">For rainfall accumulation use Sum. For "Rain duration" the interval/statistic are ignored (event list).</div>
@@ -1022,8 +1044,17 @@
       const from=document.getElementById('ex_from').value, to=document.getElementById('ex_to').value, res=document.getElementById('ex_result');
       if(!from||!to){res.textContent='Please complete the date range.';return;}
       res.innerHTML='<div class="spin"></div>';
+      const fromTs=new Date(from+'T00:00:00').toISOString(), toTs=new Date(to+'T23:59:59').toISOString();
       try{
-        const {data,error}=await sb.rpc('instrument_bucketed',{p_device:dev,p_kind:'extensometer',p_from:new Date(from+'T00:00:00').toISOString(),p_to:new Date(to+'T23:59:59').toISOString(),p_bucket:bucket,p_stat:stat});
+        if(stat==='none'){
+          const {data,error}=await sb.from('v_instrument_readings').select('ts,sensor_name,value').eq('kind','extensometer').eq('external_device_id',dev).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(2000);
+          if(error) throw error;
+          const rows=(data||[]).map(r=>({bucket_label:new Date(r.ts).toLocaleString('en-GB'), sensor_name:r.sensor_name, val:r.value}));
+          res.innerHTML=`<div style="margin-bottom:8px">${esc(areaLabel(dev))} · RAW (no processing) · latest ${[...new Set(rows.map(r=>r.bucket_label))].length} timestamps</div>
+            <div style="max-height:340px;overflow:auto">${rows.length?pivotTable(rows):'No data in range.'}</div>`;
+          return;
+        }
+        const {data,error}=await sb.rpc('instrument_bucketed',{p_device:dev,p_kind:'extensometer',p_from:fromTs,p_to:toTs,p_bucket:bucket,p_stat:stat});
         if(error) throw error; const rows=data||[];
         res.innerHTML=`<div style="margin-bottom:8px">${esc(areaLabel(dev))} · ${stat.toUpperCase()} per ${bucket} · ${[...new Set(rows.map(r=>r.bucket_label))].length} intervals</div>
           <div style="max-height:340px;overflow:auto">${rows.length?pivotTable(rows):'No data in range.'}</div>`;
@@ -1037,15 +1068,24 @@
       res.innerHTML='<div class="spin"></div>';
       try{
         if(sid==='__rain__'){
-          const {data}=await sb.from('v_rain_events').select('*').gte('started_at',fromTs).lte('started_at',toTs).order('started_at',{ascending:false});
-          const ev=data||[]; const totMin=ev.reduce((a,b)=>a+(b.duration_minutes||0),0), totMm=ev.reduce((a,b)=>a+Number(b.total_mm||0),0);
-          res.innerHTML=`<div style="margin-bottom:8px">Recorded rain: <b>${ev.length}</b> events · total <b>${totMin}</b> min · <b>${totMm.toFixed(1)}</b> mm</div>
-            <div style="max-height:340px;overflow:auto"><table class="tbl"><thead><tr><th>Date</th><th>Start</th><th>Stop</th><th>Duration (min)</th><th>Total (mm)</th><th>Peak (mm/min)</th></tr></thead><tbody>
-            ${ev.map(e=>`<tr><td>${e.day}</td><td>${new Date(e.started_at).toLocaleTimeString('en-GB')}</td><td>${new Date(e.ended_at).toLocaleTimeString('en-GB')}</td><td>${e.duration_minutes}</td><td>${Number(e.total_mm).toFixed(2)}</td><td>${Number(e.peak_minute_mm).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="6">No rain in this range.</td></tr>'}
+          const {data,error}=await sb.rpc('rain_hours_table',{p_from:fromTs,p_to:toTs});
+          if(error) throw error; const ev=data||[]; const totMm=ev.reduce((a,b)=>a+Number(b.rain_mm||0),0);
+          res.innerHTML=`<div style="margin-bottom:8px">Rain hours: <b>${ev.length}</b> h · total <b>${totMm.toFixed(1)}</b> mm <span style="color:#9fb3cf">(from hourly channel)</span></div>
+            <div style="max-height:340px;overflow:auto"><table class="tbl"><thead><tr><th>Hour</th><th>Rainfall (mm)</th></tr></thead><tbody>
+            ${ev.map(e=>`<tr><td>${esc(e.hour_label)}</td><td>${Number(e.rain_mm).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="2">No rain in this range.</td></tr>'}
             </tbody></table></div>`;
           return;
         }
         const name=sel.selectedOptions[0].getAttribute('data-name')||'', unit=sel.selectedOptions[0].getAttribute('data-unit')||'';
+        if(stat==='none'){
+          const {data,error}=await sb.from('v_instrument_readings').select('ts,value').eq('sensor_id',sid).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(2000);
+          if(error) throw error; const rows=data||[];
+          res.innerHTML=`<div style="margin-bottom:8px">${esc(name)} (${esc(unit)}) · RAW (no processing) · latest ${rows.length} rows</div>
+            <div style="max-height:340px;overflow:auto"><table class="tbl"><thead><tr><th>Time</th><th>Value (${esc(unit)})</th></tr></thead><tbody>
+            ${rows.map(r=>`<tr><td>${new Date(r.ts).toLocaleString('en-GB')}</td><td>${fmt(r.value,3)}</td></tr>`).join('')||'<tr><td colspan="2">No data.</td></tr>'}
+            </tbody></table></div>`;
+          return;
+        }
         const {data,error}=await sb.rpc('instrument_bucketed',{p_device:'372',p_kind:'weather',p_from:fromTs,p_to:toTs,p_bucket:bucket,p_stat:stat});
         if(error) throw error; const rows=(data||[]).filter(r=>r.sensor_name===name);
         res.innerHTML=`<div style="margin-bottom:8px">${esc(name)} (${esc(unit)}) · ${stat.toUpperCase()} per ${bucket}</div>
@@ -1212,13 +1252,17 @@
       document.getElementById('kActive').textContent = `${m.onlineSensors} / ${m.totalSensors}`;
       document.getElementById('kActiveSub').textContent = (m.totalSensors?`${Math.round((m.onlineSensors/m.totalSensors)*100)}% Online`:'—');
 
-      const last = m.lastInsp && m.lastInsp.inspection_date ? new Date(m.lastInsp.inspection_date) : null;
-      document.getElementById('kLastInsp').textContent = last ? last.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      document.getElementById('kLastInspSub').textContent = m.lastInsp ? `Routine inspection · ${m.lastInsp.inspector||'—'}` : 'Belum ada inspeksi';
+      const rh = DATA.rainHours||{};
+      document.getElementById('rh1').textContent  = (rh.hours_today!=null?rh.hours_today:'—')+' h';
+      document.getElementById('rh7').textContent  = (rh.hours_7d!=null?rh.hours_7d:'—')+' h';
+      document.getElementById('rh30').textContent = (rh.hours_30d!=null?rh.hours_30d:'—')+' h';
+      document.getElementById('rhM').textContent  = (rh.hours_month!=null?rh.hours_month:'—')+' h';
 
-      const nxt = m.nextInspDate;
-      document.getElementById('kNextInsp').textContent = nxt ? nxt.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      document.getElementById('kNextInspSub').textContent = nxt ? `Planned inspection` : '—';
+      const q0=(DATA.eq||[])[0]; const pgaEl=document.getElementById('kPga'), pgaSub=document.getElementById('kPgaSub');
+      const p0=q0?latestPga(q0):null;
+      if(p0){ pgaEl.textContent=p0.g.toFixed(3)+' g'; pgaEl.style.color=p0.color;
+        pgaSub.textContent=`${p0.tarp} · ${p0.site} ${p0.epi}km · M${q0.magnitude} · ${shortWil(q0.wilayah)}`;
+      } else { pgaEl.textContent='—'; pgaEl.style.color=''; pgaSub.textContent='No earthquake data'; }
 
       // Ringkasan risiko list (seperti referensi)
       const totalLoc = m.insRows.length;
