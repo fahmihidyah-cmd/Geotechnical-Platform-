@@ -381,7 +381,7 @@
     const RC = { Low:getCss('--t-low'), Medium:getCss('--t-med'), High:getCss('--t-high'), 'Very High':getCss('--t-vh') };
     const EEWS_C = { LV1:RC.Low, LV2:RC.Medium, LV3:RC.High, LV4:RC['Very High'] };
 
-    const STATE = { view:'overview' };
+    const STATE = { view:'overview', exRange:'24h', awRange:'24h' };
     let DATA = {};
     let map = null;
     let overlays = null;
@@ -445,42 +445,57 @@
       return new Date(Date.now()-h*3600*1000).toISOString();
     }
 
+    let lastHeavy = 0;
+    function rangeParams(range, nowIso){
+      if(range==='live') return {from:new Date(Date.now()-2*3600*1000).toISOString(), to:nowIso, every:'1 minute'};
+      if(range==='24h')  return {from:parseRange('24h'), to:nowIso, every:'15 minutes'};
+      return {from:parseRange('7d'), to:nowIso, every:'2 hours'};
+    }
     async function loadAll(){
-      const since24 = parseRange('24h');
-      const since7d = parseRange('7d');
+      const nowMs=Date.now(), nowIso=new Date().toISOString();
+      const heavy = (!DATA.ext7) || (nowMs-lastHeavy > 600000); // boot or every 10 min
 
-      const [sn,rain,insp,loc,eq,ext24,wx24,ext7,wx7,rsum,rdaily,astats] = await Promise.all([
+      const baseP = Promise.all([
         sb.from('v_instrument_sensors').select('*'),
         sb.from('v_rain_status').select('*'),
+        sb.from('v_rain_summary').select('*'),
+        sb.from('v_rain_daily').select('*'),
+      ]);
+      let activeP=null, activeTarget=null;
+      if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
+      else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
+
+      const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
         sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
         sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status').order('tanggal',{ascending:false}).limit(8),
-        sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since24).order('ts',{ascending:true}),
-        sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since24).order('ts',{ascending:true}),
-        sb.from('v_instrument_readings').select('sensor_name,external_device_id,ts,value').eq('kind','extensometer').gte('ts',since7d).order('ts',{ascending:true}),
-        sb.from('v_instrument_readings').select('sensor_name,ts,value').eq('kind','weather').gte('ts',since7d).order('ts',{ascending:true}),
-        sb.from('v_rain_summary').select('*'),
-        sb.from('v_rain_daily').select('*'),
+        sb.rpc('instrument_series',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
+        sb.rpc('instrument_series',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
         sb.from('v_aws_stats').select('*'),
-      ]);
+      ]) : null;
 
-      DATA = {
-        sensors:sn.data||[],
-        rain:(rain.data||[])[0]||{},
-        insp:insp.data||[],
-        locs:loc.data||[],
-        eq:eq.data||[],
-        ext24:ext24.data||[],
-        wx24:wx24.data||[],
-        ext7:ext7.data||[],
-        wx7:wx7.data||[],
-        rainSum:(rsum.data||[])[0]||{},
-        rainDaily:rdaily.data||[],
-        awsStats:astats.data||[],
-      };
-
+      const [base, active, heavyR] = await Promise.all([baseP, activeP, heavyP]);
+      const [sn,rain,rsum,rdaily]=base;
+      DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
+      DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
+      if(active && activeTarget) DATA[activeTarget]=active.data||[];
+      if(heavyR){
+        DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
+        DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[];
+        lastHeavy=nowMs;
+      }
       render();
     }
+    function extDataset(){ return STATE.exRange==='7d' ? (DATA.ext7||[]) : (DATA.extActive||[]); }
+    function wxDataset(){ return STATE.awRange==='7d' ? (DATA.wx7||[]) : (DATA.wxActive||[]); }
+    function rangeToggle(scope,cur){
+      const opts=[['live','Live · 1-min'],['24h','24h'],['7d','7d']];
+      const fn=scope==='ex'?'setExRange':'setAwRange';
+      return opts.map(([v,l])=>`<button class="btn-ghost xs ${cur===v?'on':''}" onclick="${fn}('${v}')">${l}</button>`).join('');
+    }
+    function setExRange(r){ STATE.exRange=r; loadAll(); }
+    function setAwRange(r){ STATE.awRange=r; loadAll(); }
+    window.setExRange=setExRange; window.setAwRange=setAwRange;
 
     function utm(e,n){
       const a=6378137,ec=0.00669438,k0=0.9996,x=e-500000,y=n-10000000,M=y/k0;
@@ -1060,7 +1075,9 @@
         <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — ${esc(g.key)}</div><div class="t" id="exttrend_${gi}" style="color:#9fb3cf"></div></div>
           <div class="card-bd" style="height:240px"><canvas id="extchart_${gi}"></canvas></div></div>`).join('');
       return `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AREA CHART (7 DAYS) · click a legend item to toggle that sensor · dashed = trendline</div></div>
+        <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="t">AREA CHART · click a legend item to toggle that sensor · dashed = trendline</div>
+          <div>${rangeToggle('ex',STATE.exRange)}</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
         ${batteryPanel('extensometer')}
         ${statusPanel('extensometer')}
@@ -1071,7 +1088,7 @@
       const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
       const pal=['#a78bfa','#22d3ee','#f97316','#22c55e','#ef4444','#eab308'];
       groups.forEach((g,gi)=>{
-        const rows=(DATA.ext7||[]).filter(r=>String(r.external_device_id)===g.dev);
+        const rows=extDataset().filter(r=>String(r.external_device_id)===g.dev);
         const byS={}; rows.forEach(r=>{(byS[r.sensor_name]=byS[r.sensor_name]||[]).push(r);});
         const series=Object.keys(byS).sort().map((nm,i)=>({name:nm,rows:byS[nm],color:pal[i%pal.length]}));
         const ms=multiSeries(series);
@@ -1086,7 +1103,9 @@
     function awsView(){
       const rs=DATA.rainSum||{}, rn=DATA.rain||{};
       return `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HYDROLOGY · duration · accumulation · peak</div></div>
+        <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="t">AWS — HYDROLOGY · duration · accumulation · peak</div>
+          <div>${rangeToggle('aw',STATE.awRange)}</div></div>
         <div class="card"><div class="card-bd">
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
             ${miniKpi('Rain duration (now)', rn.is_raining?((rn.ongoing_rain_minutes||0)+' min'):'No rain','#38bdf8')}
@@ -1108,9 +1127,10 @@
     }
     function drawAwsTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
-      tsChart('awsRain', multiSeries([{name:'Rain/min (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Rain/hour (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
-      const th=multiSeries([{name:'Temp (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Humidity (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
-      tsChart('awsWR', multiSeries([{name:'Wind (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiation (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+      const wx=wxDataset();
+      tsChart('awsRain', multiSeries([{name:'Rain/min (mm)',rows:byName(wx,'rainfall minute'),color:'#38bdf8'},{name:'Rain/hour (mm)',rows:byName(wx,'rainfall hour'),color:'#1d4ed8'}]),'mm');
+      const th=multiSeries([{name:'Temp (°C)',rows:byName(wx,'temperature'),color:'#ef4444'},{name:'Humidity (%)',rows:byName(wx,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
+      tsChart('awsWR', multiSeries([{name:'Wind (m/s)',rows:byName(wx,'wind speed'),color:'#22c55e'},{name:'Radiation (W/m²)',rows:byName(wx,'radiation'),color:'#f97316'}]));
       const rd=DATA.rainDaily||[]; const cvd=document.getElementById('awsDaily');
       if(cvd&&window.Chart) charts['awsDaily']=new Chart(cvd,{type:'bar',
         data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})),datasets:[{label:'Accumulation',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
@@ -1589,7 +1609,7 @@
       window.print();
     }
 
-    function setView(v){ STATE.view=v; render(); }
+    function setView(v){ STATE.view=v; if(v==='instrument'||v==='aws'){ loadAll(); } else { render(); } }
     window.setView=setView;
     window.renderExt=renderExt;
     window.renderAwsRaw=renderAwsRaw;
