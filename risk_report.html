@@ -9,7 +9,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 <script src="common.js"></script>
 <style>
   :root{ --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#f1f5f9; }
@@ -20,43 +21,43 @@
   .btn-gen{ background:#38bdf8; color:#06283d; } .btn-print{ background:#22c55e; color:#04240f; }
   .toolbar .sp{ flex:1; } .toolbar small{ opacity:.8; }
   .wrap{ max-width:1180px; margin:14px auto; padding:0 10px; }
-  .sheet{ background:#fff; border:1px solid var(--line); border-radius:8px; margin:0 auto 16px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .kop{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f2747; padding-bottom:8px; margin-bottom:10px; }
-  .kop h1{ font-size:18px; margin:0; color:#0f2747; } .kop .sub{ color:var(--mut); font-size:12px; }
-  .kop .rt{ text-align:right; font-size:12px; color:var(--mut); }
-  #rmap{ width:100%; height:62vh; min-height:420px; border-radius:6px; border:1px solid var(--line); }
-  .map-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:12px; margin-top:8px; align-items:center; }
+  .sheet{ background:#fff; border:1px solid var(--line); border-radius:8px; margin:0 auto 16px; padding:16px 20px; box-shadow:0 1px 4px rgba(0,0,0,.06); box-sizing: border-box; }
+  .kop{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f2747; padding-bottom:6px; margin-bottom:12px; }
+  .kop h1{ font-size:16px; margin:0; color:#0f2747; font-weight: 700; } .kop .sub{ color:var(--mut); font-size:11px; margin-top:2px; }
+  .kop .rt{ text-align:right; font-size:11px; color:var(--mut); }
+  #rmap{ width:100%; height:58vh; min-height:400px; border-radius:6px; border:1px solid var(--line); }
+  .map-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11px; margin-top:8px; align-items:center; }
   .lg{ display:inline-flex; gap:5px; align-items:center; } .sw{ width:14px; height:14px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.2); }
   .dot{ width:11px; height:11px; border-radius:50%; display:inline-block; }
-  table{ width:100%; border-collapse:collapse; font-size:12px; }
-  th,td{ border:1px solid var(--line); padding:6px 7px; text-align:left; vertical-align:top; }
-  th{ background:#0f2747; color:#fff; font-weight:600; }
+  table{ width:100%; border-collapse:collapse; font-size:11px; table-layout:fixed; }
+  th,td{ border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:middle; overflow:hidden; word-wrap:break-word; }
+  th{ background:#0f2747; color:#fff; font-weight:600; text-align: center; }
   tr:nth-child(even) td{ background:#f8fafc; }
-  .pill{ padding:2px 8px; border-radius:999px; color:#fff; font-size:11px; font-weight:700; white-space:nowrap; }
-  .muted{ color:var(--mut); } .center{ text-align:center; }
-  .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:10px 0; }
-  .card{ border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
-  .card .k{ font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
-  .card .v{ font-size:22px; font-weight:800; } .card .d{ font-size:11px; }
-  .up{ color:#dc2626; } .down{ color:#16a34a; }
-  .verdict{ font-size:13px; font-weight:800; padding:6px 14px; border-radius:8px; color:#fff; display:inline-block; }
-  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .chartbox{ border:1px solid var(--line); border-radius:8px; padding:10px; }
-  .chartbox h3{ margin:0 0 6px; font-size:13px; }
-  .note{ background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 10px; font-size:11.5px; color:#92400e; margin-top:10px; }
-  h2.sec{ font-size:15px; color:#0f2747; margin:2px 0 10px; }
-  table{ table-layout:fixed; }
-  td,th{ overflow:hidden; word-wrap:break-word; }
-  @page { size:A4 landscape; margin:10mm; }
+  .pill{ padding:3px 8px; border-radius:4px; color:#fff; font-size:10px; font-weight:700; display:inline-block; text-align:center; width:100%; box-sizing:border-box; }
+  .muted{ color:var(--mut); font-size:10.5px; } .center{ text-align:center; }
+  .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  .card{ border:1px solid var(--line); border-radius:6px; padding:10px 12px; background:#fff; }
+  .card .k{ font-size:10.5px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+  .card .v{ font-size:20px; font-weight:800; color:#0f2747; margin:2px 0; } .card .d{ font-size:10px; }
+  .up{ color:#dc2626; font-weight:bold; } .down{ color:#16a34a; font-weight:bold; }
+  .verdict{ font-size:12px; font-weight:800; padding:4px 10px; border-radius:4px; color:#fff; display:inline-block; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .grid2:last-child { margin-bottom:0; }
+  .chartbox{ border:1px solid var(--line); border-radius:6px; padding:12px; background:#fff; display:flex; flex-direction:column; justify-content:space-between; }
+  .chartbox h3{ margin:0 0 8px; font-size:12px; color:#0f2747; font-weight:700; border-left:3px solid #38bdf8; padding-left:6px; }
+  .tbl-fit { height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .tbl-fit table { width:100%; }
+  .tbl-fit td { padding: 7px 8px; font-size: 11.5px; }
+  .note{ background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:8px 10px; font-size:11px; color:#92400e; margin-top:10px; line-height:1.4; }
+  @page { size:A4 landscape; margin:8mm; }
   @media print{
     body{ background:#fff; } .toolbar{ display:none !important; }
     .wrap{ margin:0; max-width:none; padding:0; }
-    .sheet{ border:0; box-shadow:none; border-radius:0; margin:0; padding:0 2mm; page-break-after:always; }
-    .sheet:last-child{ page-break-after:auto; }
-    #rmap{ height:160mm !important; width:100% !important; }
+    .sheet{ border:0; box-shadow:none; border-radius:0; margin:0 0 15mm 0; padding:0; page-break-after:always; }
+    .sheet:last-child{ page-break-after:auto; margin-bottom:0; }
+    #rmap{ height:145mm !important; width:100% !important; }
     table{ page-break-inside:auto; } thead{ display:table-header-group; }
     tr{ page-break-inside:avoid; }
-    .cards{ grid-template-columns:repeat(4,1fr); }
   }
 </style>
 </head>
@@ -75,11 +76,10 @@
   </div>
 
   <div class="wrap">
-    <!-- PAGE 1: HAZARD MAP (A3) -->
     <section class="sheet map-sheet">
       <div class="kop">
         <div><h1>Geotechnical Hazard Map</h1><div class="sub">PT Vale Indonesia — IGP Morowali Bahodopi</div></div>
-        <div class="rt"><div id="m_period">—</div><div id="m_gen">—</div><div>Verdict: <span id="m_verdict" class="verdict">—</span></div></div>
+        <div class="rt"><div id="m_period">—</div><div id="m_gen">—</div><div style="margin-top:2px;">Verdict: <span id="m_verdict" class="verdict">—</span></div></div>
       </div>
       <div id="rmap"></div>
       <div class="map-legend">
@@ -94,24 +94,34 @@
       </div>
     </section>
 
-    <!-- PAGE 2: PICA -->
     <section class="sheet">
-      <div class="kop"><div><h1>PICA — Problem Identification &amp; Corrective Action</h1><div class="sub">Finding OPEN (risiko terkini ≥ Medium), urut tertinggi → terendah</div></div>
-        <div class="rt"><div id="p_period">—</div></div></div>
+      <div class="kop">
+        <div><h1>PICA — Problem Identification &amp; Corrective Action</h1><div class="sub">Finding OPEN (risiko terkini ≥ Medium), urut tertinggi → terendah</div></div>
+        <div class="rt"><div id="p_period">—</div></div>
+      </div>
       <table id="picaTbl">
-        <thead><tr>
-          <th style="width:30px">#</th><th style="width:84px">Area</th><th style="width:130px">Lokasi / Detail</th><th style="width:96px">Foto</th>
-          <th style="width:88px">Risk</th><th>Rekomendasi Engineer</th><th style="width:84px">Status Hazard</th><th style="width:92px">Status Finding</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th style="width:28px">#</th>
+            <th style="width:75px">Area</th>
+            <th style="width:130px">Lokasi / Detail</th>
+            <th style="width:110px">Foto</th>
+            <th style="width:75px">Risk</th>
+            <th style="width:170px">Rekomendasi Engineer</th>
+            <th style="width:75px">Status Hazard</th>
+            <th style="width:75px">Status Finding</th>
+          </tr>
+        </thead>
         <tbody id="picaBody"></tbody>
       </table>
       <div class="note">Kolom <b>Foto</b> &amp; <b>Rekomendasi Engineer</b> akan terisi otomatis setelah inspektor mengunggah foto dan engineer menambahkan rekomendasi saat validasi (fitur input rekomendasi &amp; tombol close = langkah berikutnya). <b>Status Finding</b> mengikuti aturan: area dianggap <i>closed</i> bila inspeksi terkini ber-risiko Low dan tidak ada finding baru.</div>
     </section>
 
-    <!-- PAGE 3: SUMMARY -->
     <section class="sheet">
-      <div class="kop"><div><h1>Summary &amp; Analytics</h1><div class="sub">Statistik inspeksi + performa instrument monitoring</div></div>
-        <div class="rt"><div id="s_period">—</div></div></div>
+      <div class="kop">
+        <div><h1>Summary &amp; Analytics</h1></div>
+        <div class="rt"><div id="s_period">—</div></div>
+      </div>
 
       <div class="cards">
         <div class="card"><div class="k">Verdict Site</div><div class="v" id="s_verdict">—</div><div class="d muted">Berdasarkan risiko area tertinggi</div></div>
@@ -121,19 +131,21 @@
       </div>
 
       <div class="grid2">
-        <div class="chartbox"><h3>Distribusi Risiko (kondisi terkini)</h3><canvas id="cRisk" height="150"></canvas></div>
-        <div class="chartbox"><h3>Inspeksi: Minggu lalu vs Minggu ini · MtD · YTD</h3><canvas id="cInsp" height="150"></canvas></div>
+        <div class="chartbox"><h3>Distribusi Risiko</h3><div style="position:relative; height:140px; display:flex; justify-content:center;"><canvas id="cRisk"></canvas></div></div>
+        <div class="chartbox"><h3>Inspeksi: Minggu lalu vs Minggu ini · MtD · YTD</h3><div style="position:relative; height:140px;"><canvas id="cInsp"></canvas></div></div>
       </div>
-      <div class="grid2" style="margin-top:12px">
-        <div class="chartbox"><h3>Curah Hujan (mm): Minggu lalu vs Minggu ini · MtD · YTD</h3><canvas id="cRain" height="150"></canvas></div>
-        <div class="chartbox"><h3>Performa Instrument &amp; Seismik</h3>
-          <table style="font-size:12px">
-            <tr><td>Instrument terpasang</td><td id="i_count" class="center">—</td></tr>
-            <tr><td>Curah hujan MtD / YTD</td><td id="i_rain" class="center">—</td></tr>
-            <tr><td>Gempa terbesar (BMKG nasional, MtD)</td><td id="i_eq" class="center">—</td></tr>
-            <tr><td>Trend inspeksi (mgg ini vs lalu)</td><td id="i_trend" class="center">—</td></tr>
-          </table>
-          <div class="note" style="margin-top:8px">Performa instrument detail (kecepatan extensometer mm/hari &amp; status TARP) serta <b>PGA site</b> dari EEWS = integrasi lanjutan. Angka gempa di atas adalah katalog BMKG nasional, bukan PGA di site.</div>
+      <div class="grid2">
+        <div class="chartbox"><h3>Curah Hujan (mm): Minggu lalu vs Minggu ini · MtD · YTD</h3><div style="position:relative; height:140px;"><canvas id="cRain"></canvas></div></div>
+        <div class="chartbox">
+          <h3>Performa Instrument</h3>
+          <div class="tbl-fit">
+            <table>
+              <tr><td style="font-weight:500; color:#334155;">Instrument terpasang</td><td id="i_count" class="center" style="font-weight:700; color:#0f172a;">—</td></tr>
+              <tr><td style="font-weight:500; color:#334155;">Curah hujan MtD / YTD</td><td id="i_rain" class="center" style="font-weight:700; color:#0f172a;">—</td></tr>
+              <tr><td style="font-weight:500; color:#334155;">Gempa terbesar (BMKG nasional, MtD)</td><td id="i_eq" class="center" style="font-weight:700; color:#0f172a;">—</td></tr>
+              <tr><td style="font-weight:500; color:#334155;">Trend inspeksi (mgg ini vs lalu)</td><td id="i_trend" class="center">—</td></tr>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -145,7 +157,6 @@
   const sb = GMS.sb, esc = GMS.esc;
   const $ = s => document.querySelector(s);
   const RC = {'Low':'#16a34a','Medium':'#eab308','High':'#f97316','Very High':'#dc2626'};
-  const STAT = {'OPEN':'#dc2626','IN PROGRESS':'#f97316','CLOSED':'#16a34a'};
   let map=null, charts={}, RPT=null;
 
   const iso = d => d.toISOString().slice(0,10);
@@ -154,9 +165,9 @@
   function qp(n){ return new URLSearchParams(location.search).get(n); }
 
   async function load(){
-    const from=$('#fFrom').value, to=$('#fTo').value;
     $('#status').textContent='Memuat…';
     try{
+      const from=$('#fFrom').value, to=$('#fTo').value;
       const { data, error } = await sb.rpc('risk_report', { p_from:from, p_to:to });
       if(error) throw error;
       RPT = data; 
@@ -225,32 +236,22 @@
     const body=$('#picaBody'); const rows=RPT.pica||[];
     if(!rows.length){ body.innerHTML='<tr><td colspan="8" class="center muted">Tidak ada finding open pada periode ini.</td></tr>'; return; }
     body.innerHTML = rows.map(r=>{
-      const photos=(r.photos||[]).filter(p=>p.url).map(p=>'<a href="'+p.url+'" target="_blank"><img src="'+p.url+'" style="width:80px;height:58px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1"/></a>').join(' ') || '<span class="muted">—</span>';
+      const photos=(r.photos||[]).filter(p=>p.url).map(p=>'<a href="'+p.url+'" target="_blank"><img src="'+p.url+'" style="width:94px;height:64px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1;display:inline-block;margin:2px"/></a>').join(' ') || '<span class="muted">—</span>';
       const rec = r.recommendation && r.recommendation.trim() ? esc(r.recommendation)
-                  : '<span class="muted">— <i>(belum ada; saran SOP: '+esc(r.default_action||'')+')</i></span>';
+                  : '<span class="muted">— <i>(SOP: '+esc(r.default_action||'')+')</i></span>';
       const finding = (r.risk==='Low') ? pill('CLOSED','#16a34a') : pill('OPEN','#dc2626');
-      const appr = r.approval_status==='approved' ? ' <span class="muted">(approved)</span>'
-                 : r.approval_status==='rejected' ? ' <span class="muted">(rejected)</span>'
-                 : ' <span class="muted">(pending)</span>';
+      
       return '<tr>'
         +'<td class="center">'+r.rank+'</td>'
-        +'<td>'+esc(r.area_code||'-')+'</td>'
-        +'<td><b>'+esc(r.location||'-')+'</b><div class="muted">'+esc(r.inspector||'')+' · '+esc(r.inspection_date||'')+'</div></td>'
+        +'<td class="center"><b>'+esc(r.area_code||'-')+'</b></td>'
+        +'<td><b>'+esc(r.location||'-')+'</b><div class="muted" style="margin-top:2px">'+esc(r.inspector||'')+' · '+esc(r.inspection_date||'')+'</div></td>'
         +'<td class="center">'+photos+'</td>'
-        +'<td>'+pill(r.risk,RC[r.risk]||'#64748b')+'<div class="muted">TARP '+(r.tarp_level||'-')+' · skor '+(r.score!=null?r.score:'-')+'</div></td>'
+        +'<td class="center">'+pill(r.risk,RC[r.risk]||'#64748b')+'<div class="muted" style="font-size:9px;margin-top:2px">TARP '+(r.tarp_level||'-')+'</div></td>'
         +'<td>'+rec+'</td>'
-        +'<td>'+pill(r.risk,RC[r.risk]||'#64748b')+'</td>'
-        +'<td>'+finding+appr+'</td>'
+        +'<td class="center">'+pill(r.risk,RC[r.risk]||'#64748b')+'</td>'
+        +'<td class="center">'+finding+'</td>'
         +'</tr>';
     }).join('');
-  }
-
-  function mkChart(id,type,labels,data,colors,opts){
-    if(charts[id]) charts[id].destroy();
-    charts[id]=new Chart(document.getElementById(id),{
-      type, data:{labels, datasets:[{data, backgroundColor:colors, borderWidth:0}]},
-      options:Object.assign({responsive:true, plugins:{legend:{display:type==='doughnut',position:'right',labels:{boxWidth:12,font:{size:11}}}}}, opts||{})
-    });
   }
 
   function renderSummary(){
@@ -260,17 +261,76 @@
     $('#s_pct').textContent=(total? Math.round(high/total*100):0)+'%';
     $('#s_total').textContent=total;
 
-    mkChart('cRisk','doughnut',['Low','Medium','High','Very High'],
-      [br.low||0,br.medium||0,br.high||0,br.very_high||0],
-      [RC.Low,RC.Medium,RC.High,RC['Very High']]);
+    if(charts['cRisk']) charts['cRisk'].destroy();
+    charts['cRisk'] = new Chart(document.getElementById('cRisk'), {
+      type: 'doughnut',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: ['Low', 'Medium', 'High', 'Very High'],
+        datasets: [{
+          data: [br.low||0, br.medium||0, br.high||0, br.very_high||0],
+          backgroundColor: [RC.Low, RC.Medium, RC.High, RC['Very High']],
+          borderWidth: 1,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10.5 } } },
+          datalabels: {
+            color: '#fff',
+            font: { weight: 'bold', size: 11 },
+            formatter: (value, ctx) => {
+              let sum = 0;
+              let dataArr = ctx.chart.data.datasets[0].data;
+              dataArr.map(data => { sum += data; });
+              if (value === 0) return null;
+              return Math.round((value * 100) / sum) + "%";
+            }
+          }
+        }
+      }
+    });
 
-    mkChart('cInsp','bar',['Mgg lalu','Mgg ini','MtD','YTD'],
-      [ins.week_prev||0,ins.week_now||0,ins.mtd||0,ins.ytd||0],
-      ['#94a3b8','#38bdf8','#0ea5e9','#0369a1'], {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+    if(charts['cInsp']) charts['cInsp'].destroy();
+    charts['cInsp'] = new Chart(document.getElementById('cInsp'), {
+      type: 'bar',
+      data: {
+        labels: ['Mgg Lalu', 'Mgg Ini', 'MtD', 'YTD'],
+        datasets: [{
+          data: [ins.week_prev||0, ins.week_now||0, ins.mtd||0, ins.ytd||0],
+          backgroundColor: ['#94a3b8', '#38bdf8', '#0ea5e9', '#0369a1'],
+          barThickness: 24
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+      }
+    });
 
-    mkChart('cRain','bar',['Mgg lalu','Mgg ini','MtD','YTD'],
-      [num(rn.week_prev),num(rn.week_now),num(rn.mtd),num(rn.ytd)],
-      ['#94a3b8','#60a5fa','#3b82f6','#1d4ed8'], {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}});
+    if(charts['cRain']) charts['cRain'].destroy();
+    charts['cRain'] = new Chart(document.getElementById('cRain'), {
+      type: 'bar',
+      data: {
+        labels: ['Mgg Lalu', 'Mgg Ini', 'MtD', 'YTD'],
+        datasets: [{
+          data: [num(rn.week_prev), num(rn.week_now), num(rn.mtd), num(rn.ytd)],
+          backgroundColor: ['#94a3b8', '#60a5fa', '#3b82f6', '#1d4ed8'],
+          barThickness: 24
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+      }
+    });
 
     $('#i_count').textContent=(RPT.map&&RPT.map.instruments?RPT.map.instruments.length:0)+' titik';
     $('#i_rain').textContent=num(rn.mtd).toFixed(1)+' / '+num(rn.ytd).toFixed(1)+' mm';
@@ -282,7 +342,6 @@
   }
   function num(x){ return typeof x==='number'? x : parseFloat(x||0)||0; }
 
-  // boot
   (async ()=>{
     const ok = await GMS.guard({ mount:'#gate' });
     if(!ok) return;
