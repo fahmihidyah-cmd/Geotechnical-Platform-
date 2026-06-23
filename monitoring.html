@@ -1173,8 +1173,7 @@
         <div class="card-hd" style="padding:8px 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t" style="font-size:12px;color:#9fb3cf">Weather time-series</div>
           <div>${rangeToggle('aw',STATE.awRange)}</div></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
-          <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall</div></div><div class="card-bd" style="height:190px"><canvas id="awsRain"></canvas></div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px">
           <div class="card"><div class="card-hd"><div class="t">🌡️ Temperature & Humidity</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
           <div class="card"><div class="card-hd"><div class="t">💨 Wind & Radiation</div></div><div class="card-bd" style="height:190px"><canvas id="awsWR"></canvas></div></div>
         </div>
@@ -1184,13 +1183,21 @@
     function drawAwsTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
       const wx=wxDataset();
-      tsChart('awsRain', multiSeries([{name:'Rain/min (mm)',rows:byName(wx,'rainfall minute'),color:'#38bdf8'},{name:'Rain/hour (mm)',rows:byName(wx,'rainfall hour'),color:'#1d4ed8'}]),'mm');
       const th=multiSeries([{name:'Temp (°C)',rows:byName(wx,'temperature'),color:'#ef4444'},{name:'Humidity (%)',rows:byName(wx,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
       tsChart('awsWR', multiSeries([{name:'Wind (m/s)',rows:byName(wx,'wind speed'),color:'#22c55e'},{name:'Radiation (W/m²)',rows:byName(wx,'radiation'),color:'#f97316'}]));
       const rd=DATA.rainOv||[]; const cvd=document.getElementById('awsDaily');
+      // linear-regression trendline over accumulation
+      const ys=rd.map(d=>+d.accum_mm||0); const n=ys.length; let trend=[];
+      if(n>=2){ let sx=0,sy=0,sxy=0,sxx=0; ys.forEach((y,i)=>{sx+=i;sy+=y;sxy+=i*y;sxx+=i*i;});
+        const b=(n*sxy-sx*sy)/((n*sxx-sx*sx)||1), a=(sy-b*sx)/n;
+        trend=ys.map((_,i)=>Math.max(0,+(a+b*i).toFixed(2))); }
       if(cvd&&window.Chart) charts['awsDaily']=new Chart(cvd,{type:'bar',
-        data:{labels:rd.map(d=>d.bucket_label),datasets:[{label:'Accumulation',data:rd.map(d=>d.accum_mm),backgroundColor:'#38bdf8'}]},
-        options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>' '+c.parsed.y+' mm'}}},
+        data:{labels:rd.map(d=>d.bucket_label),datasets:[
+          {type:'bar',label:'Accumulation',data:rd.map(d=>d.accum_mm),backgroundColor:'#38bdf8'},
+          {type:'line',label:'Trend',data:trend,borderColor:'#f59e0b',borderWidth:2,borderDash:[5,4],pointRadius:0,tension:0,fill:false}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,
+          plugins:{legend:{display:true,labels:{color:'#9fb3cf',font:{size:9},boxWidth:10}},tooltip:{callbacks:{label:(c)=>' '+c.parsed.y+' mm'}}},
           scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
                   y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm',color:'#9fb3cf',font:{size:9}}}}}});
     }
