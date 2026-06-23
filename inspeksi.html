@@ -98,11 +98,12 @@
     <div id="riskMap" class="risk-map"></div>
     <div class="risk-foot">
       <div class="left">
-        <div class="risk-note" id="riskModalMsg">Pilih area bahaya secara manual pada peta. Gunakan `Undo` bila salah titik.</div>
+        <div class="risk-note" id="riskModalMsg">Tap peta untuk menaruh titik. Seret (drag) titik untuk menggeser presisi. Tap titik untuk menghapus. Minimal 3 titik.</div>
         <div class="risk-points" id="riskPointList"></div>
       </div>
       <div class="right">
         <div class="risk-actions">
+          <button class="btn" id="btnRiskCenter">Ke Lokasi</button>
           <button class="btn" id="btnRiskUndo">Undo Titik</button>
           <button class="btn" id="btnRiskClear">Hapus Semua</button>
           <button class="btn primary" id="btnRiskSave">Simpan Area</button>
@@ -221,8 +222,6 @@ function syncRiskMap(){
   if(!riskMap) return;
   riskMarkers.clearLayers();
   if(riskTargetMarker){ riskMap.removeLayer(riskTargetMarker); riskTargetMarker=null; }
-  const center=getRiskCenter();
-  riskMap.setView(center,16);
   const l=LOCATIONS.find(x=>String(x.id)===String(locId));
   const t=locTarget(l);
   if(t){
@@ -231,13 +230,17 @@ function syncRiskMap(){
     }).addTo(riskMap).bindTooltip("Lokasi target",{permanent:false});
   }
   riskArea.points.forEach((pt,i)=>{
-    L.marker(pt).addTo(riskMarkers).bindTooltip("Titik "+(i+1),{permanent:false});
+    const mk=L.marker(pt,{draggable:true,autoPan:true}).addTo(riskMarkers);
+    mk.bindTooltip("Titik "+(i+1)+" — seret untuk geser, tap untuk hapus",{permanent:false});
+    mk.on("drag",e=>{ const ll=e.target.getLatLng(); riskArea.points[i]=[+ll.lat.toFixed(6),+ll.lng.toFixed(6)];
+      if(riskArea.points.length>=3) riskPolygon.setLatLngs(riskArea.points); });
+    mk.on("dragend",()=>{ riskArea.saved=false; updateRiskPointList(); updateRiskSummary(); saveDraft(); });
+    mk.on("click",ev=>{ L.DomEvent.stopPropagation(ev);
+      if(confirm("Hapus Titik "+(i+1)+"?")){ riskArea.points.splice(i,1); riskArea.saved=false; syncRiskMap(); updateRiskSummary(); saveDraft(); } });
   });
   if(riskArea.points.length>=3){
     riskPolygon.setLatLngs(riskArea.points);
     if(!riskMap.hasLayer(riskPolygon)) riskPolygon.addTo(riskMap);
-    const bounds=L.latLngBounds(riskArea.points);
-    if(bounds.isValid()) riskMap.fitBounds(bounds.pad(.15));
   }else{
     riskPolygon.setLatLngs([]);
   }
@@ -261,8 +264,11 @@ function openRiskModal(){
   $("riskModal").setAttribute("aria-hidden","false");
   setTimeout(()=>{
     ensureRiskMap();
-    syncRiskMap();
     riskMap.invalidateSize();
+    // center SEKALI saat dibuka: ke lokasi pengambilan koordinat / titik yang sudah ada
+    if(riskArea.points.length>=3){ const b=L.latLngBounds(riskArea.points); if(b.isValid()) riskMap.fitBounds(b.pad(.2)); }
+    else { riskMap.setView(getRiskCenter(),17); }
+    syncRiskMap();
   },60);
 }
 function closeRiskModal(){
@@ -549,7 +555,7 @@ async function pushRiskArea(inspectionId,riskPayload){
     source:riskPayload.source,
     created_by:inspector.trim()
   };
-  const { error } = await sb.from(RISK_AREA_TABLE).insert(insertPayload);
+  const { error } = await sb.from(RISK_AREA_TABLE).upsert(insertPayload,{onConflict:"inspection_id"});
   if(error) return error;
   return null;
 }
@@ -598,11 +604,15 @@ async function submit(){
   }
 }
 function done(sent,warn){
+  const online = navigator.onLine;
+  const title = sent?'Inspeksi Tersimpan':(online?'Tersimpan lokal — akan dikirim ulang':'Tersimpan (menunggu sinyal)');
+  const sub = sent?'Data inspeksi berhasil dikirim. Jika Risk Area aktif, polygon ikut tersimpan ke tabel hazard area.'
+              :(online?'Tersimpan di perangkat. Pengiriman akan dicoba ulang otomatis (tap "Kirim sekarang" bila perlu).':'Tidak ada sinyal. Inspeksi dan Risk Area disimpan di perangkat & otomatis terkirim saat online.');
   $("actions").classList.add("hidden"); $("outbox").innerHTML="";
   $("app").innerHTML='<div class="center">'+
     '<div style="width:64px;height:64px;border-radius:50%;background:'+(sent?'#dcfce7':'#fef3c7')+';color:'+(sent?'#16a34a':'#d97706')+';display:flex;align-items:center;justify-content:center;font-size:32px">'+(sent?'&#10003;':'&#8681;')+'</div>'+
-    '<div style="font-size:18px;font-weight:700">'+(sent?'Inspeksi Tersimpan':'Tersimpan (menunggu sinyal)')+'</div>'+
-    '<div style="font-size:13px;max-width:360px">'+(sent?'Data inspeksi berhasil dikirim. Jika Risk Area aktif, polygon ikut dicoba simpan ke tabel hazard area.':'Tidak ada sinyal. Inspeksi dan Risk Area disimpan di perangkat & otomatis terkirim saat online.')+'</div>'+
+    '<div style="font-size:18px;font-weight:700">'+title+'</div>'+
+    '<div style="font-size:13px;max-width:360px">'+sub+'</div>'+
     (warn?'<div class="banner warn" style="max-width:380px">Catatan: '+GMS.esc(warn)+'</div>':'')+
     '<button class="btn primary" style="max-width:240px" onclick="location.reload()">Inspeksi Baru</button>'+
     '<a class="btn" style="max-width:240px;text-decoration:none" href="index.html">Kembali ke Menu</a></div>';
@@ -632,6 +642,7 @@ async function init(){
 $("btnDraft").onclick=()=>{ saveDraft(); setTimeout(()=>alert("Draft tersimpan di perangkat."),420); };
 $("btnSubmit").onclick=submit;
 $("btnCloseRisk").onclick=closeRiskModal;
+$("btnRiskCenter").onclick=()=>{ if(riskMap) riskMap.setView(getRiskCenter(),17); };
 $("btnRiskUndo").onclick=undoRiskPoint;
 $("btnRiskClear").onclick=clearRiskPoints;
 $("btnRiskSave").onclick=saveRiskArea;
