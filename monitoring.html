@@ -648,7 +648,7 @@
               <h1>EXECUTIVE MONITORING</h1>
               <div class="sub" id="modeLbl">Decision view</div>
               <div class="spacer"></div>
-              <span class="chip"><span class="dot" style="--c:#22c55e;animation:none"></span> LIVE · 60s</span>
+              <span class="chip"><span class="dot" style="--c:#22c55e;animation:none"></span> LIVE · 2m</span>
               <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
               <button class="btn-ghost" onclick="location.href='index.html'">← Menu</button>
@@ -1709,7 +1709,9 @@
       const ok = await GMS.guard({ mount:'#root' });
       if(!ok) return;
       await loadAll();
-      setInterval(()=>{ if(GMS.isOnline()) loadAll().catch(()=>{}); }, 60000);
+      // Egress saver: only poll when tab is visible; refresh immediately when user returns.
+      setInterval(()=>{ if(GMS.isOnline() && !document.hidden) loadAll().catch(()=>{}); }, 120000);
+      document.addEventListener('visibilitychange',()=>{ if(!document.hidden && GMS.isOnline()) loadAll().catch(()=>{}); });
     })();
   </script>
 </body>
