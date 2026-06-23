@@ -1434,7 +1434,7 @@
         // Basemap: satelit ArcGIS + fallback OSM + Aerial PT Vale (aktif zoom 14–19)
         const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-        const aerial = L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg', { minZoom:14, maxZoom:19, tms:false, attribution:'Aerial PT Vale Bahodopi 2026' });
+        const aerial = L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg', { minZoom:1, maxZoom:22, minNativeZoom:14, maxNativeZoom:19, tms:false, attribution:'Aerial PT Vale Bahodopi 2026' });
         let satFailed = false;
         sat.on('tileerror', ()=>{ if(!satFailed){ satFailed = true; try{ map.removeLayer(sat); }catch(e){} osm.addTo(map); } });
         sat.addTo(map);
