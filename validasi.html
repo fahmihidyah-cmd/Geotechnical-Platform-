@@ -7,6 +7,8 @@
 <link rel="manifest" href="manifest.json">
 <title>Validasi Inspeksi — Bahodopi</title>
 <link rel="stylesheet" href="common.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js"></script>
 <style>
@@ -21,6 +23,7 @@
   .box{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 6px;text-align:center;}
   .box .k{font-size:9px;color:var(--mut);letter-spacing:.06em;} .box .v{font-size:13px;font-weight:800;margin-top:3px;}
   .ovr{margin-top:14px;padding:12px;border-radius:9px;border:1px dashed var(--line);background:#fafbfd;}
+  .rmap{height:240px;border-radius:10px;border:1px solid var(--line);margin-top:10px;}
 </style>
 </head>
 <body>
@@ -32,7 +35,7 @@
 const sb=GMS.sb,$=GMS.$,esc=GMS.esc;
 const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
 const cls=l=>String(l||'Low').replace(' ','');
-let PARAMS=[], CRIT={}, PENDING=[], sel=null, note="", busy=false;
+let PARAMS=[], CRIT={}, PENDING=[], sel=null, note="", busy=false, vmap=null;
 const colOf=c=>c+"_condition";
 const isInstr=c=>/^(mv|piezo|crack|accel)/.test(c);
 const optsFor=code=>{ const list=["-"].concat((CRIT[code]||[]).map(c=>c.condition_label)); const cur=sel&&sel[colOf(code)]; if(cur&&list.indexOf(cur)<0)list.push(cur); return list; };
@@ -65,8 +68,11 @@ function renderList(){
     }).join("") : '<div class="panel" style="text-align:center;padding:36px"><div style="font-weight:700;color:var(--txt2)">Tidak ada yang menunggu validasi</div><div style="font-size:12px;color:var(--mut);margin-top:4px">Semua inspeksi sudah diproses.</div></div>');
 }
 
-window.openSel=(i)=>{ sel=Object.assign({},PENDING[i]); note=sel.review_note||""; renderDrawer(); };
-function closeDrawer(){ sel=null; $("drawer").innerHTML=""; }
+window.openSel=async(i)=>{ sel=Object.assign({},PENDING[i]); note=sel.review_note||""; sel._riskArea=undefined; renderDrawer();
+  try{ const {data}=await sb.from("inspection_risk_areas").select("*").eq("inspection_id",sel.id).maybeSingle(); if(sel) sel._riskArea=data||null; }
+  catch(e){ if(sel) sel._riskArea=null; }
+  if(sel) renderDrawer(); };
+function closeDrawer(){ sel=null; if(vmap){try{vmap.remove();}catch(e){}vmap=null;} $("drawer").innerHTML=""; }
 window.closeDrawer=closeDrawer;
 function setCond(code,v){ sel[colOf(code)]=v; }
 window._setCond=(el)=>setCond(el.dataset.code,el.value);
@@ -81,6 +87,7 @@ function paramRows(instr){ return PARAMS.filter(p=>isInstr(p.code)===instr).map(
 
 function renderDrawer(){
   if(!sel){ $("drawer").innerHTML=""; return; }
+  if(vmap){try{vmap.remove();}catch(e){}vmap=null;}
   const ovrLevel=sel.risk_override||sel.risk_model||sel.risk_final;
   $("drawer").innerHTML='<div class="drawer" onclick="closeDrawer()"><div class="panelD" onclick="event.stopPropagation()">'+
     '<div class="dhead"><div class="row" style="justify-content:space-between;align-items:flex-start">'+
@@ -95,6 +102,13 @@ function renderDrawer(){
         box("MODEL",sel.risk_model||sel.risk_final)+
       '</div>'+
       '<div class="mono" style="font-size:11px;color:var(--mut);margin-top:8px">Skor '+(sel.total_score||0)+' · model = MAX(composite, floor)'+(sel.risk_corroboration?' + koroborasi':'')+'</div>'+
+      // risk area preview
+      '<div class="eyebrow" style="margin:18px 0 6px">Area Risiko (Risk Map)</div>'+
+      ( sel._riskArea===undefined
+          ? '<div class="mono" style="font-size:11px;color:var(--mut)">Memuat area…</div>'
+          : ( sel._riskArea && sel._riskArea.polygon_geojson
+              ? '<div id="rmap" class="rmap"></div><div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Level area: <b style="color:'+(sel._riskArea.risk_color||RC[sel._riskArea.risk_level]||RC.Low)+'">'+esc(sel._riskArea.risk_level||"-")+'</b> · '+(sel._riskArea.point_count||0)+' titik · digambar inspektur saat checklist.</div>'
+              : '<div class="mono" style="font-size:11px;color:var(--mut)">Tidak ada area risiko digambar untuk inspeksi ini.</div>' ) )+
       // override
       '<div class="ovr"><label class="f" style="margin-top:0">Override risk akhir · penilaian engineer</label>'+
         '<div class="row" style="gap:8px"><select style="flex:1" onchange="_setOvr(this.value)">'+
@@ -113,6 +127,20 @@ function renderDrawer(){
         '<button class="btn primary" '+(busy?'disabled':'')+' style="flex:1;background:#0d9488;border-color:#0d9488" onclick="decide(\'approved\')">'+(busy?'…':'Approve')+'</button>'+
       '</div>'+
     '</div></div></div>';
+  if(sel && sel._riskArea && sel._riskArea.polygon_geojson){ setTimeout(initRiskPreview,60); }
+}
+function initRiskPreview(){
+  const el=document.getElementById('rmap'); if(!el||!sel||!sel._riskArea) return;
+  if(vmap){try{vmap.remove();}catch(e){}vmap=null;}
+  vmap=L.map(el,{scrollWheelZoom:false,zoomControl:true});
+  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+  const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+  let f=false; sat.on('tileerror',()=>{ if(!f){f=true;try{vmap.removeLayer(sat);}catch(e){}osm.addTo(vmap);} }); sat.addTo(vmap);
+  const gj=sel._riskArea.polygon_geojson; const col=sel._riskArea.risk_color||RC[sel._riskArea.risk_level]||RC.Low;
+  let layer=null;
+  try{ layer=L.geoJSON(gj,{style:{color:col,weight:2,fillColor:col,fillOpacity:.25}}).addTo(vmap); }catch(e){}
+  try{ vmap.fitBounds(layer.getBounds().pad(.25)); }catch(e){ vmap.setView([-2.74,122.01],15); }
+  [60,250,600].forEach(d=>setTimeout(()=>{try{vmap.invalidateSize();}catch(e){}},d));
 }
 function box(label,level){ const col=RC[level]||RC.Low; return '<div class="box"><div class="k">'+label+'</div><div class="v" style="color:'+col+'">'+esc(level||"-")+'</div></div>'; }
 
