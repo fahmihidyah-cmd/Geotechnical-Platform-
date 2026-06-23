@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Risk Report — GMS PT Vale Bahodopi</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="stylesheet" href="common.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="common.js"></script>
+<style>
+  :root{ --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#f1f5f9; }
+  body{ background:var(--bg); color:var(--ink); font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; margin:0; }
+  .toolbar{ position:sticky; top:0; z-index:1000; background:#0f2747; color:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .toolbar input{ padding:6px 8px; border-radius:6px; border:1px solid #2b4a73; background:#fff; }
+  .toolbar button{ padding:7px 14px; border:0; border-radius:6px; cursor:pointer; font-weight:600; }
+  .btn-gen{ background:#38bdf8; color:#06283d; } .btn-print{ background:#22c55e; color:#04240f; }
+  .toolbar .sp{ flex:1; } .toolbar small{ opacity:.8; }
+  .wrap{ max-width:1180px; margin:14px auto; padding:0 10px; }
+  .sheet{ background:#fff; border:1px solid var(--line); border-radius:8px; margin:0 auto 16px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .kop{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0f2747; padding-bottom:8px; margin-bottom:10px; }
+  .kop h1{ font-size:18px; margin:0; color:#0f2747; } .kop .sub{ color:var(--mut); font-size:12px; }
+  .kop .rt{ text-align:right; font-size:12px; color:var(--mut); }
+  #rmap{ width:100%; height:62vh; min-height:420px; border-radius:6px; border:1px solid var(--line); }
+  .map-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:12px; margin-top:8px; align-items:center; }
+  .lg{ display:inline-flex; gap:5px; align-items:center; } .sw{ width:14px; height:14px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.2); }
+  .dot{ width:11px; height:11px; border-radius:50%; display:inline-block; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  th,td{ border:1px solid var(--line); padding:6px 7px; text-align:left; vertical-align:top; }
+  th{ background:#0f2747; color:#fff; font-weight:600; }
+  tr:nth-child(even) td{ background:#f8fafc; }
+  .pill{ padding:2px 8px; border-radius:999px; color:#fff; font-size:11px; font-weight:700; white-space:nowrap; }
+  .muted{ color:var(--mut); } .center{ text-align:center; }
+  .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:10px 0; }
+  .card{ border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .card .k{ font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  .card .v{ font-size:22px; font-weight:800; } .card .d{ font-size:11px; }
+  .up{ color:#dc2626; } .down{ color:#16a34a; }
+  .verdict{ font-size:13px; font-weight:800; padding:6px 14px; border-radius:8px; color:#fff; display:inline-block; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .chartbox{ border:1px solid var(--line); border-radius:8px; padding:10px; }
+  .chartbox h3{ margin:0 0 6px; font-size:13px; }
+  .note{ background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 10px; font-size:11.5px; color:#92400e; margin-top:10px; }
+  h2.sec{ font-size:15px; color:#0f2747; margin:2px 0 10px; }
+  @page { size:A4 portrait; margin:10mm; }
+  @page land { size:A3 landscape; margin:8mm; }
+  .map-sheet{ } 
+  @media print{
+    body{ background:#fff; } .toolbar{ display:none !important; } .wrap{ margin:0; max-width:none; }
+    .sheet{ border:0; box-shadow:none; border-radius:0; margin:0; page-break-after:always; }
+    .map-sheet{ page:land; } #rmap{ height:170mm; } .cards{ grid-template-columns:repeat(4,1fr); }
+  }
+</style>
+</head>
+<body>
+  <div id="gate"></div>
+  <div class="toolbar">
+    <strong>Risk Report</strong>
+    <small>Periode</small>
+    <input type="date" id="fFrom" /> <small>s/d</small> <input type="date" id="fTo" />
+    <button class="btn-gen" id="btnGen">Generate</button>
+    <button class="btn-print" id="btnPrint">Print / PDF</button>
+    <span class="sp"></span>
+    <small id="status"></small>
+    <a href="exec_dashboard.html" style="color:#bae6fd;font-size:12px;">← Dashboard</a>
+  </div>
+
+  <div class="wrap">
+    <!-- PAGE 1: HAZARD MAP (A3) -->
+    <section class="sheet map-sheet">
+      <div class="kop">
+        <div><h1>Geotechnical Hazard Map</h1><div class="sub">PT Vale Indonesia — IGP Morowali Bahodopi</div></div>
+        <div class="rt"><div id="m_period">—</div><div id="m_gen">—</div><div>Verdict: <span id="m_verdict" class="verdict">—</span></div></div>
+      </div>
+      <div id="rmap"></div>
+      <div class="map-legend">
+        <span class="lg"><span class="sw" style="background:#16a34a"></span>Low</span>
+        <span class="lg"><span class="sw" style="background:#eab308"></span>Medium</span>
+        <span class="lg"><span class="sw" style="background:#f97316"></span>High</span>
+        <span class="lg"><span class="sw" style="background:#dc2626"></span>Very High</span>
+        <span style="width:18px"></span>
+        <span class="lg"><span class="dot" style="background:#dc2626"></span>Titik inspeksi (warna = risiko)</span>
+        <span class="lg"><span class="dot" style="background:#64748b"></span>Instrument monitoring</span>
+        <span class="lg"><span class="sw" style="background:rgba(249,115,22,.35);border-color:#f97316"></span>Polygon risk area (approved)</span>
+      </div>
+    </section>
+
+    <!-- PAGE 2: PICA -->
+    <section class="sheet">
+      <div class="kop"><div><h1>PICA — Problem Identification &amp; Corrective Action</h1><div class="sub">Finding OPEN (risiko terkini ≥ Medium), urut tertinggi → terendah</div></div>
+        <div class="rt"><div id="p_period">—</div></div></div>
+      <table id="picaTbl">
+        <thead><tr>
+          <th style="width:34px">#</th><th>Area</th><th>Lokasi / Detail</th><th style="width:70px">Foto</th>
+          <th style="width:78px">Risk</th><th>Rekomendasi Engineer</th><th style="width:90px">Status Hazard</th><th style="width:96px">Status Finding</th>
+        </tr></thead>
+        <tbody id="picaBody"></tbody>
+      </table>
+      <div class="note">Kolom <b>Foto</b> &amp; <b>Rekomendasi Engineer</b> akan terisi otomatis setelah inspektor mengunggah foto dan engineer menambahkan rekomendasi saat validasi (fitur input rekomendasi &amp; tombol close = langkah berikutnya). <b>Status Finding</b> mengikuti aturan: area dianggap <i>closed</i> bila inspeksi terkini ber-risiko Low dan tidak ada finding baru.</div>
+    </section>
+
+    <!-- PAGE 3: SUMMARY -->
+    <section class="sheet">
+      <div class="kop"><div><h1>Summary &amp; Analytics</h1><div class="sub">Statistik inspeksi + performa instrument monitoring</div></div>
+        <div class="rt"><div id="s_period">—</div></div></div>
+
+      <div class="cards">
+        <div class="card"><div class="k">Verdict Site</div><div class="v" id="s_verdict">—</div><div class="d muted">Berdasarkan risiko area tertinggi</div></div>
+        <div class="card"><div class="k">Area Open</div><div class="v" id="s_open">—</div><div class="d muted">risiko ≥ Medium</div></div>
+        <div class="card"><div class="k">% Hazard Tinggi</div><div class="v" id="s_pct">—</div><div class="d muted">High + Very High</div></div>
+        <div class="card"><div class="k">Total Lokasi</div><div class="v" id="s_total">—</div><div class="d muted">terinspeksi</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="chartbox"><h3>Distribusi Risiko (kondisi terkini)</h3><canvas id="cRisk" height="150"></canvas></div>
+        <div class="chartbox"><h3>Inspeksi: Minggu lalu vs Minggu ini · MtD · YTD</h3><canvas id="cInsp" height="150"></canvas></div>
+      </div>
+      <div class="grid2" style="margin-top:12px">
+        <div class="chartbox"><h3>Curah Hujan (mm): Minggu lalu vs Minggu ini · MtD · YTD</h3><canvas id="cRain" height="150"></canvas></div>
+        <div class="chartbox"><h3>Performa Instrument &amp; Seismik</h3>
+          <table style="font-size:12px">
+            <tr><td>Instrument terpasang</td><td id="i_count" class="center">—</td></tr>
+            <tr><td>Curah hujan MtD / YTD</td><td id="i_rain" class="center">—</td></tr>
+            <tr><td>Gempa terbesar (BMKG nasional, MtD)</td><td id="i_eq" class="center">—</td></tr>
+            <tr><td>Trend inspeksi (mgg ini vs lalu)</td><td id="i_trend" class="center">—</td></tr>
+          </table>
+          <div class="note" style="margin-top:8px">Performa instrument detail (kecepatan extensometer mm/hari &amp; status TARP) serta <b>PGA site</b> dari EEWS = integrasi lanjutan. Angka gempa di atas adalah katalog BMKG nasional, bukan PGA di site.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  const sb = GMS.sb, esc = GMS.esc;
+  const $ = s => document.querySelector(s);
+  const RC = {'Low':'#16a34a','Medium':'#eab308','High':'#f97316','Very High':'#dc2626'};
+  const STAT = {'OPEN':'#dc2626','IN PROGRESS':'#f97316','CLOSED':'#16a34a'};
+  let map=null, charts={}, RPT=null;
+
+  const iso = d => d.toISOString().slice(0,10);
+  function monthStart(){ const d=new Date(); return iso(new Date(d.getFullYear(), d.getMonth(), 1)); }
+  function today(){ return iso(new Date()); }
+  function qp(n){ return new URLSearchParams(location.search).get(n); }
+
+  async function load(){
+    const from=$('#fFrom').value, to=$('#fTo').value;
+    $('#status').textContent='Memuat…';
+    try{
+      const { data, error } = await sb.rpc('risk_report', { p_from:from, p_to:to });
+      if(error) throw error;
+      RPT = data; 
+      await signPhotos();
+      renderAll();
+      $('#status').textContent='Selesai';
+    }catch(e){ $('#status').textContent='Error: '+(e.message||e); }
+  }
+
+  async function signPhotos(){
+    const jobs=[];
+    (RPT.pica||[]).forEach(r => (r.photos||[]).forEach(ph=>{
+      if(ph && ph.path) jobs.push(sb.storage.from('inspection-photos').createSignedUrl(ph.path,3600)
+        .then(res=>{ ph.url = res && res.data ? res.data.signedUrl : null; }).catch(()=>{}));
+    }));
+    if(jobs.length) await Promise.allSettled(jobs);
+  }
+
+  function renderAll(){
+    const m=RPT.meta||{}, s=RPT.summary||{};
+    const period = (m.from||'?')+'  s/d  '+(m.to||'?');
+    $('#m_period').textContent='Periode: '+period;
+    $('#p_period').textContent='Periode: '+period;
+    $('#s_period').textContent='Periode: '+period;
+    $('#m_gen').textContent='Dibuat: '+(m.generated_at? new Date(m.generated_at).toLocaleString('id-ID') : '—');
+    const vcol = {'Kritis':'#dc2626','Waspada':'#f97316','Aman':'#16a34a'}[s.verdict]||'#64748b';
+    $('#m_verdict').textContent=s.verdict||'—'; $('#m_verdict').style.background=vcol;
+    $('#s_verdict').textContent=s.verdict||'—'; $('#s_verdict').style.color=vcol;
+
+    renderMap(); renderPica(); renderSummary();
+  }
+
+  function renderMap(){
+    const mp=RPT.map||{}; const center=(RPT.meta&&RPT.meta.site_center)||{lat:-2.74,lng:122.0};
+    if(map){ map.remove(); map=null; }
+    map=L.map('rmap',{zoomControl:true,attributionControl:false}).setView([center.lat,center.lng],13);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
+    L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg',{minZoom:1,maxZoom:22,minNativeZoom:14,maxNativeZoom:19}).addTo(map);
+    const bounds=[];
+    (mp.risk_areas||[]).forEach(ra=>{
+      try{
+        const gj=L.geoJSON(ra.polygon,{style:{color:ra.risk_color||'#f97316',weight:2,fillColor:ra.risk_color||'#f97316',fillOpacity:.35}});
+        gj.bindTooltip((ra.location||ra.area_code||'')+' — '+(ra.risk_level||''),{sticky:true});
+        gj.addTo(map); gj.eachLayer(l=>{ if(l.getBounds) bounds.push(l.getBounds()); });
+      }catch(e){}
+    });
+    (mp.instruments||[]).forEach(it=>{
+      if(it.lat==null||it.lng==null) return;
+      L.circleMarker([it.lat,it.lng],{radius:3,color:'#475569',weight:1,fillColor:'#94a3b8',fillOpacity:.9})
+        .bindTooltip(it.name+' ('+(it.category||'')+')').addTo(map);
+    });
+    (mp.inspections||[]).forEach(ip=>{
+      if(ip.lat==null||ip.lng==null) return;
+      const c=RC[ip.risk]||'#64748b';
+      const mk=L.circleMarker([ip.lat,ip.lng],{radius:7,color:'#0f172a',weight:1.5,fillColor:c,fillOpacity:.95})
+        .bindTooltip(ip.location+' — '+ip.risk+' (TARP '+ (ip.tarp_level||'-') +')',{permanent:false});
+      mk.addTo(map); bounds.push(L.latLngBounds([[ip.lat,ip.lng]]));
+    });
+    if(bounds.length){ let b=bounds[0]; bounds.slice(1).forEach(x=>b=b.extend(x)); try{ map.fitBounds(b.pad(.25)); }catch(e){} }
+    setTimeout(()=>map.invalidateSize(),250);
+  }
+
+  function pill(text,color){ return '<span class="pill" style="background:'+color+'">'+esc(text||'')+'</span>'; }
+
+  function renderPica(){
+    const body=$('#picaBody'); const rows=RPT.pica||[];
+    if(!rows.length){ body.innerHTML='<tr><td colspan="8" class="center muted">Tidak ada finding open pada periode ini.</td></tr>'; return; }
+    body.innerHTML = rows.map(r=>{
+      const photos=(r.photos||[]).filter(p=>p.url).map(p=>'<a href="'+p.url+'" target="_blank">📷</a>').join(' ') || '<span class="muted">—</span>';
+      const rec = r.recommendation && r.recommendation.trim() ? esc(r.recommendation)
+                  : '<span class="muted">— <i>(belum ada; saran SOP: '+esc(r.default_action||'')+')</i></span>';
+      const finding = (r.risk==='Low') ? pill('CLOSED','#16a34a') : pill('OPEN','#dc2626');
+      const appr = r.approval_status==='approved' ? ' <span class="muted">(approved)</span>'
+                 : r.approval_status==='rejected' ? ' <span class="muted">(rejected)</span>'
+                 : ' <span class="muted">(pending)</span>';
+      return '<tr>'
+        +'<td class="center">'+r.rank+'</td>'
+        +'<td>'+esc(r.area_code||'-')+'</td>'
+        +'<td><b>'+esc(r.location||'-')+'</b><div class="muted">'+esc(r.inspector||'')+' · '+esc(r.inspection_date||'')+'</div></td>'
+        +'<td class="center">'+photos+'</td>'
+        +'<td>'+pill(r.risk,RC[r.risk]||'#64748b')+'<div class="muted">TARP '+(r.tarp_level||'-')+' · skor '+(r.score!=null?r.score:'-')+'</div></td>'
+        +'<td>'+rec+'</td>'
+        +'<td>'+pill(r.risk,RC[r.risk]||'#64748b')+'</td>'
+        +'<td>'+finding+appr+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  function mkChart(id,type,labels,data,colors,opts){
+    if(charts[id]) charts[id].destroy();
+    charts[id]=new Chart(document.getElementById(id),{
+      type, data:{labels, datasets:[{data, backgroundColor:colors, borderWidth:0}]},
+      options:Object.assign({responsive:true, plugins:{legend:{display:type==='doughnut',position:'right',labels:{boxWidth:12,font:{size:11}}}}}, opts||{})
+    });
+  }
+
+  function renderSummary(){
+    const s=RPT.summary||{}; const br=s.by_risk||{}; const ins=s.inspections||{}; const rn=s.rain_mm||{}; const eq=s.earthquakes||{};
+    const total=s.total_locations||0; const high=(br.high||0)+(br.very_high||0);
+    $('#s_open').textContent=s.open_areas||0;
+    $('#s_pct').textContent=(total? Math.round(high/total*100):0)+'%';
+    $('#s_total').textContent=total;
+
+    mkChart('cRisk','doughnut',['Low','Medium','High','Very High'],
+      [br.low||0,br.medium||0,br.high||0,br.very_high||0],
+      [RC.Low,RC.Medium,RC.High,RC['Very High']]);
+
+    mkChart('cInsp','bar',['Mgg lalu','Mgg ini','MtD','YTD'],
+      [ins.week_prev||0,ins.week_now||0,ins.mtd||0,ins.ytd||0],
+      ['#94a3b8','#38bdf8','#0ea5e9','#0369a1'], {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+
+    mkChart('cRain','bar',['Mgg lalu','Mgg ini','MtD','YTD'],
+      [num(rn.week_prev),num(rn.week_now),num(rn.mtd),num(rn.ytd)],
+      ['#94a3b8','#60a5fa','#3b82f6','#1d4ed8'], {plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}});
+
+    $('#i_count').textContent=(RPT.map&&RPT.map.instruments?RPT.map.instruments.length:0)+' titik';
+    $('#i_rain').textContent=num(rn.mtd).toFixed(1)+' / '+num(rn.ytd).toFixed(1)+' mm';
+    $('#i_eq').textContent='M '+num(eq.max_mag_mtd).toFixed(1);
+    const dN=ins.week_now||0, dP=ins.week_prev||0, diff=dN-dP;
+    const arrow = diff>0?'▲':(diff<0?'▼':'■');
+    const cls = diff>0?'up':(diff<0?'down':'muted');
+    $('#i_trend').innerHTML='<span class="'+cls+'">'+arrow+' '+dP+' → '+dN+'</span>';
+  }
+  function num(x){ return typeof x==='number'? x : parseFloat(x||0)||0; }
+
+  // boot
+  (async ()=>{
+    const ok = await GMS.guard({ mount:'#gate' });
+    if(!ok) return;
+    $('#fFrom').value = qp('from') || monthStart();
+    $('#fTo').value   = qp('to')   || today();
+    $('#btnGen').onclick = load;
+    $('#btnPrint').onclick = ()=>{ if(map) map.invalidateSize(); setTimeout(()=>window.print(),300); };
+    window.addEventListener('beforeprint', ()=>{ if(map) map.invalidateSize(); });
+    await load();
+  })();
+})();
+</script>
+</body>
+</html>
