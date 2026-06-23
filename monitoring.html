@@ -381,7 +381,7 @@
     const RC = { Low:getCss('--t-low'), Medium:getCss('--t-med'), High:getCss('--t-high'), 'Very High':getCss('--t-vh') };
     const EEWS_C = { LV1:RC.Low, LV2:RC.Medium, LV3:RC.High, LV4:RC['Very High'] };
 
-    const STATE = { view:'overview', exRange:'24h', awRange:'24h' };
+    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d' };
     let DATA = {};
     let map = null;
     let overlays = null;
@@ -487,6 +487,7 @@
         DATA.riskAreas=heavyR[7].data||[];
         lastHeavy=nowMs;
       }
+      if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
       render();
     }
     function extDataset(){ return STATE.exRange==='7d' ? (DATA.ext7||[]) : (DATA.extActive||[]); }
@@ -499,6 +500,12 @@
     function setExRange(r){ STATE.exRange=r; loadAll(); }
     function setAwRange(r){ STATE.awRange=r; loadAll(); }
     window.setExRange=setExRange; window.setAwRange=setAwRange;
+    function rainRangeToggle(cur){
+      const opts=[['today','Today'],['7d','7 Days'],['30d','30 Days'],['1y','1 Year']];
+      return opts.map(([v,l])=>`<button class="btn-ghost xs ${cur===v?'on':''}" onclick="setRainRange('${v}')">${l}</button>`).join('');
+    }
+    function setRainRange(r){ STATE.rainRange=r; loadAll(); }
+    window.setRainRange=setRainRange;
 
     // ── EEWS PGA (replica of fetch-bmkg) ──
     function haversineKm(la1,lo1,la2,lo2){ const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
@@ -644,6 +651,7 @@
               <span class="chip"><span class="dot" style="--c:#22c55e;animation:none"></span> LIVE · 60s</span>
               <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
+              <button class="btn-ghost" onclick="location.href='index.html'">← Menu</button>
               <button class="btn-ghost" onclick="loadAll()">⟳ Refresh</button>
             </div>
             <div class="page" id="page"></div>
@@ -1144,21 +1152,27 @@
 
     function awsView(){
       const rs=DATA.rainSum||{}, rn=DATA.rain||{};
+      const ro=DATA.rainOv||[];
+      const accSum=ro.reduce((s,d)=>s+(+d.accum_mm||0),0);
+      const peakMax=ro.reduce((m,d)=>Math.max(m,+d.peak_mmhr||0),0);
+      const wetH=ro.reduce((s,d)=>s+(+d.wet_minutes||0),0)/60;
+      const rlabel=({today:'Today','7d':'7 Days','30d':'30 Days','1y':'1 Year'})[STATE.rainRange]||STATE.rainRange;
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">AWS — HYDROLOGY · duration · accumulation · peak</div>
-          <div>${rangeToggle('aw',STATE.awRange)}</div></div>
+          <div class="t">AWS — HYDROLOGY · accumulation · peak · wet-hours</div>
+          <div>${rainRangeToggle(STATE.rainRange)}</div></div>
         <div class="card"><div class="card-bd">
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
             ${miniKpi('Rain duration (now)', rn.is_raining?((rn.ongoing_rain_minutes||0)+' min'):'No rain','#38bdf8')}
-            ${miniKpi('Accumulation today',fmt(rs.today_mm,1)+' mm','#22d3ee')}
-            ${miniKpi('Accumulation 7 days',fmt(rs.week_mm,1)+' mm','#3b82f6')}
-            ${miniKpi('Accumulation 30 days',fmt(rs.month_mm,1)+' mm','#6366f1')}
-            ${miniKpi('Peak minute 24h',fmt(rs.peak_minute_24h_mm,2)+' mm','#f59e0b')}
-            ${miniKpi('Peak hourly 24h',fmt(rs.peak_hour_24h_mm,1)+' mm/hr','#f97316')}
+            ${miniKpi('Accumulation · '+rlabel, fmt(accSum,1)+' mm','#22d3ee')}
+            ${miniKpi('Peak intensity · '+rlabel, fmt(peakMax,1)+' mm/hr','#f97316')}
+            ${miniKpi('Total wet-hours · '+rlabel, fmt(wetH,1)+' h','#a78bfa')}
           </div>
-          <div style="height:150px;margin-top:10px"><canvas id="awsDaily"></canvas></div>
+          <div style="height:160px;margin-top:10px"><canvas id="awsDaily"></canvas></div>
         </div></div>
+        <div class="card-hd" style="padding:8px 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="t" style="font-size:12px;color:#9fb3cf">Weather time-series</div>
+          <div>${rangeToggle('aw',STATE.awRange)}</div></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
           <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall</div></div><div class="card-bd" style="height:190px"><canvas id="awsRain"></canvas></div></div>
           <div class="card"><div class="card-hd"><div class="t">🌡️ Temperature & Humidity</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
@@ -1173,12 +1187,12 @@
       tsChart('awsRain', multiSeries([{name:'Rain/min (mm)',rows:byName(wx,'rainfall minute'),color:'#38bdf8'},{name:'Rain/hour (mm)',rows:byName(wx,'rainfall hour'),color:'#1d4ed8'}]),'mm');
       const th=multiSeries([{name:'Temp (°C)',rows:byName(wx,'temperature'),color:'#ef4444'},{name:'Humidity (%)',rows:byName(wx,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
       tsChart('awsWR', multiSeries([{name:'Wind (m/s)',rows:byName(wx,'wind speed'),color:'#22c55e'},{name:'Radiation (W/m²)',rows:byName(wx,'radiation'),color:'#f97316'}]));
-      const rd=DATA.rainDaily||[]; const cvd=document.getElementById('awsDaily');
+      const rd=DATA.rainOv||[]; const cvd=document.getElementById('awsDaily');
       if(cvd&&window.Chart) charts['awsDaily']=new Chart(cvd,{type:'bar',
-        data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})),datasets:[{label:'Accumulation',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
-        options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+        data:{labels:rd.map(d=>d.bucket_label),datasets:[{label:'Accumulation',data:rd.map(d=>d.accum_mm),backgroundColor:'#38bdf8'}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>' '+c.parsed.y+' mm'}}},
           scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
-                  y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/day',color:'#9fb3cf',font:{size:9}}}}}});
+                  y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm',color:'#9fb3cf',font:{size:9}}}}}});
     }
 
     function instrumentLayout(title){
