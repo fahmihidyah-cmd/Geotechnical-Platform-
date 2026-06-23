@@ -1,11 +1,18 @@
-/* GMS service worker v3 — multi-page offline shell */
+/* GMS service worker v8 — multi-page offline shell + map assets + aerial tile runtime cache */
 "use strict";
-const CACHE = "gms-shell-v6";
+const CACHE = "gms-shell-v9";
+const TILE_CACHE = "gms-aerial-tiles-v1";          // persistent: survives app updates
+const TILE_HOST = "young-mouse-1ee2.fahmihidyah.workers.dev"; // aerial XYZ tiles (Cloudflare)
 const SUPA_CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+// Cross-origin assets that must work OFFLINE (versioned/immutable) — Leaflet map for risk-area drawing.
+const CDN_ASSETS = [
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+];
 const PRECACHE = [
   "common.css", "common.js",
-  "index.html", "pera.html", "inspeksi.html", "dashboard.html", "report.html", "eews.html", "validasi.html", "database.html", "monitoring.html",
-  "manifest.json", SUPA_CDN
+  "index.html", "pera.html", "inspeksi.html", "dashboard.html", "report.html", "eews.html", "validasi.html", "database.html", "monitoring.html", "risk_report.html",
+  "manifest.json", SUPA_CDN, ...CDN_ASSETS
 ];
 
 self.addEventListener("install", (e) => {
@@ -19,7 +26,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => k !== CACHE && k !== TILE_CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -29,9 +36,25 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.hostname.endsWith(".supabase.co")) return;            // API: always network
+  // Aerial XYZ tiles: cache-first into a persistent cache so visited areas work OFFLINE.
+  if (url.hostname === TILE_HOST) {
+    e.respondWith((async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      try {
+        const net = await fetch(req);
+        if (net && net.ok) { const c = await caches.open(TILE_CACHE); c.put(req, net.clone()); }
+        return net;
+      } catch (_) {
+        return cached || Response.error();
+      }
+    })());
+    return;
+  }
   const sameOrigin = url.origin === self.location.origin;
   const isSupaCdn = req.url.startsWith(SUPA_CDN);
-  if (!sameOrigin && !isSupaCdn) return;
+  const isCdnAsset = CDN_ASSETS.some(u => req.url.startsWith(u));
+  if (!sameOrigin && !isSupaCdn && !isCdnAsset) return;
 
   const isHTML = req.mode === "navigate" || url.pathname.endsWith(".html") || url.pathname === "/";
   if (sameOrigin && isHTML) {
@@ -47,6 +70,7 @@ self.addEventListener("fetch", (e) => {
     })());
     return;
   }
+  // Static/CDN assets: cache-first, refresh in background (immutable → safe).
   e.respondWith((async () => {
     const cached = await caches.match(req);
     const fetchPromise = fetch(req).then(net => {
