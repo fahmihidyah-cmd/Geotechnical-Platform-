@@ -45,13 +45,18 @@
   .chartbox h3{ margin:0 0 6px; font-size:13px; }
   .note{ background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 10px; font-size:11.5px; color:#92400e; margin-top:10px; }
   h2.sec{ font-size:15px; color:#0f2747; margin:2px 0 10px; }
-  @page { size:A4 portrait; margin:10mm; }
-  @page land { size:A3 landscape; margin:8mm; }
-  .map-sheet{ } 
+  table{ table-layout:fixed; }
+  td,th{ overflow:hidden; word-wrap:break-word; }
+  @page { size:A4 landscape; margin:10mm; }
   @media print{
-    body{ background:#fff; } .toolbar{ display:none !important; } .wrap{ margin:0; max-width:none; }
-    .sheet{ border:0; box-shadow:none; border-radius:0; margin:0; page-break-after:always; }
-    .map-sheet{ page:land; } #rmap{ height:170mm; } .cards{ grid-template-columns:repeat(4,1fr); }
+    body{ background:#fff; } .toolbar{ display:none !important; }
+    .wrap{ margin:0; max-width:none; padding:0; }
+    .sheet{ border:0; box-shadow:none; border-radius:0; margin:0; padding:0 2mm; page-break-after:always; }
+    .sheet:last-child{ page-break-after:auto; }
+    #rmap{ height:160mm !important; width:100% !important; }
+    table{ page-break-inside:auto; } thead{ display:table-header-group; }
+    tr{ page-break-inside:avoid; }
+    .cards{ grid-template-columns:repeat(4,1fr); }
   }
 </style>
 </head>
@@ -63,6 +68,7 @@
     <input type="date" id="fFrom" /> <small>s/d</small> <input type="date" id="fTo" />
     <button class="btn-gen" id="btnGen">Generate</button>
     <button class="btn-print" id="btnPrint">Print / PDF</button>
+    <small style="opacity:.85">(di dialog print: matikan <b>Headers and footers</b> agar URL tidak ikut)</small>
     <span class="sp"></span>
     <small id="status"></small>
     <a href="exec_dashboard.html" style="color:#bae6fd;font-size:12px;">← Dashboard</a>
@@ -94,8 +100,8 @@
         <div class="rt"><div id="p_period">—</div></div></div>
       <table id="picaTbl">
         <thead><tr>
-          <th style="width:34px">#</th><th>Area</th><th>Lokasi / Detail</th><th style="width:70px">Foto</th>
-          <th style="width:78px">Risk</th><th>Rekomendasi Engineer</th><th style="width:90px">Status Hazard</th><th style="width:96px">Status Finding</th>
+          <th style="width:30px">#</th><th style="width:84px">Area</th><th style="width:130px">Lokasi / Detail</th><th style="width:96px">Foto</th>
+          <th style="width:88px">Risk</th><th>Rekomendasi Engineer</th><th style="width:84px">Status Hazard</th><th style="width:92px">Status Finding</th>
         </tr></thead>
         <tbody id="picaBody"></tbody>
       </table>
@@ -219,7 +225,7 @@
     const body=$('#picaBody'); const rows=RPT.pica||[];
     if(!rows.length){ body.innerHTML='<tr><td colspan="8" class="center muted">Tidak ada finding open pada periode ini.</td></tr>'; return; }
     body.innerHTML = rows.map(r=>{
-      const photos=(r.photos||[]).filter(p=>p.url).map(p=>'<a href="'+p.url+'" target="_blank">📷</a>').join(' ') || '<span class="muted">—</span>';
+      const photos=(r.photos||[]).filter(p=>p.url).map(p=>'<a href="'+p.url+'" target="_blank"><img src="'+p.url+'" style="width:80px;height:58px;object-fit:cover;border-radius:4px;border:1px solid #cbd5e1"/></a>').join(' ') || '<span class="muted">—</span>';
       const rec = r.recommendation && r.recommendation.trim() ? esc(r.recommendation)
                   : '<span class="muted">— <i>(belum ada; saran SOP: '+esc(r.default_action||'')+')</i></span>';
       const finding = (r.risk==='Low') ? pill('CLOSED','#16a34a') : pill('OPEN','#dc2626');
