@@ -473,6 +473,7 @@
         sb.rpc('instrument_series',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
         sb.from('v_aws_stats').select('*'),
         sb.from('v_rain_hours').select('*'),
+        sb.from('v_inspection_risk_areas').select('*'),
       ]) : null;
 
       const [base, active, heavyR] = await Promise.all([baseP, activeP, heavyP]);
@@ -483,6 +484,7 @@
       if(heavyR){
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
+        DATA.riskAreas=heavyR[7].data||[];
         lastHeavy=nowMs;
       }
       render();
@@ -1419,6 +1421,7 @@
           halo: L.layerGroup().addTo(map),
           instruments: L.layerGroup().addTo(map),
           inspections: L.layerGroup().addTo(map),
+          riskAreas: L.layerGroup().addTo(map),
         };
         L.control.layers({
           'Satelit (Esri)': sat,
@@ -1426,6 +1429,7 @@
         }, {
           'Instrument Symbols': overlays.instruments,
           'Inspection Symbols': overlays.inspections,
+          'Risk Area (approved)': overlays.riskAreas,
           'Risk Halo': overlays.halo,
         }, { collapsed:false }).addTo(map);
       }
@@ -1481,6 +1485,24 @@
         L.marker([ll.lat,ll.lng], { icon: pin })
           .bindPopup(`<b>${esc(l.name||('Lokasi '+r.location_id))}</b><br>Risiko: <span style="color:${col};font-weight:950">${esc(lvl)}</span><br>Skor: <b>${r.total_score||0}</b>`)
           .addTo(overlays.inspections);
+      });
+
+      // Approved risk-area polygons (dari checklist inspeksi, hanya yang sudah divalidasi/approved)
+      (DATA.riskAreas||[]).forEach(ra=>{
+        const gj = ra.polygon_geojson;
+        if(!gj || !gj.geometry) return;
+        const col = ra.risk_color || RC[ra.risk_level] || RC.Low;
+        let layer;
+        try{ layer = L.geoJSON(gj, { style:{ color:col, weight:2, fillColor:col, fillOpacity:0.22, dashArray:'4 3' } }); }
+        catch(e){ return; }
+        const dt = ra.inspection_date ? esc(String(ra.inspection_date).slice(0,10)) : '-';
+        layer.bindPopup(`<b>Risk Area — ${esc(ra.location_name||('Lokasi '+(ra.location_id||'')))}</b><br>`+
+          `Level: <span style="color:${col};font-weight:950">${esc(ra.risk_level||'-')}</span>`+
+          (ra.tarp_level?` · TARP LV${esc(ra.tarp_level)}`:'')+`<br>`+
+          `Skor: <b>${esc(ra.score_total!=null?ra.score_total:'-')}</b><br>`+
+          `Inspektur: ${esc(ra.inspector||'-')}<br>Tanggal: ${dt}`);
+        layer.addTo(overlays.riskAreas);
+        try{ (gj.geometry.coordinates[0]||[]).forEach(c=>points.push([c[1],c[0]])); }catch(e){}
       });
 
       if(points.length){
