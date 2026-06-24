@@ -366,6 +366,21 @@
     select.flt,input.flt{font-size:12px;padding:6px 8px;border-radius:9px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.30);color:#e5e7eb}
     .btn-ghost.xs{padding:4px 8px;font-size:10px;margin-left:3px}
     .btn-ghost.on{background:rgba(59,130,246,.38);border-color:rgba(59,130,246,.55);color:#fff}
+    .tabbtn{ background:#16202e; color:#9fb3cf; border:1px solid rgba(148,163,184,.2); border-radius:8px; padding:6px 11px; font-size:12px; cursor:pointer; }
+    .tabbtn.act{ background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+    .sechd{ font-size:12px; letter-spacing:.5px; color:#9fb3cf; text-transform:uppercase; margin:14px 2px 8px; border-left:3px solid #1d4ed8; padding-left:8px; }
+    .note-dev{ background:rgba(250,204,21,.08); border:1px solid rgba(250,204,21,.3); color:#fde68a; border-radius:8px; padding:8px 10px; font-size:11.5px; margin-top:10px; }
+    table.heat{ border-collapse:collapse; width:100%; font-size:10px; }
+    table.heat th{ color:#9fb3cf; font-weight:600; padding:4px 5px; text-align:center; font-size:9px; }
+    table.heat td{ text-align:center; padding:5px 6px; border:1px solid rgba(11,18,32,.6); }
+    table.logtbl{ border-collapse:collapse; width:100%; font-size:11.5px; }
+    table.logtbl th{ position:sticky; top:0; background:#16202e; color:#9fb3cf; font-weight:600; padding:8px 9px; text-align:left; white-space:nowrap; z-index:1; }
+    table.logtbl td{ padding:7px 9px; border-top:1px solid rgba(148,163,184,.12); color:#dbe6f3; vertical-align:middle; }
+    table.logtbl a{ color:#7dd3fc; text-decoration:none; }
+    .rdot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+    .mini{ border:0; border-radius:6px; padding:4px 8px; font-size:10.5px; cursor:pointer; color:#fff; }
+    .mini.close{ background:#16a34a; } .mini.reopen{ background:#64748b; } .mini.prog{ background:#ca8a04; }
+    .dchip{ background:rgba(148,163,184,.18); color:#9fb3cf; font-size:9px; padding:1px 5px; border-radius:6px; }
   </style>
 </head>
 
@@ -466,7 +481,7 @@
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
 
       const heavyP = heavy ? Promise.all([
-        sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status').order('inspection_date',{ascending:false}),
+        sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
         sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
         sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status,lintang,bujur').order('tanggal',{ascending:false}).limit(8),
         sb.rpc('instrument_series',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'2 hours'}),
@@ -609,7 +624,7 @@
         ['overview','Overview'],
         ['instrument','Extensometer'],
         ['aws','AWS / Weather'],
-        ['inspection','Inspection'],
+        ['inspection','Inspection Data'],
         ['alerts','Alerts'],
         ['reports','Data & Reports'],
         ['docs','Documents'],
@@ -1214,6 +1229,175 @@
         </div>`;
     }
 
+    // ===== INSPECTION DATA (advanced analytics + action log) =====
+    var INS = { tab:'analytics', analytics:null, log:null };
+    const RISKCLR = { 'Low':'#22c55e','Medium':'#eab308','High':'#f97316','Very High':'#ef4444' };
+    function hmColor(s){ if(s>=10)return '#b91c1c'; if(s>=7)return '#ef4444'; if(s>=4)return '#f59e0b'; if(s>=1)return '#22c55e'; return 'rgba(148,163,184,.10)'; }
+
+    function inspectionDataView(){
+      return `
+        <div class="card-hd" style="padding:0 2px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="t">INSPECTION DATA — Analitik Operasional & Perbaikan</div>
+          <div style="display:flex;gap:6px">
+            <button class="tabbtn ${INS.tab==='analytics'?'act':''}" id="tb_an" onclick="setInsTab('analytics')">📊 Analytics</button>
+            <button class="tabbtn ${INS.tab==='log'?'act':''}" id="tb_lg" onclick="setInsTab('log')">🗂️ Action Log Inspection</button>
+          </div>
+        </div>
+
+        <div id="insAnalytics" style="display:${INS.tab==='analytics'?'block':'none'}">
+          <div class="card"><div class="card-bd">
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px" id="insKpi">
+              ${miniKpi('Open','—','#f97316')}${miniKpi('In Progress','—','#eab308')}${miniKpi('Closed','—','#22c55e')}
+              ${miniKpi('Closure Rate','—','#38bdf8')}${miniKpi('% High/VH (open)','—','#ef4444')}${miniKpi('Avg MTTR','—','#a78bfa')}
+            </div>
+          </div></div>
+
+          <div class="sechd">SEKSI 1 · Tren & Efektivitas Operasional</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+            <div class="card"><div class="card-hd"><div class="t">Tren MTTR Inspeksi [Weekly] — satuan HARI</div></div><div class="card-bd" style="height:200px"><canvas id="cMttr"></canvas></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Gap Temuan vs Perbaikan (kumulatif)</div></div><div class="card-bd" style="height:200px"><canvas id="cGap"></canvas></div></div>
+          </div>
+
+          <div class="sechd">SEKSI 2 · Analisis Spasial & Korelasi</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="card"><div class="card-hd"><div class="t">Tren Risiko Inspeksi (6 bulan)</div></div><div class="card-bd" style="height:210px"><canvas id="cTrend"></canvas></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Heatmap Lokasi × Parameter (finding aktif)</div></div><div class="card-bd" style="max-height:240px;overflow:auto" id="insHeat"><div style="color:var(--mut2)">memuat…</div></div></div>
+          </div>
+
+          <div class="sechd">SEKSI 3 · Strategi & Prioritas Improvement</div>
+          <div class="card"><div class="card-hd"><div class="t">Pareto 80/20 — Parameter Temuan Utama</div></div><div class="card-bd" style="height:230px"><canvas id="cPareto"></canvas></div></div>
+          <div class="note-dev">Sebagian metrik (MTTR, Gap, tren) saat ini termasuk <b>data DUMMY (dev)</b> agar grafik hidup. Grafik akan otomatis akurat begitu inspeksi nyata di-<i>open/close</i> oleh engineer.</div>
+        </div>
+
+        <div id="insLog" style="display:${INS.tab==='log'?'block':'none'}">
+          <div class="card"><div class="card-bd" style="padding:0">
+            <div style="overflow:auto;max-height:70vh">
+              <table class="logtbl" id="logTbl"><thead><tr>
+                <th>#</th><th>Area</th><th>Lokasi</th><th>Inspector</th><th>Tanggal</th><th>Risk</th>
+                <th>Approval</th><th>Status</th><th>MTTR</th><th>Foto</th><th>Aksi</th>
+              </tr></thead><tbody><tr><td colspan="11" style="color:var(--mut2);padding:14px">memuat…</td></tr></tbody></table>
+            </div>
+          </div></div>
+        </div>`;
+    }
+
+    function setInsTab(t){
+      INS.tab=t;
+      document.getElementById('insAnalytics').style.display = t==='analytics'?'block':'none';
+      document.getElementById('insLog').style.display = t==='log'?'block':'none';
+      const a=document.getElementById('tb_an'), l=document.getElementById('tb_lg');
+      if(a) a.classList.toggle('act',t==='analytics'); if(l) l.classList.toggle('act',t==='log');
+    }
+
+    async function drawInspectionData(){
+      Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
+      try{
+        const [an, lg] = await Promise.all([ sb.rpc('inspection_analytics'), sb.rpc('inspection_action_log') ]);
+        INS.analytics = an.data || {}; INS.log = lg.data || [];
+      }catch(e){ INS.analytics={}; INS.log=[]; }
+      renderInsKpi(); renderInsCharts(); renderInsHeatmap(); renderActionLog();
+    }
+
+    function renderInsKpi(){
+      const s=(INS.analytics&&INS.analytics.summary)||{};
+      const box=document.getElementById('insKpi'); if(!box) return;
+      box.innerHTML =
+        miniKpi('Open',(s.open??0)+'','#f97316')+miniKpi('In Progress',(s.in_progress??0)+'','#eab308')+
+        miniKpi('Closed',(s.closed??0)+'','#22c55e')+miniKpi('Closure Rate',(s.closure_rate??0)+'%','#38bdf8')+
+        miniKpi('% High/VH (open)',(s.pct_high??0)+'%','#ef4444')+miniKpi('Avg MTTR',(s.avg_mttr_days??0)+' hari','#a78bfa');
+    }
+
+    function renderInsCharts(){
+      const A=INS.analytics||{}; const ax={ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'}};
+      const noAR={responsive:true,maintainAspectRatio:false,animation:false};
+      // MTTR weekly (bar + trend line, days)
+      const mw=A.mttr_weekly||[]; let cv=document.getElementById('cMttr');
+      if(cv&&window.Chart) charts.cMttr=new Chart(cv,{data:{labels:mw.map(d=>d.label),datasets:[
+          {type:'bar',label:'MTTR (hari)',data:mw.map(d=>d.mttr_days),backgroundColor:'#60a5fa',order:2},
+          {type:'line',label:'Tren',data:mw.map(d=>d.mttr_days),borderColor:'#fbbf24',borderWidth:2.5,pointRadius:0,tension:.3,order:1}
+        ]},options:{...noAR,plugins:{legend:{labels:{color:'#9fb3cf',font:{size:9},boxWidth:10}}},scales:{x:{...ax,grid:{display:false}},y:{...ax,beginAtZero:true,title:{display:true,text:'hari',color:'#9fb3cf',font:{size:9}}}}}});
+      // Gap cumulative (two lines)
+      const g=A.gap_cumulative||[]; cv=document.getElementById('cGap');
+      if(cv&&window.Chart) charts.cGap=new Chart(cv,{type:'line',data:{labels:g.map(d=>d.label),datasets:[
+          {label:'Total Temuan',data:g.map(d=>d.opened_cum),borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.15)',fill:true,tension:.3,pointRadius:2},
+          {label:'Perbaikan Selesai',data:g.map(d=>d.closed_cum),borderColor:'#2dd4bf',backgroundColor:'rgba(45,212,191,.15)',fill:true,tension:.3,pointRadius:2}
+        ]},options:{...noAR,plugins:{legend:{labels:{color:'#9fb3cf',font:{size:9},boxWidth:10}}},scales:{x:{...ax,grid:{display:false}},y:{...ax,beginAtZero:true}}}});
+      // Risk trend monthly (stacked)
+      const t=A.risk_trend_monthly||[]; cv=document.getElementById('cTrend');
+      if(cv&&window.Chart) charts.cTrend=new Chart(cv,{type:'bar',data:{labels:t.map(d=>d.label),datasets:[
+          {label:'Low',data:t.map(d=>d.low),backgroundColor:RISKCLR['Low']},
+          {label:'Medium',data:t.map(d=>d.medium),backgroundColor:RISKCLR['Medium']},
+          {label:'High',data:t.map(d=>d.high),backgroundColor:RISKCLR['High']},
+          {label:'Very High',data:t.map(d=>d.very_high),backgroundColor:RISKCLR['Very High']}
+        ]},options:{...noAR,plugins:{legend:{labels:{color:'#9fb3cf',font:{size:9},boxWidth:10}}},scales:{x:{...ax,stacked:true,grid:{display:false}},y:{...ax,stacked:true,beginAtZero:true}}}});
+      // Pareto (bar desc + cumulative %)
+      const p=A.pareto||[]; const tot=p.reduce((s,d)=>s+(+d.count||0),0)||1; let cum=0; const cumPct=p.map(d=>{cum+=(+d.count||0);return Math.round(100*cum/tot);});
+      cv=document.getElementById('cPareto');
+      if(cv&&window.Chart) charts.cPareto=new Chart(cv,{data:{labels:p.map(d=>d.label),datasets:[
+          {type:'bar',label:'Jumlah temuan',data:p.map(d=>d.count),backgroundColor:'#60a5fa',order:2,yAxisID:'y'},
+          {type:'line',label:'Kumulatif %',data:cumPct,borderColor:'#f97316',borderWidth:2.5,pointRadius:2,pointBackgroundColor:'#f97316',tension:.2,order:1,yAxisID:'y1'}
+        ]},options:{...noAR,plugins:{legend:{labels:{color:'#9fb3cf',font:{size:9},boxWidth:10}}},scales:{
+          x:{...ax,grid:{display:false},ticks:{color:'#9fb3cf',font:{size:8},maxRotation:40,minRotation:25}},
+          y:{...ax,beginAtZero:true,position:'left'},
+          y1:{beginAtZero:true,max:100,position:'right',ticks:{color:'#f97316',font:{size:9},callback:v=>v+'%'},grid:{display:false}}}}});
+    }
+
+    function renderInsHeatmap(){
+      const h=(INS.analytics&&INS.analytics.heatmap)||[]; const box=document.getElementById('insHeat'); if(!box) return;
+      if(!h.length){ box.innerHTML='<div style="color:var(--mut2)">Tidak ada finding aktif.</div>'; return; }
+      const locs=[...new Set(h.map(d=>d.location))];
+      const ptot={}; h.forEach(d=>{ptot[d.parameter]=(ptot[d.parameter]||0)+(+d.score||0);});
+      const params=Object.keys(ptot).sort((a,b)=>ptot[b]-ptot[a]).slice(0,8);
+      const cell={}; h.forEach(d=>{cell[d.location+'|'+d.parameter]=Math.max(cell[d.location+'|'+d.parameter]||0,+d.score||0);});
+      const short=s=>s.replace('Kondisi ','').replace(' (instrument)','').replace('Movement Velocity','MV');
+      let html='<table class="heat"><thead><tr><th style="text-align:left">Lokasi</th>'+params.map(p=>`<th title="${esc(p)}">${esc(short(p))}</th>`).join('')+'</tr></thead><tbody>';
+      locs.forEach(L=>{ html+=`<tr><td style="text-align:left;white-space:nowrap">${esc(L)}</td>`+params.map(p=>{const v=cell[L+'|'+p];return `<td style="background:${hmColor(v||0)};color:#0b1220;font-weight:700">${v||''}</td>`;}).join('')+'</tr>'; });
+      html+='</tbody></table>';
+      box.innerHTML=html;
+    }
+
+    function renderActionLog(){
+      const rows=INS.log||[]; const tb=document.querySelector('#logTbl tbody'); if(!tb) return;
+      if(!rows.length){ tb.innerHTML='<tr><td colspan="11" style="color:var(--mut2);padding:14px">Belum ada data.</td></tr>'; return; }
+      tb.innerHTML = rows.map((r,i)=>{
+        const rc=RISKCLR[r.risk]||'#64748b';
+        const stClr = r.status==='CLOSED'?'#22c55e':(r.status==='IN PROGRESS'?'#eab308':'#f97316');
+        const photo = r.photo ? `<a href="javascript:void(0)" onclick="insPhoto('${encodeURIComponent(r.photo)}')">🖼️ lihat</a>` : '<span style="color:var(--mut2)">—</span>';
+        const mttr = (r.mttr_days!=null) ? (r.mttr_days+' hr') : '—';
+        let aksi='';
+        if(r.status==='CLOSED'){ aksi=`<button class="mini reopen" onclick="insSetState(${r.id},'OPEN')">↺ Reopen</button>`; }
+        else { aksi=`<button class="mini prog" onclick="insSetState(${r.id},'IN PROGRESS')">⏳ Progress</button> <button class="mini close" onclick="insSetState(${r.id},'CLOSED')">✓ Close</button>`; }
+        const dummy = r.is_dummy ? ' <span class="dchip">dummy</span>' : '';
+        return `<tr>
+          <td>${i+1}</td><td>${esc(r.area||'')}</td><td style="white-space:nowrap">${esc(r.location||'')}${dummy}</td>
+          <td>${esc(r.inspector||'—')}</td><td style="white-space:nowrap">${esc(String(r.inspection_date||'').slice(0,10))}</td>
+          <td><span class="rdot" style="background:${rc}"></span>${esc(r.risk||'—')}${r.tarp_level?` <small>T${r.tarp_level}</small>`:''}</td>
+          <td>${esc(r.approval_status||'')}</td>
+          <td style="color:${stClr};font-weight:700;white-space:nowrap">${esc(r.status||'')}</td>
+          <td>${mttr}</td><td>${photo}</td><td style="white-space:nowrap">${aksi}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function insSetState(id, state){
+      const verb = state==='CLOSED'?'CLOSE (finding hilang dari risk map)': state==='OPEN'?'REOPEN':'set IN PROGRESS';
+      let note=null;
+      if(state==='CLOSED'){ note = prompt('Catatan penutupan (opsional) untuk finding #'+id+':',''); if(note===null) return; }
+      else { if(!confirm('Yakin '+verb+' finding #'+id+'?')) return; }
+      try{
+        const { error } = await sb.rpc('inspection_set_state',{ p_id:id, p_state:state, p_note:note });
+        if(error) throw error;
+        await drawInspectionData(); setInsTab('log');
+      }catch(e){ alert('Gagal mengubah status: '+(e.message||e)); }
+    }
+
+    async function insPhoto(pathEnc){
+      const path=decodeURIComponent(pathEnc);
+      try{ const { data, error } = await sb.storage.from('inspection-photos').createSignedUrl(path,3600);
+        if(error) throw error; window.open(data.signedUrl,'_blank');
+      }catch(e){ alert('Foto tidak tersedia: '+(e.message||e)); }
+    }
+
     function render(){
       document.getElementById('root').innerHTML = tpl();
 
@@ -1244,7 +1428,8 @@
         page.innerHTML = instrumentView();
         drawInstrumentCharts();
       } else if(STATE.view==='inspection'){
-        page.innerHTML = instrumentLayout('Inspection');
+        page.innerHTML = inspectionDataView();
+        drawInspectionData();
       } else if(STATE.view==='alerts'){
         page.innerHTML = instrumentLayout('Alerts');
       } else if(STATE.view==='reports'){
