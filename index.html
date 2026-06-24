@@ -2,53 +2,160 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0b1f3a">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050b16">
 <link rel="manifest" href="manifest.json">
 <title>Geotech Monitoring — Bahodopi</title>
 <link rel="stylesheet" href="common.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js"></script>
+<style>
+  :root{
+    --d0:#050b16; --d1:#0a1832; --d2:#0e2147;
+    --blue:#2563eb; --cyan:#38bdf8; --orange:#fb923c; --orange2:#ea580c;
+    --txtL:#e9f0fb; --mutL:#8fa6c8; --line-d:rgba(125,160,220,.16);
+    --glass:rgba(12,26,52,.55);
+  }
+  /* ===== immersive auth scene ===== */
+  .scene{position:fixed;inset:0;overflow:hidden;background:var(--d0);}
+  .bg-grad{position:absolute;inset:0;
+    background:
+      radial-gradient(1200px 700px at 78% 18%, rgba(37,99,235,.22), transparent 60%),
+      radial-gradient(900px 600px at 12% 88%, rgba(251,146,60,.12), transparent 55%),
+      radial-gradient(1400px 900px at 50% 120%, rgba(56,189,248,.10), transparent 60%),
+      linear-gradient(160deg,#070f20 0%,#0a1832 55%,#070d1c 100%);}
+  .bg-mine{position:absolute;inset:0;width:100%;height:100%;opacity:.9;}
+  .bg-grid{position:absolute;inset:-2px;
+    background-image:linear-gradient(rgba(120,160,220,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.06) 1px,transparent 1px);
+    background-size:46px 46px;mask-image:radial-gradient(70% 60% at 50% 40%,#000 30%,transparent 80%);animation:gridpan 22s linear infinite;}
+  @keyframes gridpan{to{background-position:46px 46px;}}
+  .vign{position:absolute;inset:0;box-shadow:inset 0 0 240px 60px rgba(2,6,14,.85);pointer-events:none;}
+  .scan{position:absolute;left:50%;top:42%;width:1300px;height:1300px;transform:translate(-50%,-50%);border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(56,189,248,.18), transparent 18%, transparent 100%);
+    mask:radial-gradient(closest-side, transparent 62%, #000 63%, #000 64%, transparent 66%);
+    animation:spin 9s linear infinite;opacity:.5;}
+  @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
+  .particles{position:absolute;inset:0;pointer-events:none;}
+  .particles i{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(120,180,255,.7);box-shadow:0 0 8px rgba(120,180,255,.8);animation:flo linear infinite;}
+  @keyframes flo{0%{transform:translateY(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-120px);opacity:0}}
+
+  .auth-wrap{position:relative;z-index:5;min-height:100svh;display:flex;align-items:center;justify-content:center;gap:46px;
+    padding:28px 18px;max-width:1120px;margin:0 auto;}
+  /* hero (left, desktop) */
+  .hero{flex:1;max-width:460px;color:var(--txtL);display:none;}
+  @media(min-width:940px){ .hero{display:block;} }
+  .hero .mk{display:inline-flex;align-items:center;gap:11px;margin-bottom:22px;}
+  .hero .tri{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;
+    background:linear-gradient(150deg,rgba(251,146,60,.22),rgba(37,99,235,.14));border:1px solid rgba(251,146,60,.4);color:var(--orange);
+    box-shadow:0 8px 30px rgba(251,146,60,.18);}
+  .hero h1{font-size:40px;line-height:1.05;margin:0 0 14px;font-weight:850;letter-spacing:-.5px;
+    background:linear-gradient(120deg,#fff,#bcd2f5 60%,#8fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{color:var(--mutL);font-size:15px;line-height:1.65;margin:0 0 24px;max-width:420px;}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;}
+  .chip{font-size:12px;color:#cfe0fb;background:rgba(56,189,248,.08);border:1px solid var(--line-d);padding:7px 12px;border-radius:99px;
+    display:inline-flex;gap:7px;align-items:center;backdrop-filter:blur(4px);}
+  .chip .d{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+
+  /* glass card */
+  .card-3d{flex:0 0 auto;width:400px;max-width:100%;perspective:1200px;}
+  .auth-card{position:relative;background:linear-gradient(165deg,rgba(18,34,64,.78),rgba(8,18,38,.72));
+    border:1px solid var(--line-d);border-radius:22px;padding:26px 24px 22px;color:var(--txtL);
+    box-shadow:0 30px 80px rgba(2,8,20,.6),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(16px);
+    transition:transform .12s ease-out;transform-style:preserve-3d;}
+  .auth-card::before{content:"";position:absolute;inset:-1px;border-radius:22px;padding:1px;pointer-events:none;
+    background:linear-gradient(140deg,rgba(56,189,248,.5),transparent 35%,transparent 65%,rgba(251,146,60,.45));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.55;}
+  .cbrand{display:flex;align-items:center;gap:11px;margin-bottom:6px;}
+  .cbrand .tri{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;
+    background:linear-gradient(150deg,rgba(251,146,60,.2),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.4);color:var(--orange);}
+  .cbrand b{font-size:16px;font-weight:800;letter-spacing:.2px;}
+  .cbrand small{display:block;font-size:9.5px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;margin-top:2px;}
+  .ctitle{font-size:19px;font-weight:800;margin:18px 0 2px;}
+  .csub{font-size:12.5px;color:var(--mutL);margin-bottom:16px;}
+
+  .atabs{display:flex;background:rgba(8,18,38,.6);border:1px solid var(--line-d);border-radius:12px;padding:4px;margin-bottom:16px;}
+  .atab{flex:1;border:0;background:none;color:var(--mutL);font-weight:700;font-size:13.5px;padding:9px;border-radius:9px;cursor:pointer;transition:.18s;}
+  .atab.on{background:linear-gradient(120deg,var(--blue),#1e40af);color:#fff;box-shadow:0 6px 18px rgba(37,99,235,.4);}
+
+  .al{display:block;font-size:11.5px;font-weight:600;color:#b9cbe8;margin:13px 0 5px;}
+  .al .rq{color:var(--orange);}
+  .auth-card input,.auth-card select{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line-d);border-radius:11px;
+    padding:12px 13px;font:inherit;font-size:14px;color:var(--txtL);transition:.16s;}
+  .auth-card input::placeholder{color:rgba(143,166,200,.55);}
+  .auth-card input:focus,.auth-card select:focus{outline:none;border-color:var(--cyan);background:rgba(56,189,248,.08);box-shadow:0 0 0 3px rgba(56,189,248,.13);}
+  .auth-card select option{background:#0e2147;color:#fff;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+  @media(max-width:460px){ .grid2{grid-template-columns:1fr;} .card-3d{width:100%;} }
+  .span2{grid-column:1/-1;}
+
+  .abtn{width:100%;border:0;border-radius:12px;padding:13px;font-size:14.5px;font-weight:800;cursor:pointer;margin-top:18px;
+    color:#fff;background:linear-gradient(120deg,var(--blue),#1d4ed8);box-shadow:0 12px 30px rgba(37,99,235,.42);transition:.16s;letter-spacing:.2px;}
+  .abtn:hover{filter:brightness(1.07);transform:translateY(-1px);}
+  .abtn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+  .abtn.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line-d);box-shadow:none;margin-top:8px;}
+  .alink{background:none;border:0;color:var(--cyan);font-size:12px;cursor:pointer;padding:0;}
+  .anote{font-size:10.5px;color:var(--mutL);margin-top:13px;line-height:1.55;font-family:ui-monospace,Menlo,monospace;}
+  .abanner{padding:10px 12px;border-radius:10px;font-size:12.5px;margin-top:12px;line-height:1.45;}
+  .abanner.err{background:rgba(220,38,38,.14);border:1px solid rgba(248,113,113,.4);color:#fecaca;}
+  .abanner.ok{background:rgba(22,163,74,.14);border:1px solid rgba(74,222,128,.4);color:#bbf7d0;}
+  .foot{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:5;font-size:10px;color:rgba(143,166,200,.7);
+    font-family:ui-monospace,Menlo,monospace;letter-spacing:.05em;}
+
+  /* ===== NDA modal ===== */
+  .nda-ov{position:fixed;inset:0;z-index:80;background:rgba(3,8,18,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:18px;}
+  .nda-card{width:680px;max-width:100%;max-height:90svh;display:flex;flex-direction:column;background:linear-gradient(165deg,#0f2147,#0a1730);
+    border:1px solid var(--line-d);border-radius:18px;box-shadow:0 40px 90px rgba(2,8,20,.7);color:var(--txtL);overflow:hidden;}
+  .nda-hd{padding:18px 22px;border-bottom:1px solid var(--line-d);}
+  .nda-hd .k{font-size:10px;letter-spacing:.2em;color:var(--orange);font-family:ui-monospace,Menlo,monospace;}
+  .nda-hd h2{margin:5px 0 0;font-size:18px;font-weight:800;}
+  .nda-hd p{margin:4px 0 0;font-size:12px;color:var(--mutL);}
+  .nda-body{padding:18px 22px;overflow-y:auto;font-size:13px;line-height:1.7;color:#d6e2f5;}
+  .nda-body h3{font-size:13.5px;color:#fff;margin:16px 0 5px;}
+  .nda-body p{margin:0 0 9px;}
+  .nda-body ol{margin:0 0 9px;padding-left:20px;} .nda-body li{margin-bottom:6px;}
+  .nda-body .muted{color:var(--mutL);font-size:11.5px;}
+  .nda-ft{padding:14px 22px 18px;border-top:1px solid var(--line-d);background:rgba(6,14,30,.5);}
+  .agree{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:#cfe0fb;margin-bottom:12px;cursor:pointer;}
+  .agree input{width:18px;height:18px;flex:0 0 auto;margin-top:1px;accent-color:var(--cyan);}
+  .nda-actions{display:flex;gap:10px;}
+  .nda-actions .abtn{margin-top:0;}
+</style>
 </head>
 <body>
 <div id="root"><div class="center"><div class="spin"></div></div></div>
 
 <script>
 "use strict";
-const sb = GMS.sb, $ = GMS.$;
+const sb = GMS.sb, $ = GMS.$, esc = GMS.esc;
 
-// ===================== TILES =====================
-// access: "all" | "admin"
-// NOTE: tile ditambah seiring halamannya dibangun (eews/dashboard/validasi/database menyusul)
+/* ===================== HOME (after login) ===================== */
 const TILES = [
-  { key:"dashboard",href:"monitoring.html",label:"Dashboard", sub:"Geotechnical Integration Dashboard", ic:"&#9707;", c:"#0b1f3a", cb:"#e7ebf2", access:"all" },
-  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Geotechnical Inspection Checklist (offline)", ic:"&#9633;", c:"#ea580c", cb:"#fff1e7", access:"all" },
-  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Checklist after earthquake event (offline)", ic:"&#9888;", c:"#0891b2", cb:"#e6f7fb", access:"all" },
-  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Earthquake Early Warning Systems", ic:"&#9883;", c:"#dc2626", cb:"#fdeaea", access:"all" },
-  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & Validation", ic:"&#9745;", c:"#0d9488", cb:"#e3f5f2", access:"admin" },
+  { key:"monitoring",href:"monitoring.html",label:"Monitoring", sub:"Dashboard terintegrasi (EEWS · risiko · instrumen)", ic:"&#9707;", c:"#0b1f3a", cb:"#e7ebf2", access:"all" },
+  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Checklist · GPS · foto (offline)", ic:"&#9633;", c:"#ea580c", cb:"#fff1e7", access:"all" },
+  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Penilaian cepat pasca gempa (offline)", ic:"&#9888;", c:"#0891b2", cb:"#e6f7fb", access:"all" },
+  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Peringatan dini gempa", ic:"&#9883;", c:"#dc2626", cb:"#fdeaea", access:"all" },
+  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard",sub:"Peta & daftar risiko + laporan", ic:"&#9636;", c:"#2563eb", cb:"#e8eefc", access:"admin" },
+  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & approve inspeksi", ic:"&#9745;", c:"#0d9488", cb:"#e3f5f2", access:"admin" },
   { key:"database", href:"database.html", label:"Database",      sub:"Checklist · User · Reporting · Audit PERA", ic:"&#9638;", c:"#7c3aed", cb:"#f0e9fc", access:"admin" },
 ];
-
-// ===================== HOME (after login) =====================
 function renderHome(p){
   const canV = p.canValidate;
   const tiles = TILES.filter(t => t.access==="all" || canV);
   const tileHtml = tiles.map(t =>
     '<a class="tile" href="'+t.href+'" style="--c:'+t.c+';--cb:'+t.cb+'">'+
       '<div class="ic">'+t.ic+'</div>'+
-      '<div><div class="lab">'+t.label+'</div><div class="sub">'+t.sub+'</div></div>'+
-    '</a>').join("");
-
+      '<div><div class="lab">'+t.label+'</div><div class="sub">'+t.sub+'</div></div></a>').join("");
+  const nm = (p.profile&&p.profile.full_name) || p.email || "";
+  const sub = [(p.profile&&p.profile.position), (p.profile&&p.profile.department)].filter(Boolean).join(" · ");
   $("root").innerHTML =
     GMS.header("Geotech Monitoring", "Bahodopi Block 2 & 3", {back:false}) +
     '<div class="wrap">'+
       '<div class="panel" style="display:flex;align-items:center;gap:14px;margin-bottom:18px">'+
         '<div style="width:44px;height:44px;border-radius:50%;background:#e8eefc;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">'+
-          GMS.esc((p.email||"?").slice(0,1).toUpperCase())+'</div>'+
-        '<div style="flex:1">'+
-          '<div style="font-weight:700">'+GMS.esc(p.email||"")+'</div>'+
-          '<div style="font-size:12px;color:var(--mut)">'+GMS.esc((p.profile&&p.profile.position)||"")+
-            ' · <span class="mono">'+GMS.esc(p.role)+'</span></div>'+
+          esc((nm||"?").slice(0,1).toUpperCase())+'</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-weight:700">'+esc(nm)+'</div>'+
+          '<div style="font-size:12px;color:var(--mut)">'+esc(sub)+(sub?' · ':'')+'<span class="mono">'+esc(p.role)+'</span></div>'+
         '</div>'+
         '<button class="btn" onclick="GMS.logout()">Keluar</button>'+
       '</div>'+
@@ -58,97 +165,234 @@ function renderHome(p){
     '</div>';
 }
 
-// ===================== AUTH SCREEN =====================
-let mode = "signin"; // signin | signup | forgot | newpass
-let abusy = false, aerr = "", amsg = "";
+/* ===================== AUTH ===================== */
+let mode = "signin";            // signin | signup | forgot | newpass
+let abusy=false, aerr="", amsg="";
+let ndaOpen=false, ndaChecked=false, pendingSignup=null;
 
-function renderAuth(){
-  const f = {
-    email: ($("email")&&$("email").value)||"",
-    pass:  ($("pass") &&$("pass").value )||"",
-    bn:    ($("bn")   &&$("bn").value   )||"",
-    pos:   ($("pos")  &&$("pos").value  )||"",
-  };
-  const tabs = mode!=="newpass" ?
-    '<div class="row" style="gap:6px;margin-bottom:16px">'+
-      ['signin','Sign in','signup','Sign up'].reduce((a,_,i,arr)=>{ if(i%2)return a; const k=arr[i],t=arr[i+1];
-        return a+'<button class="btn" style="flex:1'+(mode===k?';background:var(--blue);color:#fff;border-color:var(--blue)':'')+'" onclick="setMode(\''+k+'\')">'+t+'</button>';},'')+
-    '</div>' : '';
-
-  const emailF = mode!=="newpass" ? '<label class="f">Email</label><input id="email" type="email" value="'+GMS.esc(f.email)+'">' : '';
-  const signupF = mode==="signup" ?
-      '<label class="f">Badge Number (B/N)</label><input id="bn" placeholder="mis. 0676733" value="'+GMS.esc(f.bn)+'">'+
-      '<label class="f">Position</label><input id="pos" placeholder="mis. Geotechnical Engineer" value="'+GMS.esc(f.pos)+'">' : '';
-  const passF = mode!=="forgot" ?
-      '<label class="f">'+(mode==="newpass"?"Password Baru":"Password")+((mode==="signup"||mode==="newpass")?' <span style="color:var(--mut);font-weight:400">(min. 6)</span>':'')+'</label>'+
-      '<input id="pass" type="password" value="'+GMS.esc(f.pass)+'" onkeydown="if(event.key===\'Enter\')doAuth()">' : '';
-  const forgotLink = mode==="signin" ? '<div style="margin:8px 0 0"><button class="linkbtn" onclick="setMode(\'forgot\')">Lupa password?</button></div>' : '';
-
-  const btnLabel = abusy?"Memproses…":mode==="signup"?"Buat Akun":mode==="forgot"?"Kirim Link Reset":mode==="newpass"?"Simpan Password":"Sign in";
-  const note = mode==="signup" ? "Email @vale.com / @valeindonesia.com / @gmail.com. Akun baru menunggu persetujuan Super Admin."
-            : mode==="forgot" ? "Masukkan email akunmu; link reset dikirim ke email."
-            : mode==="newpass" ? "Buat password baru untuk akunmu."
-            : "Masuk dengan akun terdaftar.";
-
-  $("root").innerHTML =
-    '<div class="wrap narrow" style="padding-top:8vh">'+
-      '<div class="panel">'+
-        '<div class="row" style="margin-bottom:18px">'+
-          '<div style="width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.4);color:#ea580c;font-size:18px">&#9650;</div>'+
-          '<div><div style="font-weight:800;font-size:17px">Geotech Monitoring</div>'+
-          '<div class="mono" style="font-size:10px;color:var(--mut)">BAHODOPI BLOCK 2 &amp; 3</div></div>'+
-        '</div>'+
-        tabs + emailF + signupF + passF + forgotLink +
-        (aerr?'<div class="banner err" style="margin:12px 0 0">'+GMS.esc(aerr)+'</div>':'')+
-        (amsg?'<div class="banner ok" style="margin:12px 0 0">'+GMS.esc(amsg)+'</div>':'')+
-        '<button class="btn primary block" style="margin-top:16px" '+(abusy?'disabled':'')+' onclick="doAuth()">'+btnLabel+'</button>'+
-        (mode==="forgot"?'<button class="btn block" style="margin-top:8px" onclick="setMode(\'signin\')">Kembali</button>':'')+
-        '<p class="mono" style="font-size:10px;color:var(--mut);margin-top:12px;line-height:1.5">'+note+'</p>'+
-      '</div>'+
-    '</div>';
+function sceneBg(){
+  return '<div class="scene">'+
+    '<div class="bg-grad"></div>'+
+    mineSVG()+
+    '<div class="bg-grid"></div>'+
+    '<div class="scan"></div>'+
+    '<div class="particles" id="parts"></div>'+
+    '<div class="vign"></div>'+
+  '</div>';
+}
+function mineSVG(){
+  // open-pit terraces (concentric) + sensor nodes + ridge lines
+  let rings=''; for(let i=0;i<7;i++){ const rx=120+i*78, ry=46+i*30; rings+='<ellipse cx="0" cy="0" rx="'+rx+'" ry="'+ry+'" />'; }
+  let nodes=''; const ND=[[-340,-150],[260,-120],[-180,120],[330,90],[60,-200]];
+  ND.forEach((n,i)=> nodes+='<g transform="translate('+n[0]+','+n[1]+')"><circle r="4" class="nd"/><circle r="4" class="ndp" style="animation-delay:'+(i*0.6)+'s"/></g>');
+  return '<svg class="bg-mine" viewBox="-600 -360 1200 720" preserveAspectRatio="xMidYMid slice">'+
+    '<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0" stop-color="#38bdf8" stop-opacity=".5"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".05"/></linearGradient></defs>'+
+    '<style>.bg-mine ellipse{fill:none;stroke:url(#lg);stroke-width:1.1;}'+
+      '.bg-mine .nd{fill:#fb923c;}'+
+      '.bg-mine .ndp{fill:none;stroke:#fb923c;stroke-width:1.5;opacity:.8;transform-box:fill-box;transform-origin:center;animation:pp 3s ease-out infinite;}'+
+      '@keyframes pp{0%{r:4;opacity:.9}100%{r:26;opacity:0}}</style>'+
+    '<g transform="translate(70,40)">'+rings+nodes+'</g>'+
+  '</svg>';
 }
 
-function setMode(m){ mode=m; aerr=""; amsg=""; renderAuth(); }
-window.setMode = setMode;
+function getF(){
+  const g=id=>($(id)&&$(id).value)||"";
+  return { email:g("email").trim(), pass:g("pass"), name:g("sf_name"), badge:g("sf_badge"),
+           pos:g("sf_pos"), dept:g("sf_dept"), phone:g("sf_phone"), pass2:g("sf_pass2") };
+}
 
-async function doAuth(){
-  const email = (($("email")&&$("email").value)||"").trim();
-  const pass  =  ($("pass") &&$("pass").value )||"";
-  const bn    = (($("bn")   &&$("bn").value   )||"").trim();
-  const pos   = (($("pos")  &&$("pos").value  )||"").trim();
-  aerr=""; amsg=""; abusy=true; renderAuth();
+function renderAuth(){
+  const f = getF();
+  const card =
+    '<div class="card-3d"><div class="auth-card" id="authCard">'+
+      '<div class="cbrand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
+      ( mode==="newpass"
+        ? '<div class="ctitle">Password Baru</div><div class="csub">Buat password baru untuk akunmu.</div>'
+        : mode==="forgot"
+        ? '<div class="ctitle">Reset Password</div><div class="csub">Kami kirim link reset ke emailmu.</div>'
+        : '<div class="atabs"><button class="atab '+(mode==="signin"?"on":"")+'" onclick="setMode(\'signin\')">Masuk</button>'+
+          '<button class="atab '+(mode==="signup"?"on":"")+'" onclick="setMode(\'signup\')">Daftar</button></div>' )+
+      fields(f)+
+      (aerr?'<div class="abanner err">'+esc(aerr)+'</div>':'')+
+      (amsg?'<div class="abanner ok">'+esc(amsg)+'</div>':'')+
+      btns()+
+      '<div class="anote">'+noteText()+'</div>'+
+    '</div></div>';
+  const hero =
+    '<div class="hero">'+
+      '<div class="mk"><div class="tri">&#9650;</div><b style="font-size:15px;letter-spacing:.18em;font-family:ui-monospace,Menlo,monospace;color:#bcd2f5">PT VALE · IGP MOROWALI</b></div>'+
+      '<h1>Geotechnical Monitoring System</h1>'+
+      '<p>Platform pemantauan kestabilan lereng, hidrologi, instrumentasi & peringatan dini gempa untuk Bahodopi Block 2 &amp; 3 — terintegrasi, real-time, dan berbasis data.</p>'+
+      '<div class="chips">'+
+        '<span class="chip"><span class="d"></span>Slope Stability</span>'+
+        '<span class="chip"><span class="d"></span>EEWS</span>'+
+        '<span class="chip"><span class="d"></span>Hydrology / AWS</span>'+
+        '<span class="chip"><span class="d"></span>Risk Mapping</span>'+
+      '</div>'+
+    '</div>';
+  $("root").innerHTML = sceneBg() +
+    '<div class="auth-wrap">'+hero+card+'</div>'+
+    '<div class="foot">PT VALE INDONESIA · IGP MOROWALI BAHODOPI · INTERNAL USE ONLY</div>'+
+    (ndaOpen?ndaModal():"");
+  initAuthFX();
+}
+
+function fields(f){
+  if(mode==="forgot")
+    return '<label class="al">Email</label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'">';
+  if(mode==="newpass")
+    return '<label class="al">Password Baru <span class="rq">*</span></label><input id="pass" type="password" placeholder="min. 6 karakter" onkeydown="if(event.key===\'Enter\')doPrimary()">';
+  if(mode==="signin")
+    return '<label class="al">Email</label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'">'+
+           '<label class="al">Password</label><input id="pass" type="password" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doPrimary()">'+
+           '<div style="margin-top:9px"><button class="alink" onclick="setMode(\'forgot\')">Lupa password?</button></div>';
+  // signup
+  return '<div class="grid2">'+
+    '<div class="span2"><label class="al">Nama Lengkap <span class="rq">*</span></label><input id="sf_name" placeholder="mis. Fahmi Hidayah" value="'+esc(f.name)+'"></div>'+
+    '<div class="span2"><label class="al">Email Kerja <span class="rq">*</span></label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'"></div>'+
+    '<div><label class="al">Badge / NIK <span class="rq">*</span></label><input id="sf_badge" placeholder="mis. 0676733" value="'+esc(f.badge)+'"></div>'+
+    '<div><label class="al">Jabatan <span class="rq">*</span></label><input id="sf_pos" placeholder="mis. Geotech Engineer" value="'+esc(f.pos)+'"></div>'+
+    '<div><label class="al">Departemen <span class="rq">*</span></label><select id="sf_dept">'+
+      ['','Geotechnical & Hydrology','Geotechnical','Hydrology','Mine Operations','Mine Planning','Survey','Mine Geology','OHS / Safety','Lainnya']
+        .map(o=>'<option value="'+esc(o)+'"'+(f.dept===o?' selected':'')+'>'+(o===''?'— pilih —':esc(o))+'</option>').join("")+
+    '</select></div>'+
+    '<div><label class="al">No. HP Kerja</label><input id="sf_phone" placeholder="opsional" value="'+esc(f.phone)+'"></div>'+
+    '<div><label class="al">Password <span class="rq">*</span></label><input id="pass" type="password" placeholder="min. 6"></div>'+
+    '<div><label class="al">Ulangi Password <span class="rq">*</span></label><input id="sf_pass2" type="password" placeholder="ulangi"></div>'+
+  '</div>';
+}
+function btns(){
+  const label = abusy?"Memproses…":mode==="signup"?"Lanjut ke Perjanjian (NDA)":mode==="forgot"?"Kirim Link Reset":mode==="newpass"?"Simpan Password":"Masuk";
+  let h='<button class="abtn" '+(abusy?'disabled':'')+' onclick="doPrimary()">'+label+'</button>';
+  if(mode==="forgot") h+='<button class="abtn ghost" onclick="setMode(\'signin\')">Kembali</button>';
+  return h;
+}
+function noteText(){
+  return mode==="signup" ? "Hanya email @vale.com / @valeindonesia.com / @gmail.com. Akun baru menunggu persetujuan Super Admin setelah perjanjian kerahasiaan disetujui."
+    : mode==="forgot" ? "Masukkan email akunmu; link reset dikirim ke email (cek inbox/spam)."
+    : mode==="newpass" ? "Simpan password baru, lalu kamu otomatis diarahkan."
+    : "Masuk dengan akun terdaftar. Akun harus sudah diaktifkan Super Admin.";
+}
+function setMode(m){ mode=m; aerr=""; amsg=""; ndaOpen=false; renderAuth(); }
+window.setMode=setMode;
+
+/* ---- 3D tilt + particles ---- */
+function initAuthFX(){
+  const parts=$("parts");
+  if(parts && !parts.childElementCount){
+    let h=''; for(let i=0;i<26;i++){ const l=Math.random()*100, d=6+Math.random()*10, dl=-Math.random()*10, s=.4+Math.random()*.8;
+      h+='<i style="left:'+l.toFixed(1)+'%;bottom:-10px;animation-duration:'+d.toFixed(1)+'s;animation-delay:'+dl.toFixed(1)+'s;transform:scale('+s.toFixed(2)+')"></i>'; }
+    parts.innerHTML=h;
+  }
+  const card=$("authCard"); const wrap=document.querySelector(".auth-wrap");
+  if(card && wrap && !('ontouchstart' in window)){
+    wrap.onmousemove=e=>{ const r=card.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2;
+      const dx=(e.clientX-cx)/r.width, dy=(e.clientY-cy)/r.height;
+      card.style.transform='rotateY('+(dx*6).toFixed(2)+'deg) rotateX('+(-dy*6).toFixed(2)+'deg)'; };
+    wrap.onmouseleave=()=>{ card.style.transform='rotateY(0) rotateX(0)'; };
+  }
+}
+
+/* ---- primary action ---- */
+async function doPrimary(){
+  aerr=""; amsg="";
+  if(mode==="signup"){ return startSignup(); }
+  const f=getF();
+  abusy=true; renderAuth();
   try{
-    if(mode==="signup"){
-      const allowed=["gmail.com","vale.com","valeindonesia.com"];
-      const dom=(email.split("@")[1]||"").toLowerCase();
-      if(!allowed.includes(dom)) throw new Error("Hanya email @vale.com, @valeindonesia.com, atau @gmail.com yang diizinkan.");
-      const { data, error } = await sb.auth.signUp({ email, password:pass,
-        options:{ data:{ badge_number:bn, position:pos }, emailRedirectTo: location.origin } });
+    if(mode==="forgot"){
+      const { error } = await sb.auth.resetPasswordForEmail(f.email, { redirectTo: location.origin });
       if(error) throw error;
-      if(data.session){ return boot(); }
-      const { error:e2 } = await sb.auth.signInWithPassword({ email, password:pass });
-      if(!e2){ return boot(); }
-      mode="signin"; amsg="Akun dibuat, menunggu persetujuan Super Admin."; abusy=false; renderAuth();
-    } else if(mode==="forgot"){
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
-      if(error) throw error;
-      amsg="Jika email terdaftar, link reset sudah dikirim. Cek inbox/spam."; abusy=false; renderAuth();
+      amsg="Jika email terdaftar, link reset sudah dikirim."; abusy=false; renderAuth();
     } else if(mode==="newpass"){
-      const { error } = await sb.auth.updateUser({ password:pass });
+      const { error } = await sb.auth.updateUser({ password:f.pass });
       if(error) throw error;
       amsg="Password diperbarui. Mengarahkan…"; renderAuth(); setTimeout(boot,800);
     } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password:pass });
+      const { error } = await sb.auth.signInWithPassword({ email:f.email, password:f.pass });
       if(error) throw error;
       return boot();
     }
   }catch(e){ aerr=e.message||String(e); abusy=false; renderAuth(); }
 }
-window.doAuth = doAuth;
+window.doPrimary=doPrimary;
 
-// ===================== BOOT =====================
+function startSignup(){
+  const f=getF();
+  const allowed=["gmail.com","vale.com","valeindonesia.com"];
+  const dom=(f.email.split("@")[1]||"").toLowerCase();
+  if(!f.name||!f.email||!f.badge||!f.pos||!f.dept||!f.pass){ aerr="Lengkapi semua kolom bertanda *."; renderAuth(); return; }
+  if(!allowed.includes(dom)){ aerr="Hanya email @vale.com, @valeindonesia.com, atau @gmail.com."; renderAuth(); return; }
+  if(f.pass.length<6){ aerr="Password minimal 6 karakter."; renderAuth(); return; }
+  if(f.pass!==f.pass2){ aerr="Konfirmasi password tidak cocok."; renderAuth(); return; }
+  pendingSignup=f; ndaChecked=false; ndaOpen=true; aerr=""; renderAuth();
+}
+
+/* ---- NDA ---- */
+function ndaModal(){
+  return '<div class="nda-ov" onclick="closeNda()"><div class="nda-card" onclick="event.stopPropagation()">'+
+    '<div class="nda-hd"><div class="k">PERJANJIAN KERAHASIAAN</div>'+
+      '<h2>Non-Disclosure Agreement (NDA)</h2>'+
+      '<p>Wajib disetujui sebelum akun dibuat · PT Vale Indonesia — IGP Morowali Bahodopi</p></div>'+
+    '<div class="nda-body">'+ndaText()+'</div>'+
+    '<div class="nda-ft">'+
+      '<label class="agree"><input type="checkbox" id="ndaChk" '+(ndaChecked?'checked':'')+' onchange="ndaChecked=this.checked;document.getElementById(\'ndaGo\').disabled=!this.checked;">'+
+        '<span>Saya telah membaca, memahami, dan menyetujui seluruh isi Perjanjian Kerahasiaan ini, serta menyatakan data yang saya isikan benar.</span></label>'+
+      '<div class="nda-actions">'+
+        '<button class="abtn ghost" style="flex:1" onclick="closeNda()">Batal</button>'+
+        '<button class="abtn" id="ndaGo" style="flex:1.4" '+(ndaChecked?'':'disabled')+' onclick="createAccount()">Setuju &amp; Buat Akun</button>'+
+      '</div></div>'+
+  '</div></div>';
+}
+function closeNda(){ ndaOpen=false; renderAuth(); }
+window.closeNda=closeNda;
+
+function ndaText(){
+  const today=new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
+  return ''+
+  '<p class="muted">Perjanjian ini dibuat dan berlaku efektif pada tanggal '+today+' antara <b>PT Vale Indonesia Tbk</b> (selanjutnya disebut "Perusahaan") dan pengguna terdaftar sistem Geotechnical Monitoring System ("Penerima Informasi").</p>'+
+  '<h3>1. Definisi Informasi Rahasia</h3>'+
+  '<p>"Informasi Rahasia" mencakup seluruh data dan dokumen yang diakses melalui sistem ini, termasuk namun tidak terbatas pada: data geoteknik dan kestabilan lereng, data instrumentasi dan monitoring, data hidrologi dan curah hujan, data seismik dan peringatan dini gempa (EEWS), peta risiko, hasil inspeksi, koordinat dan informasi operasional tambang, serta seluruh laporan, analisis, dan turunannya — baik dalam bentuk elektronik, lisan, maupun tertulis.</p>'+
+  '<h3>2. Kewajiban Penerima Informasi</h3>'+
+  '<ol>'+
+    '<li>Menjaga kerahasiaan seluruh Informasi Rahasia dengan standar kehati-hatian tertinggi.</li>'+
+    '<li>Menggunakan Informasi Rahasia semata-mata untuk kepentingan pelaksanaan tugas dan pekerjaan resmi di lingkungan Perusahaan.</li>'+
+    '<li>Tidak menyalin, mengunduh, menyebarkan, mempublikasikan, atau memindahkan Informasi Rahasia kepada pihak ketiga mana pun tanpa izin tertulis dari Perusahaan.</li>'+
+    '<li>Tidak menggunakan Informasi Rahasia untuk kepentingan pribadi maupun pihak lain yang dapat merugikan Perusahaan.</li>'+
+  '</ol>'+
+  '<h3>3. Keamanan Akun</h3>'+
+  '<p>Penerima Informasi bertanggung jawab penuh atas kerahasiaan kredensial akunnya. Setiap aktivitas yang terjadi melalui akun dianggap sebagai tindakan pemilik akun. Dugaan penyalahgunaan wajib segera dilaporkan kepada administrator sistem.</p>'+
+  '<h3>4. Kepemilikan Data</h3>'+
+  '<p>Seluruh Informasi Rahasia merupakan dan tetap menjadi milik eksklusif Perusahaan. Perjanjian ini tidak mengalihkan hak kepemilikan, hak cipta, maupun hak kekayaan intelektual apa pun kepada Penerima Informasi.</p>'+
+  '<h3>5. Jangka Waktu</h3>'+
+  '<p>Kewajiban kerahasiaan ini berlaku selama Penerima Informasi memiliki akses ke sistem dan tetap berlanjut tanpa batas waktu setelah akses berakhir atau hubungan kerja berakhir.</p>'+
+  '<h3>6. Konsekuensi Pelanggaran</h3>'+
+  '<p>Pelanggaran terhadap Perjanjian ini dapat mengakibatkan pencabutan akses, tindakan disipliner sesuai peraturan Perusahaan, serta tuntutan hukum perdata maupun pidana sesuai peraturan perundang-undangan yang berlaku di Republik Indonesia.</p>'+
+  '<h3>7. Hukum yang Berlaku</h3>'+
+  '<p>Perjanjian ini tunduk pada dan ditafsirkan menurut hukum yang berlaku di Republik Indonesia.</p>'+
+  '<p class="muted">Dengan menandai persetujuan di bawah ini, Penerima Informasi menyatakan telah membaca, memahami, dan terikat secara hukum pada seluruh ketentuan Perjanjian Kerahasiaan ini.</p>';
+}
+
+async function createAccount(){
+  if(!ndaChecked || !pendingSignup) return;
+  const f=pendingSignup; abusy=true; ndaOpen=false; renderAuth();
+  try{
+    const { data, error } = await sb.auth.signUp({ email:f.email, password:f.pass,
+      options:{ emailRedirectTo: location.origin, data:{
+        full_name:f.name, badge_number:f.badge, position:f.pos, department:f.dept, phone:f.phone, nda_accepted:true }}});
+    if(error) throw error;
+    if(data.session){ return boot(); }
+    const { error:e2 } = await sb.auth.signInWithPassword({ email:f.email, password:f.pass });
+    if(!e2){ return boot(); }
+    mode="signin"; amsg="Akun dibuat & NDA tercatat. Menunggu persetujuan Super Admin."; abusy=false; pendingSignup=null; renderAuth();
+  }catch(e){ aerr=e.message||String(e); abusy=false; renderAuth(); }
+}
+window.createAccount=createAccount;
+
+/* ===================== BOOT ===================== */
 async function boot(){
-  $("root").innerHTML = '<div class="center"><div class="spin"></div></div>';
+  $("root").innerHTML='<div class="center"><div class="spin"></div></div>';
   const session = await GMS.getSession();
   if(!session){
     if((location.hash||"").includes("type=recovery")) mode="newpass";
@@ -168,10 +412,7 @@ async function boot(){
   }
   renderHome(p);
 }
-
-// recovery link handler
-sb.auth.onAuthStateChange((ev)=>{ if(ev==="PASSWORD_RECOVERY"){ mode="newpass"; renderAuth(); } });
-
+sb.auth.onAuthStateChange((ev)=>{ if(ev==="PASSWORD_RECOVERY"){ mode="newpass"; ndaOpen=false; renderAuth(); } });
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 boot();
 </script>
