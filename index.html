@@ -158,7 +158,14 @@
   .nda-actions .abtn{margin-top:0;}
 
   /* ===== home (dark, same nuance as login) ===== */
-  .home-wrap{position:relative;z-index:5;max-width:1080px;margin:0 auto;padding:20px 18px 80px;min-height:100svh;}
+  .home-wrap{position:relative;z-index:5;min-height:100svh;display:flex;flex-direction:column;padding:18px 20px 22px;max-width:1180px;margin:0 auto;}
+  .home-main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;}
+  /* blinking survey nodes — only in side margins, hidden on small screens */
+  .sideblips{position:fixed;inset:0;z-index:2;pointer-events:none;}
+  .sideblips i{position:absolute;width:6px;height:6px;border-radius:50%;background:#fb923c;box-shadow:0 0 10px 2px rgba(251,146,60,.7);}
+  .sideblips i::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid rgba(253,230,138,.8);animation:blip 2.8s ease-out infinite;}
+  @keyframes blip{0%{transform:scale(1);opacity:.85}70%{transform:scale(4.5);opacity:0}100%{opacity:0}}
+  @media(max-width:1180px){ .sideblips{display:none;} }
   .topbar-d{display:flex;align-items:center;justify-content:space-between;gap:12px;
     background:rgba(12,26,52,.55);border:1px solid var(--line-d);border-radius:16px;padding:12px 16px;backdrop-filter:blur(14px);box-shadow:0 12px 34px rgba(2,8,20,.4);}
   .topbar-d .brand{display:flex;align-items:center;gap:11px;color:var(--txtL);}
@@ -226,12 +233,14 @@ function renderHome(p){
         '<div class="brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
         '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Keluar</button>'+
       '</div>'+
-      '<div class="greet"><div class="hi">Selamat datang</div>'+
-        '<h1>Hello, '+esc(nm)+' <span class="wave">&#128075;</span></h1>'+
-        '<p>'+(sub?esc(sub)+' · ':'')+'<span class="mono" style="opacity:.85">'+esc(roleLbl)+'</span></p></div>'+
-      '<div class="eyebrow-d">Menu Aplikasi</div>'+
-      '<div class="tiles-d">'+tileHtml+'</div>'+
-      '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
+      '<div class="home-main">'+
+        '<div class="greet"><div class="hi">Selamat datang</div>'+
+          '<h1>Hello, '+esc(nm)+' <span class="wave">&#128075;</span></h1>'+
+          '<p>'+(sub?esc(sub)+' · ':'')+'<span class="mono" style="opacity:.85">'+esc(roleLbl)+'</span></p></div>'+
+        '<div class="eyebrow-d">Menu Aplikasi</div>'+
+        '<div class="tiles-d">'+tileHtml+'</div>'+
+        '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
+      '</div>'+
     '</div>';
 }
 
@@ -247,28 +256,28 @@ function sceneBg(){
     '<div class="bg-grid"></div>'+
     '<div class="scan"></div>'+
     '<div class="vign"></div>'+
+  '</div>'+
+  '<div class="sideblips">'+
+    '<i style="left:4%;top:30%"></i><i style="left:7%;top:68%"></i>'+
+    '<i style="right:5%;top:24%;background:#38bdf8;box-shadow:0 0 10px 2px rgba(56,189,248,.7)"></i>'+
+    '<i style="right:8%;top:72%"></i>'+
   '</div>';
 }
 function mineSVG(){
-  const x0=-600,x1=600,seg=6,step=(x1-x0)/seg;
+  const x0=-600,x1=600,seg=8,step=(x1-x0)/seg;
   function wave(base,amp,ph){ let d='M '+x0+' '+(base+Math.sin(ph)*amp).toFixed(0);
     for(let i=0;i<seg;i++){ const x=x0+step*(i+1), cx1=x0+step*i+step/3, cx2=x0+step*i+2*step/3;
-      const y1=base+Math.sin(i+ph)*amp, y2=base+Math.sin(i+0.6+ph)*amp, yE=base+Math.sin(i+1+ph)*amp;
+      const y1=base+Math.sin(i*0.9+ph)*amp, y2=base+Math.sin((i+0.6)*0.9+ph)*amp, yE=base+Math.sin((i+1)*0.9+ph)*amp;
       d+=' C '+cx1.toFixed(0)+' '+y1.toFixed(0)+' '+cx2.toFixed(0)+' '+y2.toFixed(0)+' '+x.toFixed(0)+' '+yE.toFixed(0); }
     return d; }
-  let contours=''; for(let i=0;i<9;i++){ contours+='<path d="'+wave(-300+i*60,16+(i%3)*9,i*0.7)+'"/>'; }
-  let pit=''; for(let i=0;i<6;i++){ pit+='<ellipse cx="120" cy="252" rx="'+(380-i*58)+'" ry="'+(122-i*18)+'" class="pit"/>'; }
-  const B=[[-300,-180],[120,-232],[300,-88],[-150,-40],[262,28],[-360,60],[44,-120],[420,-160]];
-  let blips=''; B.forEach((b,i)=> blips+='<g transform="translate('+b[0]+','+b[1]+')"><circle r="2.6" class="bp"/><circle r="2.6" class="bpr" style="animation-delay:'+(i*0.45).toFixed(2)+'s"/></g>');
+  let contours=''; for(let i=0;i<13;i++){ contours+='<path d="'+wave(-330+i*52,11+(i%4)*6,i*0.5)+'"/>'; }
+  let pit=''; for(let i=0;i<6;i++){ pit+='<ellipse cx="0" cy="250" rx="'+(360-i*56)+'" ry="'+(116-i*17)+'" class="pit"/>'; }
   return '<svg class="bg-mine" viewBox="-600 -360 1200 720" preserveAspectRatio="xMidYMid slice">'+
     '<defs><linearGradient id="cl" x1="0" y1="0" x2="0" y2="1">'+
-      '<stop offset="0" stop-color="#38bdf8" stop-opacity=".4"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".04"/></linearGradient></defs>'+
+      '<stop offset="0" stop-color="#3b82f6" stop-opacity=".30"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".04"/></linearGradient></defs>'+
     '<style>.bg-mine path{fill:none;stroke:url(#cl);stroke-width:1;}'+
-      '.bg-mine .pit{fill:none;stroke:rgba(251,146,60,.16);stroke-width:1;}'+
-      '.bg-mine .bp{fill:#fb923c;}'+
-      '.bg-mine .bpr{fill:none;stroke:#fde68a;stroke-width:1.2;transform-box:fill-box;transform-origin:center;animation:blip 2.8s ease-out infinite;}'+
-      '@keyframes blip{0%{r:2.6;opacity:.9}70%{r:15;opacity:0}100%{opacity:0}}</style>'+
-    '<g>'+contours+'</g><g>'+pit+'</g><g>'+blips+'</g>'+
+      '.bg-mine .pit{fill:none;stroke:rgba(251,146,60,.12);stroke-width:1;}</style>'+
+    '<g>'+contours+'</g><g>'+pit+'</g>'+
   '</svg>';
 }
 
