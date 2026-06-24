@@ -23,32 +23,27 @@
   .scene{position:fixed;inset:0;overflow:hidden;background:var(--d0);}
   .bg-grad{position:absolute;inset:0;
     background:
-      radial-gradient(1000px 620px at 80% 112%, rgba(37,99,235,.20), transparent 60%),
-      radial-gradient(760px 480px at 14% 8%, rgba(56,189,248,.09), transparent 55%),
-      radial-gradient(900px 520px at 50% 60%, rgba(251,146,60,.05), transparent 60%),
-      linear-gradient(180deg,#08111f 0%,#0a1830 58%,#060d18 100%);}
-  .bg-mine{position:absolute;inset:0;width:100%;height:100%;opacity:.92;}
-  .bg-grid{position:absolute;inset:-2px;
-    background-image:linear-gradient(rgba(120,160,220,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.05) 1px,transparent 1px);
-    background-size:54px 54px;mask-image:radial-gradient(80% 70% at 50% 55%,#000 30%,transparent 82%);animation:gridpan 26s linear infinite;}
-  @keyframes gridpan{to{background-position:54px 54px;}}
-  .vign{position:absolute;inset:0;box-shadow:inset 0 0 260px 70px rgba(2,6,14,.88);pointer-events:none;}
-  .scan{position:absolute;left:50%;top:58%;width:1150px;height:1150px;transform:translate(-50%,-50%);border-radius:50%;
-    background:conic-gradient(from 0deg, rgba(56,189,248,.16), transparent 16%, transparent 100%);
-    mask:radial-gradient(closest-side, transparent 60%, #000 61%, #000 63%, transparent 65%);
-    animation:spin 11s linear infinite;opacity:.4;}
+      radial-gradient(1000px 600px at 82% 6%, rgba(56,189,248,.10), transparent 60%),
+      radial-gradient(900px 560px at 16% 102%, rgba(37,99,235,.16), transparent 62%),
+      linear-gradient(180deg,#13294e 0%,#102648 55%,#0c1e3c 100%);}
+  .bg-mine{position:absolute;inset:0;width:100%;height:100%;opacity:.85;}
+  .vign{position:absolute;inset:0;box-shadow:inset 0 0 200px 30px rgba(5,12,26,.42);pointer-events:none;}
+  .scan{position:absolute;left:78%;top:74%;width:760px;height:760px;transform:translate(-50%,-50%);border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(56,189,248,.14), transparent 18%, transparent 100%);
+    mask:radial-gradient(closest-side, transparent 58%, #000 59%, #000 62%, transparent 64%);
+    animation:spin 14s linear infinite;opacity:.3;}
   @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
 
   .auth-wrap{position:relative;z-index:5;min-height:100svh;display:flex;align-items:center;justify-content:center;gap:46px;
     padding:28px 18px;max-width:1120px;margin:0 auto;}
   /* hero (left, desktop) */
-  .hero{flex:1;max-width:460px;color:var(--txtL);display:none;}
-  @media(min-width:940px){ .hero{display:block;} }
+  .hero{flex:1;max-width:440px;color:var(--txtL);display:none;padding-right:20px;}
+  @media(min-width:1024px){ .hero{display:block;} }
   .hero .mk{display:inline-flex;align-items:center;gap:11px;margin-bottom:22px;}
   .hero .tri{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;
     background:linear-gradient(150deg,rgba(251,146,60,.22),rgba(37,99,235,.14));border:1px solid rgba(251,146,60,.4);color:var(--orange);
     box-shadow:0 8px 30px rgba(251,146,60,.18);}
-  .hero h1{font-size:40px;line-height:1.05;margin:0 0 14px;font-weight:850;letter-spacing:-.5px;
+  .hero h1{font-size:clamp(26px,3vw,38px);line-height:1.08;margin:0 0 14px;font-weight:800;letter-spacing:-.5px;padding-right:10px;
     background:linear-gradient(120deg,#fff,#bcd2f5 60%,#8fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
   .hero p{color:var(--mutL);font-size:15px;line-height:1.65;margin:0 0 24px;max-width:420px;}
   .chips{display:flex;flex-wrap:wrap;gap:9px;}
@@ -68,7 +63,7 @@
   .cbrand{display:flex;align-items:center;gap:11px;margin-bottom:6px;}
   .cbrand .tri{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;
     background:linear-gradient(150deg,rgba(251,146,60,.2),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.4);color:var(--orange);}
-  .cbrand b{font-size:16px;font-weight:800;letter-spacing:.2px;}
+  .cbrand b{font-size:18px;font-weight:800;letter-spacing:.2px;}
   .cbrand small{display:block;font-size:9.5px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;margin-top:2px;}
   .ctitle{font-size:19px;font-weight:800;margin:18px 0 2px;}
   .csub{font-size:12.5px;color:var(--mutL);margin-bottom:16px;}
@@ -171,7 +166,7 @@
   .topbar-d .brand{display:flex;align-items:center;gap:11px;color:var(--txtL);}
   .topbar-d .tri{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;
     background:linear-gradient(150deg,rgba(251,146,60,.2),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.4);color:var(--orange);}
-  .topbar-d .brand b{font-size:15px;font-weight:800;} .topbar-d .brand small{display:block;font-size:9px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;}
+  .topbar-d .brand b{font-size:18px;font-weight:800;} .topbar-d .brand small{display:block;font-size:9.5px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;}
   .exit{display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.14);border:1px solid rgba(248,113,113,.34);color:#fecaca;border-radius:11px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.16s;}
   .exit:hover{background:rgba(220,38,38,.24);transform:translateY(-1px);} .exit span{font-size:15px;}
   .greet{margin:30px 2px 22px;color:var(--txtL);}
@@ -185,8 +180,8 @@
   .tiles-d{display:grid;grid-template-columns:repeat(2,1fr);gap:13px;}
   @media(min-width:720px){ .tiles-d{grid-template-columns:repeat(3,1fr);} }
   .tile-d{position:relative;display:block;text-decoration:none;color:var(--txtL);overflow:hidden;
-    background:linear-gradient(165deg,rgba(18,34,64,.66),rgba(8,18,38,.6));border:1px solid var(--line-d);border-radius:18px;padding:17px 16px 16px;
-    min-height:128px;backdrop-filter:blur(12px);transition:.18s;box-shadow:0 14px 34px rgba(2,8,20,.35);}
+    background:linear-gradient(165deg,rgba(30,52,92,.55),rgba(20,38,70,.46));border:1px solid rgba(125,160,220,.2);border-radius:18px;padding:17px 16px 16px;
+    min-height:124px;backdrop-filter:blur(12px);transition:.18s;box-shadow:0 12px 26px rgba(4,12,28,.28);}
   .tile-d::before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:var(--c,#3b82f6);opacity:.9;}
   .tile-d::after{content:"";position:absolute;right:-40px;top:-40px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,var(--c,#3b82f6),transparent 70%);opacity:.14;}
   .tile-d:hover{transform:translateY(-3px);border-color:rgba(120,170,240,.4);box-shadow:0 22px 46px rgba(2,8,20,.5);}
@@ -208,13 +203,13 @@ const sb = GMS.sb, $ = GMS.$, esc = GMS.esc;
 
 /* ===================== HOME (after login) ===================== */
 const TILES = [
-  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Checklist · GPS · foto (offline)", ic:"&#9633;", c:"#fb923c", access:"member" },
-  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Penilaian cepat pasca gempa (offline)", ic:"&#9888;", c:"#22d3ee", access:"member" },
-  { key:"monitoring",href:"monitoring.html",label:"Monitoring", sub:"Dashboard terintegrasi (EEWS · risiko · instrumen)", ic:"&#9707;", c:"#60a5fa", access:"admin" },
-  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Peringatan dini gempa", ic:"&#9883;", c:"#f87171", access:"admin" },
-  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard",sub:"Peta & daftar risiko + laporan", ic:"&#9636;", c:"#3b82f6", access:"admin" },
-  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & approve inspeksi", ic:"&#9745;", c:"#2dd4bf", access:"admin" },
-  { key:"database", href:"database.html", label:"Database",      sub:"Checklist · User · Reporting · Audit PERA", ic:"&#9638;", c:"#a78bfa", access:"admin" },
+  { key:"inspeksi", href:"inspeksi.html", label:"New Inspection", sub:"Checklist · GPS · photos (offline)", ic:"&#9633;", c:"#fb923c", access:"member" },
+  { key:"pera",     href:"pera.html",     label:"PERA",           sub:"Rapid post-earthquake assessment (offline)", ic:"&#9888;", c:"#22d3ee", access:"member" },
+  { key:"monitoring",href:"monitoring.html",label:"Monitoring",   sub:"Integrated dashboard (EEWS · risk · instruments)", ic:"&#9707;", c:"#60a5fa", access:"admin" },
+  { key:"eews",     href:"eews.html",     label:"EEWS",           sub:"Earthquake early warning", ic:"&#9883;", c:"#f87171", access:"admin" },
+  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard", sub:"Risk map, list & reports", ic:"&#9636;", c:"#3b82f6", access:"admin" },
+  { key:"validasi", href:"validasi.html", label:"Validation",     sub:"Verify & approve inspections", ic:"&#9745;", c:"#2dd4bf", access:"admin" },
+  { key:"database", href:"database.html", label:"Database",       sub:"Checklist · Users · Reporting · PERA audit", ic:"&#9638;", c:"#a78bfa", access:"admin" },
 ];
 function renderHome(p){
   const canV = p.canValidate;                              // admin/super only
@@ -231,16 +226,16 @@ function renderHome(p){
     '<div class="home-wrap">'+
       '<div class="topbar-d">'+
         '<div class="brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
-        '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Keluar</button>'+
+        '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Sign out</button>'+
       '</div>'+
       '<div class="home-main">'+
-        '<div class="greet"><div class="hi">Selamat datang</div>'+
+        '<div class="greet"><div class="hi">Welcome</div>'+
           '<h1>Hello, '+esc(nm)+' <span class="wave">&#128075;</span></h1>'+
           '<p>'+(sub?esc(sub)+' · ':'')+'<span class="mono" style="opacity:.85">'+esc(roleLbl)+'</span></p></div>'+
-        '<div class="eyebrow-d">Menu Aplikasi</div>'+
+        '<div class="eyebrow-d">Applications</div>'+
         '<div class="tiles-d">'+tileHtml+'</div>'+
-        '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
       '</div>'+
+      '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
     '</div>';
 }
 
@@ -253,7 +248,6 @@ function sceneBg(){
   return '<div class="scene">'+
     '<div class="bg-grad"></div>'+
     mineSVG()+
-    '<div class="bg-grid"></div>'+
     '<div class="scan"></div>'+
     '<div class="vign"></div>'+
   '</div>'+
@@ -264,20 +258,38 @@ function sceneBg(){
   '</div>';
 }
 function mineSVG(){
-  const x0=-600,x1=600,seg=8,step=(x1-x0)/seg;
-  function wave(base,amp,ph){ let d='M '+x0+' '+(base+Math.sin(ph)*amp).toFixed(0);
-    for(let i=0;i<seg;i++){ const x=x0+step*(i+1), cx1=x0+step*i+step/3, cx2=x0+step*i+2*step/3;
-      const y1=base+Math.sin(i*0.9+ph)*amp, y2=base+Math.sin((i+0.6)*0.9+ph)*amp, yE=base+Math.sin((i+1)*0.9+ph)*amp;
-      d+=' C '+cx1.toFixed(0)+' '+y1.toFixed(0)+' '+cx2.toFixed(0)+' '+y2.toFixed(0)+' '+x.toFixed(0)+' '+yE.toFixed(0); }
-    return d; }
-  let contours=''; for(let i=0;i<13;i++){ contours+='<path d="'+wave(-330+i*52,11+(i%4)*6,i*0.5)+'"/>'; }
-  let pit=''; for(let i=0;i<6;i++){ pit+='<ellipse cx="0" cy="250" rx="'+(360-i*56)+'" ry="'+(116-i*17)+'" class="pit"/>'; }
+  // --- topographic hill: nested closed contour loops (left side) ---
+  const WB=[1.00,0.90,1.07,0.93,1.05,0.88,1.06,0.95];
+  function loop(cx,cy,r,sq){ const N=8,p=[];
+    for(let i=0;i<N;i++){ const a=(i/N)*Math.PI*2; const rr=r*WB[i%8];
+      p.push([cx+Math.cos(a)*rr, cy+Math.sin(a)*rr*sq]); }
+    let d='M '+((p[0][0]+p[N-1][0])/2).toFixed(0)+' '+((p[0][1]+p[N-1][1])/2).toFixed(0);
+    for(let i=0;i<N;i++){ const cur=p[i], nx=p[(i+1)%N]; const mx=(cur[0]+nx[0])/2, my=(cur[1]+nx[1])/2;
+      d+=' Q '+cur[0].toFixed(0)+' '+cur[1].toFixed(0)+' '+mx.toFixed(0)+' '+my.toFixed(0); }
+    return d+' Z'; }
+  let hill=''; for(let k=0;k<6;k++){ hill+='<path d="'+loop(-330,-40,46+k*40,0.82)+'"/>'; }
+  // a couple of free contour lines flowing off the hill
+  let lines=''; [-150,-235,40].forEach((b,i)=>{ let d='M -600 '+b;
+    for(let x=-480;x<=600;x+=120){ d+=' Q '+(x-60)+' '+(b-26+i*8)+' '+x+' '+(b+ (x/60%2?14:-14)); }
+    lines+='<path d="'+d+'"/>'; });
+  // --- open pit: stepped benches w/ depth + haul ramp (right-bottom) ---
+  const pcx=320, pcy=150;
+  let pit=''; for(let k=0;k<6;k++){ const rx=210-k*30, ry=74-k*10, cy=pcy+k*7;
+    pit+='<ellipse cx="'+pcx+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" class="pit"/>'; }
+  // haul ramp: zig-zag down the benches
+  let ramp='M '+(pcx-200)+' '+pcy; const RX=[-150,140,-110,90,-50,40,0];
+  RX.forEach((dx,i)=> ramp+=' L '+(pcx+dx)+' '+(pcy+i*7.5));
   return '<svg class="bg-mine" viewBox="-600 -360 1200 720" preserveAspectRatio="xMidYMid slice">'+
-    '<defs><linearGradient id="cl" x1="0" y1="0" x2="0" y2="1">'+
-      '<stop offset="0" stop-color="#3b82f6" stop-opacity=".30"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".04"/></linearGradient></defs>'+
-    '<style>.bg-mine path{fill:none;stroke:url(#cl);stroke-width:1;}'+
-      '.bg-mine .pit{fill:none;stroke:rgba(251,146,60,.12);stroke-width:1;}</style>'+
-    '<g>'+contours+'</g><g>'+pit+'</g>'+
+    '<defs>'+
+      '<linearGradient id="cl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b9bf0" stop-opacity=".34"/><stop offset="1" stop-color="#2563eb" stop-opacity=".05"/></linearGradient>'+
+      '<radialGradient id="depth" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#040b18" stop-opacity=".55"/><stop offset="100%" stop-color="#040b18" stop-opacity="0"/></radialGradient>'+
+    '</defs>'+
+    '<style>.bg-mine path{fill:none;stroke:url(#cl);stroke-width:1.1;}'+
+      '.bg-mine .pit{fill:none;stroke:rgba(251,146,60,.20);stroke-width:1.1;}'+
+      '.bg-mine .ramp{fill:none;stroke:rgba(251,146,60,.28);stroke-width:1.4;stroke-dasharray:3 4;}</style>'+
+    '<ellipse cx="'+pcx+'" cy="'+(pcy+18)+'" rx="170" ry="60" fill="url(#depth)" stroke="none"/>'+
+    '<g>'+hill+'</g><g style="opacity:.6">'+lines+'</g>'+
+    '<g>'+pit+'<path class="ramp" d="'+ramp+'"/></g>'+
   '</svg>';
 }
 
@@ -293,11 +305,11 @@ function renderAuth(){
     '<div class="card-3d"><div class="auth-card" id="authCard">'+
       '<div class="cbrand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
       ( mode==="newpass"
-        ? '<div class="ctitle">Password Baru</div><div class="csub">Buat password baru untuk akunmu.</div>'
+        ? '<div class="ctitle">New Password</div><div class="csub">Set a new password for your account.</div>'
         : mode==="forgot"
-        ? '<div class="ctitle">Reset Password</div><div class="csub">Kami kirim link reset ke emailmu.</div>'
-        : '<div class="atabs"><button class="atab '+(mode==="signin"?"on":"")+'" onclick="setMode(\'signin\')">Masuk</button>'+
-          '<button class="atab '+(mode==="signup"?"on":"")+'" onclick="setMode(\'signup\')">Daftar</button></div>' )+
+        ? '<div class="ctitle">Reset Password</div><div class="csub">We will send a reset link to your email.</div>'
+        : '<div class="atabs"><button class="atab '+(mode==="signin"?"on":"")+'" onclick="setMode(\'signin\')">Sign In</button>'+
+          '<button class="atab '+(mode==="signup"?"on":"")+'" onclick="setMode(\'signup\')">Sign Up</button></div>' )+
       fields(f)+
       (aerr?'<div class="abanner err">'+esc(aerr)+'</div>':'')+
       (amsg?'<div class="abanner ok">'+esc(amsg)+'</div>':'')+
@@ -308,12 +320,12 @@ function renderAuth(){
     '<div class="hero">'+
       '<div class="mk"><div class="tri">&#9650;</div><b style="font-size:15px;letter-spacing:.18em;font-family:ui-monospace,Menlo,monospace;color:#bcd2f5">PT VALE · IGP MOROWALI</b></div>'+
       '<h1>Geotechnical Monitoring System</h1>'+
-      '<p>Platform pemantauan kestabilan lereng, hidrologi, instrumentasi & peringatan dini gempa untuk Bahodopi Block 2 &amp; 3 — terintegrasi, real-time, dan berbasis data.</p>'+
+      '<p>Slope stability, hydrology, instrumentation & earthquake early-warning monitoring for Bahodopi Block 2 &amp; 3 — integrated, real-time, and data-driven.</p>'+
       '<div class="chips">'+
-        '<span class="chip"><span class="d"></span>Slope Stability</span>'+
-        '<span class="chip"><span class="d"></span>EEWS</span>'+
-        '<span class="chip"><span class="d"></span>Hydrology / AWS</span>'+
-        '<span class="chip"><span class="d"></span>Risk Mapping</span>'+
+        '<span class="chip"><span class="d"></span>Integration</span>'+
+        '<span class="chip"><span class="d"></span>Early Warning</span>'+
+        '<span class="chip"><span class="d"></span>Monitoring</span>'+
+        '<span class="chip"><span class="d"></span>Critical Control</span>'+
       '</div>'+
     '</div>';
   $("root").innerHTML = sceneBg() +
@@ -325,39 +337,39 @@ function renderAuth(){
 
 function fields(f){
   if(mode==="forgot")
-    return '<label class="al">Email</label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'">';
+    return '<label class="al">Email</label><input id="email" type="email" placeholder="name@valeindonesia.com" value="'+esc(f.email)+'">';
   if(mode==="newpass")
-    return '<label class="al">Password Baru <span class="rq">*</span></label><input id="pass" type="password" placeholder="min. 6 karakter" onkeydown="if(event.key===\'Enter\')doPrimary()">';
+    return '<label class="al">New Password <span class="rq">*</span></label><input id="pass" type="password" placeholder="min. 6 characters" onkeydown="if(event.key===\'Enter\')doPrimary()">';
   if(mode==="signin")
-    return '<label class="al">Email</label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'">'+
+    return '<label class="al">Email</label><input id="email" type="email" placeholder="name@valeindonesia.com" value="'+esc(f.email)+'">'+
            '<label class="al">Password</label><input id="pass" type="password" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')doPrimary()">'+
-           '<div style="margin-top:9px"><button class="alink" onclick="setMode(\'forgot\')">Lupa password?</button></div>';
+           '<div style="margin-top:9px"><button class="alink" onclick="setMode(\'forgot\')">Forgot password?</button></div>';
   // signup
   return '<div class="grid2">'+
-    '<div class="span2"><label class="al">Nama Lengkap <span class="rq">*</span></label><input id="sf_name" placeholder="mis. Fahmi Hidayah" value="'+esc(f.name)+'"></div>'+
-    '<div class="span2"><label class="al">Email Kerja <span class="rq">*</span></label><input id="email" type="email" placeholder="nama@valeindonesia.com" value="'+esc(f.email)+'"></div>'+
-    '<div><label class="al">Badge / NIK <span class="rq">*</span></label><input id="sf_badge" placeholder="mis. 0676733" value="'+esc(f.badge)+'"></div>'+
-    '<div><label class="al">Jabatan <span class="rq">*</span></label><input id="sf_pos" placeholder="mis. Geotech Engineer" value="'+esc(f.pos)+'"></div>'+
-    '<div><label class="al">Departemen <span class="rq">*</span></label><select id="sf_dept">'+
-      ['','Geotechnical & Hydrology','Geotechnical','Hydrology','Mine Operations','Mine Planning','Survey','Mine Geology','OHS / Safety','Lainnya']
-        .map(o=>'<option value="'+esc(o)+'"'+(f.dept===o?' selected':'')+'>'+(o===''?'— pilih —':esc(o))+'</option>').join("")+
+    '<div class="span2"><label class="al">Full Name <span class="rq">*</span></label><input id="sf_name" placeholder="e.g. Fahmi Hidayah" value="'+esc(f.name)+'"></div>'+
+    '<div class="span2"><label class="al">Work Email <span class="rq">*</span></label><input id="email" type="email" placeholder="name@valeindonesia.com" value="'+esc(f.email)+'"></div>'+
+    '<div><label class="al">Badge / ID <span class="rq">*</span></label><input id="sf_badge" placeholder="e.g. 0676733" value="'+esc(f.badge)+'"></div>'+
+    '<div><label class="al">Position <span class="rq">*</span></label><input id="sf_pos" placeholder="e.g. Geotech Engineer" value="'+esc(f.pos)+'"></div>'+
+    '<div><label class="al">Department <span class="rq">*</span></label><select id="sf_dept">'+
+      ['','Geotechnical & Hydrology','Geotechnical','Hydrology','Mine Operations','Mine Planning','Survey','Mine Geology','OHS / Safety','Other']
+        .map(o=>'<option value="'+esc(o)+'"'+(f.dept===o?' selected':'')+'>'+(o===''?'— select —':esc(o))+'</option>').join("")+
     '</select></div>'+
-    '<div><label class="al">No. HP Kerja</label><input id="sf_phone" placeholder="opsional" value="'+esc(f.phone)+'"></div>'+
+    '<div><label class="al">Work Phone</label><input id="sf_phone" placeholder="optional" value="'+esc(f.phone)+'"></div>'+
     '<div><label class="al">Password <span class="rq">*</span></label><input id="pass" type="password" placeholder="min. 6"></div>'+
-    '<div><label class="al">Ulangi Password <span class="rq">*</span></label><input id="sf_pass2" type="password" placeholder="ulangi"></div>'+
+    '<div><label class="al">Repeat Password <span class="rq">*</span></label><input id="sf_pass2" type="password" placeholder="repeat"></div>'+
   '</div>';
 }
 function btns(){
-  const label = abusy?"Memproses…":mode==="signup"?"Lanjut ke Perjanjian (NDA)":mode==="forgot"?"Kirim Link Reset":mode==="newpass"?"Simpan Password":"Masuk";
+  const label = abusy?"Processing…":mode==="signup"?"Continue to Agreement (NDA)":mode==="forgot"?"Send Reset Link":mode==="newpass"?"Save Password":"Sign In";
   let h='<button class="abtn" '+(abusy?'disabled':'')+' onclick="doPrimary()">'+label+'</button>';
-  if(mode==="forgot") h+='<button class="abtn ghost" onclick="setMode(\'signin\')">Kembali</button>';
+  if(mode==="forgot") h+='<button class="abtn ghost" onclick="setMode(\'signin\')">Back</button>';
   return h;
 }
 function noteText(){
-  return mode==="signup" ? "Hanya email @vale.com / @valeindonesia.com / @gmail.com. Akun baru menunggu persetujuan Super Admin setelah perjanjian kerahasiaan disetujui."
-    : mode==="forgot" ? "Masukkan email akunmu; link reset dikirim ke email (cek inbox/spam)."
-    : mode==="newpass" ? "Simpan password baru, lalu kamu otomatis diarahkan."
-    : "Masuk dengan akun terdaftar. Akun harus sudah diaktifkan Super Admin.";
+  return mode==="signup" ? "Only @vale.com / @valeindonesia.com / @gmail.com emails. New accounts await Super Admin approval after the confidentiality agreement is accepted."
+    : mode==="forgot" ? "Enter your account email; a reset link will be sent (check inbox/spam)."
+    : mode==="newpass" ? "Save your new password, then you will be redirected automatically."
+    : "Sign in with a registered account. Your account must be activated by a Super Admin.";
 }
 function setMode(m){ mode=m; aerr=""; amsg=""; ndaOpen=false; renderAuth(); }
 window.setMode=setMode;
@@ -401,10 +413,10 @@ function startSignup(){
   const f=getF();
   const allowed=["gmail.com","vale.com","valeindonesia.com"];
   const dom=(f.email.split("@")[1]||"").toLowerCase();
-  if(!f.name||!f.email||!f.badge||!f.pos||!f.dept||!f.pass){ aerr="Lengkapi semua kolom bertanda *."; renderAuth(); return; }
-  if(!allowed.includes(dom)){ aerr="Hanya email @vale.com, @valeindonesia.com, atau @gmail.com."; renderAuth(); return; }
-  if(f.pass.length<6){ aerr="Password minimal 6 karakter."; renderAuth(); return; }
-  if(f.pass!==f.pass2){ aerr="Konfirmasi password tidak cocok."; renderAuth(); return; }
+  if(!f.name||!f.email||!f.badge||!f.pos||!f.dept||!f.pass){ aerr="Please complete all fields marked *."; renderAuth(); return; }
+  if(!allowed.includes(dom)){ aerr="Only @vale.com, @valeindonesia.com, or @gmail.com emails are allowed."; renderAuth(); return; }
+  if(f.pass.length<6){ aerr="Password must be at least 6 characters."; renderAuth(); return; }
+  if(f.pass!==f.pass2){ aerr="Password confirmation does not match."; renderAuth(); return; }
   pendingSignup=f; ndaChecked=false; ndaOpen=true; aerr=""; renderAuth();
 }
 
@@ -464,7 +476,7 @@ async function createAccount(){
     if(data.session){ return boot(); }
     const { error:e2 } = await sb.auth.signInWithPassword({ email:f.email, password:f.pass });
     if(!e2){ return boot(); }
-    mode="signin"; amsg="Akun dibuat & NDA tercatat. Menunggu persetujuan Super Admin."; abusy=false; pendingSignup=null; renderAuth();
+    mode="signin"; amsg="Account created & NDA recorded. Awaiting Super Admin approval."; abusy=false; pendingSignup=null; renderAuth();
   }catch(e){ aerr=e.message||String(e); abusy=false; renderAuth(); }
 }
 window.createAccount=createAccount;
@@ -483,9 +495,9 @@ async function boot(){
     $("root").innerHTML = GMS.header("Geotech Monitoring","Bahodopi",{back:false}) +
       '<div class="center">'+
         '<div style="width:56px;height:56px;border-radius:50%;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:26px">&#9888;</div>'+
-        '<div style="font-size:17px;font-weight:700">'+(p.status==="disabled"?"Akun dinonaktifkan":"Menunggu persetujuan")+'</div>'+
-        '<div style="font-size:13px;max-width:340px">'+(p.status==="disabled"?"Akun ini dinonaktifkan oleh admin.":"Akun kamu menunggu persetujuan Super Admin sebelum bisa dipakai.")+'</div>'+
-        '<button class="btn" style="max-width:180px" onclick="GMS.logout()">Keluar</button>'+
+        '<div style="font-size:17px;font-weight:700">'+(p.status==="disabled"?"Account disabled":"Awaiting approval")+'</div>'+
+        '<div style="font-size:13px;max-width:340px">'+(p.status==="disabled"?"This account has been disabled by an admin.":"Your account is awaiting Super Admin approval before it can be used.")+'</div>'+
+        '<button class="btn" style="max-width:180px" onclick="GMS.logout()">Sign out</button>'+
       '</div>';
     return;
   }
