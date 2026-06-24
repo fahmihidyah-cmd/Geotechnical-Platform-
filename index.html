@@ -7,6 +7,9 @@
 <link rel="manifest" href="manifest.json">
 <title>Geotech Monitoring — Bahodopi</title>
 <link rel="stylesheet" href="common.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js"></script>
 <style>
@@ -20,24 +23,21 @@
   .scene{position:fixed;inset:0;overflow:hidden;background:var(--d0);}
   .bg-grad{position:absolute;inset:0;
     background:
-      radial-gradient(1200px 700px at 78% 18%, rgba(37,99,235,.22), transparent 60%),
-      radial-gradient(900px 600px at 12% 88%, rgba(251,146,60,.12), transparent 55%),
-      radial-gradient(1400px 900px at 50% 120%, rgba(56,189,248,.10), transparent 60%),
-      linear-gradient(160deg,#070f20 0%,#0a1832 55%,#070d1c 100%);}
-  .bg-mine{position:absolute;inset:0;width:100%;height:100%;opacity:.9;}
+      radial-gradient(1000px 620px at 80% 112%, rgba(37,99,235,.20), transparent 60%),
+      radial-gradient(760px 480px at 14% 8%, rgba(56,189,248,.09), transparent 55%),
+      radial-gradient(900px 520px at 50% 60%, rgba(251,146,60,.05), transparent 60%),
+      linear-gradient(180deg,#08111f 0%,#0a1830 58%,#060d18 100%);}
+  .bg-mine{position:absolute;inset:0;width:100%;height:100%;opacity:.92;}
   .bg-grid{position:absolute;inset:-2px;
-    background-image:linear-gradient(rgba(120,160,220,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.06) 1px,transparent 1px);
-    background-size:46px 46px;mask-image:radial-gradient(70% 60% at 50% 40%,#000 30%,transparent 80%);animation:gridpan 22s linear infinite;}
-  @keyframes gridpan{to{background-position:46px 46px;}}
-  .vign{position:absolute;inset:0;box-shadow:inset 0 0 240px 60px rgba(2,6,14,.85);pointer-events:none;}
-  .scan{position:absolute;left:50%;top:42%;width:1300px;height:1300px;transform:translate(-50%,-50%);border-radius:50%;
-    background:conic-gradient(from 0deg, rgba(56,189,248,.18), transparent 18%, transparent 100%);
-    mask:radial-gradient(closest-side, transparent 62%, #000 63%, #000 64%, transparent 66%);
-    animation:spin 9s linear infinite;opacity:.5;}
+    background-image:linear-gradient(rgba(120,160,220,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,220,.05) 1px,transparent 1px);
+    background-size:54px 54px;mask-image:radial-gradient(80% 70% at 50% 55%,#000 30%,transparent 82%);animation:gridpan 26s linear infinite;}
+  @keyframes gridpan{to{background-position:54px 54px;}}
+  .vign{position:absolute;inset:0;box-shadow:inset 0 0 260px 70px rgba(2,6,14,.88);pointer-events:none;}
+  .scan{position:absolute;left:50%;top:58%;width:1150px;height:1150px;transform:translate(-50%,-50%);border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(56,189,248,.16), transparent 16%, transparent 100%);
+    mask:radial-gradient(closest-side, transparent 60%, #000 61%, #000 63%, transparent 65%);
+    animation:spin 11s linear infinite;opacity:.4;}
   @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg);}}
-  .particles{position:absolute;inset:0;pointer-events:none;}
-  .particles i{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(120,180,255,.7);box-shadow:0 0 8px rgba(120,180,255,.8);animation:flo linear infinite;}
-  @keyframes flo{0%{transform:translateY(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-120px);opacity:0}}
 
   .auth-wrap{position:relative;z-index:5;min-height:100svh;display:flex;align-items:center;justify-content:center;gap:46px;
     padding:28px 18px;max-width:1120px;margin:0 auto;}
@@ -101,6 +101,43 @@
   .foot{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:5;font-size:10px;color:rgba(143,166,200,.7);
     font-family:ui-monospace,Menlo,monospace;letter-spacing:.05em;}
 
+  /* ===== HOME (after login) ===== */
+  .home-wrap{position:relative;z-index:5;max-width:1000px;margin:0 auto;padding:22px 18px 90px;}
+  .htop{display:flex;align-items:center;gap:12px;margin-bottom:30px;}
+  .htop .tri{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;
+    background:linear-gradient(150deg,rgba(251,146,60,.22),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.42);color:var(--orange);}
+  .htop .bt b{font-size:15px;font-weight:800;color:var(--txtL);letter-spacing:.2px;}
+  .htop .bt small{display:block;font-size:9.5px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;}
+  .hquit{margin-left:auto;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid var(--line-d);
+    color:#dbe6f7;border-radius:11px;padding:9px 15px;font-size:13px;font-weight:700;cursor:pointer;transition:.16s;}
+  .hquit:hover{background:rgba(248,113,113,.14);border-color:rgba(248,113,113,.45);color:#fecaca;}
+
+  .hello-row{display:flex;align-items:center;gap:16px;margin-bottom:6px;}
+  .hava{width:58px;height:58px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;
+    color:#fff;background:linear-gradient(150deg,var(--blue),#1e3a8a);border:1px solid rgba(120,170,255,.4);box-shadow:0 10px 30px rgba(37,99,235,.4);}
+  .hello{font-size:clamp(25px,4.6vw,38px);font-weight:850;letter-spacing:-.5px;line-height:1.05;margin:0;
+    background:linear-gradient(120deg,#fff,#bcd2f5 55%,#8fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .wave{display:inline-block;transform-origin:70% 70%;animation:wave 2.6s ease-in-out infinite;}
+  @keyframes wave{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(16deg)}20%{transform:rotate(-10deg)}30%{transform:rotate(16deg)}40%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
+  .hsub{color:var(--mutL);font-size:13.5px;margin:7px 0 0;}
+  .hsub .rolechip{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#a7f3d0;
+    background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.32);border-radius:99px;padding:2px 9px;font-family:ui-monospace,Menlo,monospace;}
+  .heyebrow{font-size:11px;color:var(--mutL);letter-spacing:.18em;text-transform:uppercase;margin:30px 2px 14px;font-family:ui-monospace,Menlo,monospace;}
+  .htiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media(max-width:820px){ .htiles{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:520px){ .htiles{grid-template-columns:1fr;} }
+  .htile{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:128px;padding:17px;border-radius:18px;
+    text-decoration:none;color:var(--txtL);background:linear-gradient(165deg,rgba(18,34,64,.72),rgba(8,18,38,.6));
+    border:1px solid var(--line-d);backdrop-filter:blur(12px);transition:.16s;}
+  .htile::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--c,#38bdf8);opacity:.9;}
+  .htile::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:var(--c,#38bdf8);opacity:.07;filter:blur(6px);}
+  .htile:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--c) 50%,transparent);box-shadow:0 18px 42px rgba(2,8,20,.55);}
+  .htile .ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;
+    color:var(--c,#38bdf8);background:var(--cb,rgba(56,189,248,.14));border:1px solid color-mix(in srgb,var(--c) 35%,transparent);}
+  .htile .lab{font-weight:800;font-size:15.5px;}
+  .htile .sub{font-size:11.5px;color:var(--mutL);line-height:1.4;}
+  .hfoot{text-align:center;margin-top:34px;font-size:10px;color:rgba(143,166,200,.6);font-family:ui-monospace,Menlo,monospace;letter-spacing:.06em;}
+
   /* ===== NDA modal ===== */
   .nda-ov{position:fixed;inset:0;z-index:80;background:rgba(3,8,18,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:18px;}
   .nda-card{width:680px;max-width:100%;max-height:90svh;display:flex;flex-direction:column;background:linear-gradient(165deg,#0f2147,#0a1730);
@@ -119,6 +156,40 @@
   .agree input{width:18px;height:18px;flex:0 0 auto;margin-top:1px;accent-color:var(--cyan);}
   .nda-actions{display:flex;gap:10px;}
   .nda-actions .abtn{margin-top:0;}
+
+  /* ===== home (dark, same nuance as login) ===== */
+  .home-wrap{position:relative;z-index:5;max-width:1080px;margin:0 auto;padding:20px 18px 80px;min-height:100svh;}
+  .topbar-d{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:rgba(12,26,52,.55);border:1px solid var(--line-d);border-radius:16px;padding:12px 16px;backdrop-filter:blur(14px);box-shadow:0 12px 34px rgba(2,8,20,.4);}
+  .topbar-d .brand{display:flex;align-items:center;gap:11px;color:var(--txtL);}
+  .topbar-d .tri{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;
+    background:linear-gradient(150deg,rgba(251,146,60,.2),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.4);color:var(--orange);}
+  .topbar-d .brand b{font-size:15px;font-weight:800;} .topbar-d .brand small{display:block;font-size:9px;letter-spacing:.18em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;}
+  .exit{display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.14);border:1px solid rgba(248,113,113,.34);color:#fecaca;border-radius:11px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.16s;}
+  .exit:hover{background:rgba(220,38,38,.24);transform:translateY(-1px);} .exit span{font-size:15px;}
+  .greet{margin:30px 2px 22px;color:var(--txtL);}
+  .greet .hi{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);font-family:ui-monospace,Menlo,monospace;margin-bottom:4px;}
+  .greet h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:38px;line-height:1.05;margin:0;font-weight:700;letter-spacing:-.5px;
+    background:linear-gradient(110deg,#fff 10%,#a9c6f5 60%,#6ea8ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .greet .wave{display:inline-block;-webkit-text-fill-color:initial;animation:wv 2.4s ease-in-out infinite;transform-origin:70% 70%;}
+  @keyframes wv{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(16deg)}20%{transform:rotate(-8deg)}30%{transform:rotate(16deg)}40%{transform:rotate(-4deg)}50%{transform:rotate(10deg)}}
+  .greet p{margin:9px 0 0;color:var(--mutL);font-size:13.5px;}
+  .eyebrow-d{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mutL);margin:6px 2px 12px;}
+  .tiles-d{display:grid;grid-template-columns:repeat(2,1fr);gap:13px;}
+  @media(min-width:720px){ .tiles-d{grid-template-columns:repeat(3,1fr);} }
+  .tile-d{position:relative;display:block;text-decoration:none;color:var(--txtL);overflow:hidden;
+    background:linear-gradient(165deg,rgba(18,34,64,.66),rgba(8,18,38,.6));border:1px solid var(--line-d);border-radius:18px;padding:17px 16px 16px;
+    min-height:128px;backdrop-filter:blur(12px);transition:.18s;box-shadow:0 14px 34px rgba(2,8,20,.35);}
+  .tile-d::before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;background:var(--c,#3b82f6);opacity:.9;}
+  .tile-d::after{content:"";position:absolute;right:-40px;top:-40px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,var(--c,#3b82f6),transparent 70%);opacity:.14;}
+  .tile-d:hover{transform:translateY(-3px);border-color:rgba(120,170,240,.4);box-shadow:0 22px 46px rgba(2,8,20,.5);}
+  .tile-d:active{transform:scale(.98);}
+  .tile-d .ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:12px;
+    color:var(--c,#fff);background:color-mix(in srgb, var(--c,#3b82f6) 18%, transparent);border:1px solid color-mix(in srgb, var(--c,#3b82f6) 40%, transparent);}
+  .tile-d .lab{font-weight:800;font-size:15.5px;} .tile-d .sub{font-size:11.5px;color:var(--mutL);line-height:1.4;margin-top:3px;}
+  .tile-d .go{position:absolute;right:14px;bottom:13px;color:var(--mutL);font-size:17px;transition:.18s;}
+  .tile-d:hover .go{color:#fff;transform:translateX(3px);}
+  .foot-d{text-align:center;color:rgba(143,166,200,.6);font-size:10px;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace;margin-top:30px;}
 </style>
 </head>
 <body>
@@ -130,38 +201,37 @@ const sb = GMS.sb, $ = GMS.$, esc = GMS.esc;
 
 /* ===================== HOME (after login) ===================== */
 const TILES = [
-  { key:"monitoring",href:"monitoring.html",label:"Monitoring", sub:"Dashboard terintegrasi (EEWS · risiko · instrumen)", ic:"&#9707;", c:"#0b1f3a", cb:"#e7ebf2", access:"all" },
-  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Checklist · GPS · foto (offline)", ic:"&#9633;", c:"#ea580c", cb:"#fff1e7", access:"all" },
-  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Penilaian cepat pasca gempa (offline)", ic:"&#9888;", c:"#0891b2", cb:"#e6f7fb", access:"all" },
-  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Peringatan dini gempa", ic:"&#9883;", c:"#dc2626", cb:"#fdeaea", access:"all" },
-  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard",sub:"Peta & daftar risiko + laporan", ic:"&#9636;", c:"#2563eb", cb:"#e8eefc", access:"admin" },
-  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & approve inspeksi", ic:"&#9745;", c:"#0d9488", cb:"#e3f5f2", access:"admin" },
-  { key:"database", href:"database.html", label:"Database",      sub:"Checklist · User · Reporting · Audit PERA", ic:"&#9638;", c:"#7c3aed", cb:"#f0e9fc", access:"admin" },
+  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Checklist · GPS · foto (offline)", ic:"&#9633;", c:"#fb923c", access:"member" },
+  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Penilaian cepat pasca gempa (offline)", ic:"&#9888;", c:"#22d3ee", access:"member" },
+  { key:"monitoring",href:"monitoring.html",label:"Monitoring", sub:"Dashboard terintegrasi (EEWS · risiko · instrumen)", ic:"&#9707;", c:"#60a5fa", access:"admin" },
+  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Peringatan dini gempa", ic:"&#9883;", c:"#f87171", access:"admin" },
+  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard",sub:"Peta & daftar risiko + laporan", ic:"&#9636;", c:"#3b82f6", access:"admin" },
+  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & approve inspeksi", ic:"&#9745;", c:"#2dd4bf", access:"admin" },
+  { key:"database", href:"database.html", label:"Database",      sub:"Checklist · User · Reporting · Audit PERA", ic:"&#9638;", c:"#a78bfa", access:"admin" },
 ];
 function renderHome(p){
-  const canV = p.canValidate;
-  const tiles = TILES.filter(t => t.access==="all" || canV);
-  const tileHtml = tiles.map(t =>
-    '<a class="tile" href="'+t.href+'" style="--c:'+t.c+';--cb:'+t.cb+'">'+
-      '<div class="ic">'+t.ic+'</div>'+
-      '<div><div class="lab">'+t.label+'</div><div class="sub">'+t.sub+'</div></div></a>').join("");
-  const nm = (p.profile&&p.profile.full_name) || p.email || "";
+  const canV = p.canValidate;                              // admin/super only
+  const tiles = TILES.filter(t => t.access==="member" || canV);
+  const nm = (p.profile&&p.profile.full_name) || (p.email||"").split("@")[0] || "";
   const sub = [(p.profile&&p.profile.position), (p.profile&&p.profile.department)].filter(Boolean).join(" · ");
-  $("root").innerHTML =
-    GMS.header("Geotech Monitoring", "Bahodopi Block 2 & 3", {back:false}) +
-    '<div class="wrap">'+
-      '<div class="panel" style="display:flex;align-items:center;gap:14px;margin-bottom:18px">'+
-        '<div style="width:44px;height:44px;border-radius:50%;background:#e8eefc;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">'+
-          esc((nm||"?").slice(0,1).toUpperCase())+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="font-weight:700">'+esc(nm)+'</div>'+
-          '<div style="font-size:12px;color:var(--mut)">'+esc(sub)+(sub?' · ':'')+'<span class="mono">'+esc(p.role)+'</span></div>'+
-        '</div>'+
-        '<button class="btn" onclick="GMS.logout()">Keluar</button>'+
+  const roleLbl = p.role==="super_admin"?"Super Admin":p.role==="admin"?"Admin":"Member";
+  const tileHtml = tiles.map(t =>
+    '<a class="tile-d" href="'+t.href+'" style="--c:'+t.c+'">'+
+      '<div class="ic" style="--c:'+t.c+'">'+t.ic+'</div>'+
+      '<div class="lab">'+esc(t.label)+'</div><div class="sub">'+esc(t.sub)+'</div>'+
+      '<span class="go">&#8594;</span></a>').join("");
+  $("root").innerHTML = sceneBg()+
+    '<div class="home-wrap">'+
+      '<div class="topbar-d">'+
+        '<div class="brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
+        '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Keluar</button>'+
       '</div>'+
-      '<div class="eyebrow">Menu</div>'+
-      '<div class="tiles">'+tileHtml+'</div>'+
-      '<p class="mono" style="font-size:10px;color:var(--mut2);text-align:center;margin-top:24px">IGP Morowali · PT Vale Indonesia</p>'+
+      '<div class="greet"><div class="hi">Selamat datang</div>'+
+        '<h1>Hello, '+esc(nm)+' <span class="wave">&#128075;</span></h1>'+
+        '<p>'+(sub?esc(sub)+' · ':'')+'<span class="mono" style="opacity:.85">'+esc(roleLbl)+'</span></p></div>'+
+      '<div class="eyebrow-d">Menu Aplikasi</div>'+
+      '<div class="tiles-d">'+tileHtml+'</div>'+
+      '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
     '</div>';
 }
 
@@ -176,23 +246,29 @@ function sceneBg(){
     mineSVG()+
     '<div class="bg-grid"></div>'+
     '<div class="scan"></div>'+
-    '<div class="particles" id="parts"></div>'+
     '<div class="vign"></div>'+
   '</div>';
 }
 function mineSVG(){
-  // open-pit terraces (concentric) + sensor nodes + ridge lines
-  let rings=''; for(let i=0;i<7;i++){ const rx=120+i*78, ry=46+i*30; rings+='<ellipse cx="0" cy="0" rx="'+rx+'" ry="'+ry+'" />'; }
-  let nodes=''; const ND=[[-340,-150],[260,-120],[-180,120],[330,90],[60,-200]];
-  ND.forEach((n,i)=> nodes+='<g transform="translate('+n[0]+','+n[1]+')"><circle r="4" class="nd"/><circle r="4" class="ndp" style="animation-delay:'+(i*0.6)+'s"/></g>');
+  const x0=-600,x1=600,seg=6,step=(x1-x0)/seg;
+  function wave(base,amp,ph){ let d='M '+x0+' '+(base+Math.sin(ph)*amp).toFixed(0);
+    for(let i=0;i<seg;i++){ const x=x0+step*(i+1), cx1=x0+step*i+step/3, cx2=x0+step*i+2*step/3;
+      const y1=base+Math.sin(i+ph)*amp, y2=base+Math.sin(i+0.6+ph)*amp, yE=base+Math.sin(i+1+ph)*amp;
+      d+=' C '+cx1.toFixed(0)+' '+y1.toFixed(0)+' '+cx2.toFixed(0)+' '+y2.toFixed(0)+' '+x.toFixed(0)+' '+yE.toFixed(0); }
+    return d; }
+  let contours=''; for(let i=0;i<9;i++){ contours+='<path d="'+wave(-300+i*60,16+(i%3)*9,i*0.7)+'"/>'; }
+  let pit=''; for(let i=0;i<6;i++){ pit+='<ellipse cx="120" cy="252" rx="'+(380-i*58)+'" ry="'+(122-i*18)+'" class="pit"/>'; }
+  const B=[[-300,-180],[120,-232],[300,-88],[-150,-40],[262,28],[-360,60],[44,-120],[420,-160]];
+  let blips=''; B.forEach((b,i)=> blips+='<g transform="translate('+b[0]+','+b[1]+')"><circle r="2.6" class="bp"/><circle r="2.6" class="bpr" style="animation-delay:'+(i*0.45).toFixed(2)+'s"/></g>');
   return '<svg class="bg-mine" viewBox="-600 -360 1200 720" preserveAspectRatio="xMidYMid slice">'+
-    '<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">'+
-      '<stop offset="0" stop-color="#38bdf8" stop-opacity=".5"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".05"/></linearGradient></defs>'+
-    '<style>.bg-mine ellipse{fill:none;stroke:url(#lg);stroke-width:1.1;}'+
-      '.bg-mine .nd{fill:#fb923c;}'+
-      '.bg-mine .ndp{fill:none;stroke:#fb923c;stroke-width:1.5;opacity:.8;transform-box:fill-box;transform-origin:center;animation:pp 3s ease-out infinite;}'+
-      '@keyframes pp{0%{r:4;opacity:.9}100%{r:26;opacity:0}}</style>'+
-    '<g transform="translate(70,40)">'+rings+nodes+'</g>'+
+    '<defs><linearGradient id="cl" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0" stop-color="#38bdf8" stop-opacity=".4"/><stop offset="1" stop-color="#1d4ed8" stop-opacity=".04"/></linearGradient></defs>'+
+    '<style>.bg-mine path{fill:none;stroke:url(#cl);stroke-width:1;}'+
+      '.bg-mine .pit{fill:none;stroke:rgba(251,146,60,.16);stroke-width:1;}'+
+      '.bg-mine .bp{fill:#fb923c;}'+
+      '.bg-mine .bpr{fill:none;stroke:#fde68a;stroke-width:1.2;transform-box:fill-box;transform-origin:center;animation:blip 2.8s ease-out infinite;}'+
+      '@keyframes blip{0%{r:2.6;opacity:.9}70%{r:15;opacity:0}100%{opacity:0}}</style>'+
+    '<g>'+contours+'</g><g>'+pit+'</g><g>'+blips+'</g>'+
   '</svg>';
 }
 
@@ -277,14 +353,8 @@ function noteText(){
 function setMode(m){ mode=m; aerr=""; amsg=""; ndaOpen=false; renderAuth(); }
 window.setMode=setMode;
 
-/* ---- 3D tilt + particles ---- */
+/* ---- 3D tilt ---- */
 function initAuthFX(){
-  const parts=$("parts");
-  if(parts && !parts.childElementCount){
-    let h=''; for(let i=0;i<26;i++){ const l=Math.random()*100, d=6+Math.random()*10, dl=-Math.random()*10, s=.4+Math.random()*.8;
-      h+='<i style="left:'+l.toFixed(1)+'%;bottom:-10px;animation-duration:'+d.toFixed(1)+'s;animation-delay:'+dl.toFixed(1)+'s;transform:scale('+s.toFixed(2)+')"></i>'; }
-    parts.innerHTML=h;
-  }
   const card=$("authCard"); const wrap=document.querySelector(".auth-wrap");
   if(card && wrap && !('ontouchstart' in window)){
     wrap.onmousemove=e=>{ const r=card.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2;
