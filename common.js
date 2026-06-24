@@ -31,7 +31,7 @@
     if(!user) return null;
     let role="member", status="pending", prof=null;
     try{
-      const { data:rl } = await GMS.sb.from("user_roles").select("role,status,can_validate,badge_number,position").eq("user_id",user.id).maybeSingle();
+      const { data:rl } = await GMS.sb.from("user_roles").select("role,status,can_validate,full_name,badge_number,position,department,phone").eq("user_id",user.id).maybeSingle();
       if(rl){ prof=rl; role=rl.role||"member"; status=rl.status||"pending"; }
     }catch(e){ status="active"; } // fail-open to active member if RLS hiccup
     const isSuper = role==="super_admin";
