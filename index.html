@@ -21,12 +21,11 @@ const sb = GMS.sb, $ = GMS.$;
 // access: "all" | "admin"
 // NOTE: tile ditambah seiring halamannya dibangun (eews/dashboard/validasi/database menyusul)
 const TILES = [
-  { key:"monitoring",href:"monitoring.html",label:"Monitoring", sub:"Dashboard terintegrasi (EEWS · risiko · instrumen)", ic:"&#9707;", c:"#0b1f3a", cb:"#e7ebf2", access:"all" },
-  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Checklist · GPS · foto (offline)", ic:"&#9633;", c:"#ea580c", cb:"#fff1e7", access:"all" },
-  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Penilaian cepat pasca gempa (offline)", ic:"&#9888;", c:"#0891b2", cb:"#e6f7fb", access:"all" },
-  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Peringatan dini gempa", ic:"&#9883;", c:"#dc2626", cb:"#fdeaea", access:"all" },
-  { key:"dashboard",href:"dashboard.html",label:"Dashboard",     sub:"Peta & daftar risiko + laporan", ic:"&#9636;", c:"#2563eb", cb:"#e8eefc", access:"admin" },
-  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & approve inspeksi", ic:"&#9745;", c:"#0d9488", cb:"#e3f5f2", access:"admin" },
+  { key:"dashboard",href:"monitoring.html",label:"Dashboard", sub:"Geotechnical Integration Dashboard", ic:"&#9707;", c:"#0b1f3a", cb:"#e7ebf2", access:"all" },
+  { key:"inspeksi", href:"inspeksi.html", label:"Inspeksi Baru", sub:"Geotechnical Inspection Checklist (offline)", ic:"&#9633;", c:"#ea580c", cb:"#fff1e7", access:"all" },
+  { key:"pera",     href:"pera.html",     label:"PERA",          sub:"Checklist after earthquake event (offline)", ic:"&#9888;", c:"#0891b2", cb:"#e6f7fb", access:"all" },
+  { key:"eews",     href:"eews.html",     label:"EEWS",          sub:"Earthquake Early Warning Systems", ic:"&#9883;", c:"#dc2626", cb:"#fdeaea", access:"all" },
+  { key:"validasi", href:"validasi.html", label:"Validasi",      sub:"Verifikasi & Validation", ic:"&#9745;", c:"#0d9488", cb:"#e3f5f2", access:"admin" },
   { key:"database", href:"database.html", label:"Database",      sub:"Checklist · User · Reporting · Audit PERA", ic:"&#9638;", c:"#7c3aed", cb:"#f0e9fc", access:"admin" },
 ];
 
