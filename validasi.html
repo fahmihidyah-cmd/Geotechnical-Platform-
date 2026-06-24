@@ -16,14 +16,22 @@
   .pcard .bar{width:5px;height:42px;border-radius:3px;flex:0 0 auto;}
   .pcard .nm{font-weight:700;} .pcard .sub{font-size:11px;color:var(--mut);}
   .drawer{position:fixed;inset:0;z-index:60;background:rgba(8,15,30,.5);display:flex;justify-content:flex-end;}
-  .drawer .panelD{width:480px;max-width:100%;height:100%;overflow-y:auto;background:#fff;}
+  .drawer .panelD{width:880px;max-width:100%;height:100%;overflow-y:auto;background:#fff;}
   .dhead{padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2;}
-  .dbody{padding:16px 18px 40px;}
+  .dbody{padding:16px 18px 40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+  .dbody .col{min-width:0;}
+  .dbody .actions{grid-column:1/-1;}
+  @media(max-width:820px){ .dbody{grid-template-columns:1fr;} }
   .boxes{display:flex;gap:8px;align-items:stretch;}
   .box{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 6px;text-align:center;}
   .box .k{font-size:9px;color:var(--mut);letter-spacing:.06em;} .box .v{font-size:13px;font-weight:800;margin-top:3px;}
   .ovr{margin-top:14px;padding:12px;border-radius:9px;border:1px dashed var(--line);background:#fafbfd;}
-  .rmap{height:240px;border-radius:10px;border:1px solid var(--line);margin-top:10px;}
+  .rmap{height:320px;border-radius:10px;border:1px solid var(--line);margin-top:10px;}
+  .edtools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;}
+  .edtools .btn{padding:6px 10px;font-size:12px;}
+  .edtools .info{font-size:11px;color:var(--mut);margin-left:auto;font-weight:700;}
+  .ptlbl{background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:50%;width:18px;height:18px;line-height:18px;font-size:10px;font-weight:700;box-shadow:none;}
+  .ptlbl::before{display:none;}
 </style>
 </head>
 <body>
@@ -33,7 +41,8 @@
 <script>
 "use strict";
 const sb=GMS.sb,$=GMS.$,esc=GMS.esc;
-const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
+const RC={Low:'#16a34a',Medium:'#eab308',High:'#f97316','Very High':'#dc2626'};
+let ME=null;
 const cls=l=>String(l||'Low').replace(' ','');
 let PARAMS=[], CRIT={}, PENDING=[], sel=null, note="", busy=false, vmap=null;
 const colOf=c=>c+"_condition";
@@ -68,10 +77,16 @@ function renderList(){
     }).join("") : '<div class="panel" style="text-align:center;padding:36px"><div style="font-weight:700;color:var(--txt2)">Tidak ada yang menunggu validasi</div><div style="font-size:12px;color:var(--mut);margin-top:4px">Semua inspeksi sudah diproses.</div></div>');
 }
 
-window.openSel=async(i)=>{ sel=Object.assign({},PENDING[i]); note=sel.review_note||""; sel._riskArea=undefined; renderDrawer();
-  try{ const {data}=await sb.from("inspection_risk_areas").select("*").eq("inspection_id",sel.id).maybeSingle(); if(sel) sel._riskArea=data||null; }
-  catch(e){ if(sel) sel._riskArea=null; }
+window.openSel=async(i)=>{ sel=Object.assign({},PENDING[i]); note=sel.review_note||""; sel._riskArea=undefined; sel._edPoints=[]; renderDrawer();
+  try{ const {data}=await sb.from("inspection_risk_areas").select("*").eq("inspection_id",sel.id).maybeSingle(); if(sel){ sel._riskArea=data||null; sel._edPoints=geojsonToPoints(data&&data.polygon_geojson); } }
+  catch(e){ if(sel){ sel._riskArea=null; sel._edPoints=[]; } }
   if(sel) renderDrawer(); };
+function geojsonToPoints(gj){
+  try{ const g=gj&&(gj.geometry||gj); const ring=g&&g.coordinates&&g.coordinates[0]; if(!ring) return [];
+    const pts=ring.map(c=>[+(+c[1]).toFixed(6),+(+c[0]).toFixed(6)]);
+    if(pts.length>1){ const a=pts[0],b=pts[pts.length-1]; if(a[0]===b[0]&&a[1]===b[1]) pts.pop(); }
+    return pts; }catch(e){ return []; }
+}
 function closeDrawer(){ sel=null; if(vmap){try{vmap.remove();}catch(e){}vmap=null;} $("drawer").innerHTML=""; }
 window.closeDrawer=closeDrawer;
 function setCond(code,v){ sel[colOf(code)]=v; }
@@ -85,10 +100,15 @@ function paramRows(instr){ return PARAMS.filter(p=>isInstr(p.code)===instr).map(
   '<select data-code="'+p.code+'" onchange="_setCond(this)">'+optsFor(p.code).map(o=>'<option'+(o===(sel[colOf(p.code)]||"-")?' selected':'')+'>'+esc(o)+'</option>').join("")+'</select>'
 ).join(""); }
 
+function effLevel(){ return (sel.risk_override&&String(sel.risk_override).trim())||sel.risk_model||sel.risk_final||'Low'; }
+function effColor(){ return RC[effLevel()]||RC.Low; }
+function curPoints(){ return (sel&&sel._edPoints)||[]; }
+
 function renderDrawer(){
   if(!sel){ $("drawer").innerHTML=""; return; }
   if(vmap){try{vmap.remove();}catch(e){}vmap=null;}
-  const ovrLevel=sel.risk_override||sel.risk_model||sel.risk_final;
+  const ovrLevel=effLevel();
+  const loading = sel._riskArea===undefined;
   $("drawer").innerHTML='<div class="drawer" onclick="closeDrawer()"><div class="panelD" onclick="event.stopPropagation()">'+
     '<div class="dhead"><div class="row" style="justify-content:space-between;align-items:flex-start">'+
       '<div><div class="mono" style="font-size:10px;color:var(--mut)">INSPEKSI #'+sel.id+' · '+esc(sel.inspection_date||"")+'</div>'+
@@ -96,56 +116,102 @@ function renderDrawer(){
       '<div class="mono" style="font-size:11px;color:var(--mut)">'+esc((sel.locations&&sel.locations.area_code)||"")+' · '+esc(sel.inspector||"—")+'</div></div>'+
       '<button class="btn" style="padding:8px" onclick="closeDrawer()">&times;</button></div></div>'+
     '<div class="dbody">'+
-      '<div class="boxes">'+
-        box("COMPOSITE",sel.risk_composite)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8852;</div>'+
-        box("FLOOR · T1",sel.risk_floor)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8594;</div>'+
-        box("MODEL",sel.risk_model||sel.risk_final)+
+      // ===== LEFT COLUMN: risk + map + override =====
+      '<div class="col">'+
+        '<div class="boxes">'+
+          box("COMPOSITE",sel.risk_composite)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8852;</div>'+
+          box("FLOOR · T1",sel.risk_floor)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8594;</div>'+
+          box("MODEL",sel.risk_model||sel.risk_final)+
+        '</div>'+
+        '<div class="mono" style="font-size:11px;color:var(--mut);margin-top:8px">Skor '+(sel.total_score||0)+' · model = MAX(composite, floor)'+(sel.risk_corroboration?' + koroborasi':'')+'</div>'+
+        // override
+        '<div class="ovr"><label class="f" style="margin-top:0">Override risk akhir · penilaian engineer</label>'+
+          '<div class="row" style="gap:8px"><select style="flex:1" onchange="_setOvr(this.value)">'+
+            ['','Low','Medium','High','Very High'].map(o=>'<option value="'+o+'"'+((sel.risk_override||"")===o?' selected':'')+'>'+(o===''?('Ikuti model ('+(sel.risk_model||sel.risk_final)+')'):o)+'</option>').join("")+
+          '</select><span class="pill '+cls(ovrLevel)+'">'+esc(ovrLevel)+'</span></div>'+
+          (sel.risk_override?'<label class="f">Alasan override (wajib)</label><textarea rows="2" oninput="_setOvrReason(this.value)" placeholder="mis. crack lama sudah stabil, monitoring tidak bergerak…">'+esc(sel.override_reason||"")+'</textarea>':'')+
+          '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Warna area & nilai dashboard mengikuti override (jika diisi), kalau tidak = model.</div></div>'+
+        // editable risk area
+        '<div class="eyebrow" style="margin:18px 0 6px">Area Risiko · edit boundary</div>'+
+        ( loading ? '<div class="mono" style="font-size:11px;color:var(--mut)">Memuat area…</div>'
+                  : '<div id="rmap" class="rmap"></div>'+
+                    '<div class="edtools">'+
+                      '<button class="btn" onclick="_edUndo()">&#8630; Undo titik</button>'+
+                      '<button class="btn" style="color:#dc2626;border-color:#fca5a5" onclick="_edClear()">Hapus semua</button>'+
+                      '<button class="btn primary" style="background:#0d9488;border-color:#0d9488" onclick="_edSave()">Simpan Area</button>'+
+                      '<span class="info" id="edInfo">'+curPoints().length+' titik</span>'+
+                    '</div>'+
+                    '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Tap peta = tambah titik · seret penanda = geser · tap penanda = hapus · min 3 titik. Warna = risk efektif.</div>' )+
       '</div>'+
-      '<div class="mono" style="font-size:11px;color:var(--mut);margin-top:8px">Skor '+(sel.total_score||0)+' · model = MAX(composite, floor)'+(sel.risk_corroboration?' + koroborasi':'')+'</div>'+
-      // risk area preview
-      '<div class="eyebrow" style="margin:18px 0 6px">Area Risiko (Risk Map)</div>'+
-      ( sel._riskArea===undefined
-          ? '<div class="mono" style="font-size:11px;color:var(--mut)">Memuat area…</div>'
-          : ( sel._riskArea && sel._riskArea.polygon_geojson
-              ? '<div id="rmap" class="rmap"></div><div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Level area: <b style="color:'+(sel._riskArea.risk_color||RC[sel._riskArea.risk_level]||RC.Low)+'">'+esc(sel._riskArea.risk_level||"-")+'</b> · '+(sel._riskArea.point_count||0)+' titik · digambar inspektur saat checklist.</div>'
-              : '<div class="mono" style="font-size:11px;color:var(--mut)">Tidak ada area risiko digambar untuk inspeksi ini.</div>' ) )+
-      // override
-      '<div class="ovr"><label class="f" style="margin-top:0">Override risk akhir · penilaian engineer</label>'+
-        '<div class="row" style="gap:8px"><select style="flex:1" onchange="_setOvr(this.value)">'+
-          ['','Low','Medium','High','Very High'].map(o=>'<option value="'+o+'"'+((sel.risk_override||"")===o?' selected':'')+'>'+(o===''?('Ikuti model ('+(sel.risk_model||sel.risk_final)+')'):o)+'</option>').join("")+
-        '</select><span class="pill '+cls(ovrLevel)+'">'+esc(ovrLevel)+'</span></div>'+
-        (sel.risk_override?'<label class="f">Alasan override (wajib)</label><textarea rows="2" oninput="_setOvrReason(this.value)" placeholder="mis. crack lama sudah stabil, monitoring tidak bergerak…">'+esc(sel.override_reason||"")+'</textarea>':'')+
-        '<div class="mono" style="font-size:10px;color:var(--mut);margin-top:6px">Nilai ke dashboard = override (jika diisi), kalau tidak = model.</div></div>'+
-      // params
-      '<div class="eyebrow" style="margin:18px 0 6px">Parameter Visual</div>'+paramRows(false)+
-      '<div class="eyebrow" style="margin:18px 0 6px">Instrumentasi</div>'+paramRows(true)+
-      '<label class="f" style="margin-top:16px">Catatan validasi (opsional)</label>'+
-      '<textarea rows="3" oninput="_setNote(this.value)" placeholder="mis. verifikasi lapangan OK / minta re-inspeksi…">'+esc(note)+'</textarea>'+
-      '<div class="row" style="gap:8px;margin-top:16px">'+
-        '<button class="btn" '+(busy?'disabled':'')+' onclick="saveOnly()">Simpan</button>'+
+      // ===== RIGHT COLUMN: parameters + recommendation =====
+      '<div class="col">'+
+        '<div class="eyebrow" style="margin:0 0 6px">Parameter Visual</div>'+paramRows(false)+
+        '<div class="eyebrow" style="margin:18px 0 6px">Instrumentasi</div>'+paramRows(true)+
+        '<label class="f" style="margin-top:16px">Recommendation · rekomendasi tindakan (masuk ke PICA & Action Log)</label>'+
+        '<textarea rows="4" oninput="_setNote(this.value)" placeholder="mis. batasi operasi, tambah frekuensi monitoring per shift, perbaikan drainase…">'+esc(note)+'</textarea>'+
+      '</div>'+
+      // ===== ACTIONS (full width) =====
+      '<div class="actions row" style="gap:8px;margin-top:4px">'+
+        '<button class="btn" '+(busy?'disabled':'')+' onclick="saveOnly()">Simpan draft</button>'+
         '<button class="btn" '+(busy?'disabled':'')+' style="color:#dc2626;border-color:#fca5a5" onclick="decide(\'rejected\')">Reject</button>'+
         '<button class="btn primary" '+(busy?'disabled':'')+' style="flex:1;background:#0d9488;border-color:#0d9488" onclick="decide(\'approved\')">'+(busy?'…':'Approve')+'</button>'+
       '</div>'+
     '</div></div></div>';
-  if(sel && sel._riskArea && sel._riskArea.polygon_geojson){ setTimeout(initRiskPreview,60); }
+  if(!loading){ setTimeout(initEditMap,60); }
 }
-function initRiskPreview(){
-  const el=document.getElementById('rmap'); if(!el||!sel||!sel._riskArea) return;
+
+function initEditMap(){
+  const el=document.getElementById('rmap'); if(!el||!sel) return;
   if(vmap){try{vmap.remove();}catch(e){}vmap=null;}
-  vmap=L.map(el,{scrollWheelZoom:false,zoomControl:true});
-  const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
-  const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
-  let f=false; sat.on('tileerror',()=>{ if(!f){f=true;try{vmap.removeLayer(sat);}catch(e){}osm.addTo(vmap);} }); sat.addTo(vmap);
-  const gj=sel._riskArea.polygon_geojson; const col=sel._riskArea.risk_color||RC[sel._riskArea.risk_level]||RC.Low;
-  let layer=null;
-  try{ layer=L.geoJSON(gj,{style:{color:col,weight:2,fillColor:col,fillOpacity:.25}}).addTo(vmap); }catch(e){}
-  try{ vmap.fitBounds(layer.getBounds().pad(.25)); }catch(e){ vmap.setView([-2.74,122.01],15); }
-  [60,250,600].forEach(d=>setTimeout(()=>{try{vmap.invalidateSize();}catch(e){}},d));
+  vmap=L.map(el,{zoomControl:true});
+  const base=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
+  const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
+  const aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:1,maxZoom:22,minNativeZoom:14,maxNativeZoom:19,tms:false,attribution:"Aerial PT Vale Bahodopi 2026"});
+  aerial.addTo(vmap);
+  L.control.layers({"Aerial PT Vale 2026":aerial,"Satelit (Esri)":sat,"OSM":base},null,{collapsed:true}).addTo(vmap);
+  vmap._mk=L.layerGroup().addTo(vmap);
+  vmap._poly=L.polygon([],{color:effColor(),weight:2,fillColor:effColor(),fillOpacity:.25});
+  vmap.on('click',e=>{ sel._edPoints=curPoints().concat([[+e.latlng.lat.toFixed(6),+e.latlng.lng.toFixed(6)]]); syncEdit(false); });
+  syncEdit(true);
 }
+function syncEdit(fit){
+  if(!vmap) return; const pts=curPoints(); const col=effColor();
+  vmap._mk.clearLayers();
+  pts.forEach((pt,i)=>{ const mk=L.marker(pt,{draggable:true,autoPan:true}).addTo(vmap._mk);
+    mk.bindTooltip(String(i+1),{permanent:true,direction:'center',className:'ptlbl'});
+    mk.on('drag',e=>{ const ll=e.target.getLatLng(); sel._edPoints[i]=[+ll.lat.toFixed(6),+ll.lng.toFixed(6)]; if(curPoints().length>=3) vmap._poly.setLatLngs(curPoints()); });
+    mk.on('dragend',()=>{ updateEdInfo(); });
+    mk.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(confirm('Hapus titik '+(i+1)+'?')){ sel._edPoints.splice(i,1); syncEdit(false); } });
+  });
+  if(pts.length>=3){ vmap._poly.setLatLngs(pts); if(!vmap.hasLayer(vmap._poly)) vmap._poly.addTo(vmap); }
+  else { vmap._poly.setLatLngs([]); if(vmap.hasLayer(vmap._poly)) vmap.removeLayer(vmap._poly); }
+  try{ vmap._poly.setStyle({color:col,fillColor:col}); }catch(e){}
+  if(fit){ if(pts.length>=3){ try{vmap.fitBounds(L.latLngBounds(pts).pad(.25));}catch(e){} } else { vmap.setView([-2.74,122.01],15); } }
+  [60,250,600].forEach(d=>setTimeout(()=>{try{vmap.invalidateSize();}catch(e){}},d));
+  updateEdInfo();
+}
+function updateEdInfo(){ const el=document.getElementById('edInfo'); if(el) el.textContent=curPoints().length+' titik'; }
+window._edUndo=()=>{ if(curPoints().length){ sel._edPoints.pop(); syncEdit(false); } };
+window._edClear=()=>{ if(curPoints().length && confirm('Hapus semua titik area?')){ sel._edPoints=[]; syncEdit(false); } };
+window._edSave=async()=>{
+  const pts=curPoints();
+  if(pts.length && pts.length<3){ alert('Minimal 3 titik untuk membentuk area.'); return; }
+  const lvl=effLevel(), col=RC[lvl]||RC.Low;
+  try{
+    if(!pts.length){ await sb.from('inspection_risk_areas').delete().eq('inspection_id',sel.id); sel._riskArea=null; alert('Area dihapus.'); return; }
+    const ring=pts.map(p=>[p[1],p[0]]); ring.push([pts[0][1],pts[0][0]]);
+    const feature={type:'Feature',properties:{source:'validation_edit',point_count:pts.length},geometry:{type:'Polygon',coordinates:[ring]}};
+    const payload={inspection_id:sel.id,polygon_geojson:feature,risk_level:lvl,risk_color:col,score_total:sel.total_score||0,tarp_level:sel.tarp_level||0,point_count:pts.length};
+    if(ME) payload.created_by=ME;
+    const {error}=await sb.from('inspection_risk_areas').upsert(payload,{onConflict:'inspection_id'}); if(error) throw error;
+    sel._riskArea=payload; alert('Area risiko tersimpan.');
+  }catch(e){ alert('Gagal simpan area: '+(e.message||e)); }
+};
 function box(label,level){ const col=RC[level]||RC.Low; return '<div class="box"><div class="k">'+label+'</div><div class="v" style="color:'+col+'">'+esc(level||"-")+'</div></div>'; }
 
 function condBody(){ const b={}; PARAMS.forEach(p=> b[colOf(p.code)]=sel[colOf(p.code)]||"-"); return b; }
-function ovrBody(){ return { risk_override: sel.risk_override||null, override_reason: sel.risk_override?(sel.override_reason||null):null }; }
+function ovrBody(){ const o={ risk_override: sel.risk_override||null, override_reason: sel.risk_override?(sel.override_reason||null):null };
+  if(sel.risk_override){ o.override_by=ME||null; o.override_at=new Date().toISOString(); } return o; }
 window.saveOnly=async()=>{ busy=true; renderDrawer();
   try{ const {error}=await sb.from("inspections").update(Object.assign({},condBody(),ovrBody())).eq("id",sel.id); if(error)throw error;
     const {data}=await sb.from("inspections").select("*, locations(name,area_code)").eq("id",sel.id).single(); if(data){sel=Object.assign(sel,data);} }
@@ -154,7 +220,7 @@ window.saveOnly=async()=>{ busy=true; renderDrawer();
 window.decide=async(status)=>{
   if(status==="approved" && sel.risk_override && !((sel.override_reason||"").trim())){ alert("Alasan override wajib diisi sebelum approve."); return; }
   busy=true; renderDrawer();
-  try{ const body = status==="approved" ? Object.assign({},condBody(),ovrBody(),{approval_status:"approved",review_note:note||null})
+  try{ const body = status==="approved" ? Object.assign({},condBody(),ovrBody(),{approval_status:"approved",review_note:note||null,approved_by:ME||null,approved_at:new Date().toISOString()})
                                         : {approval_status:"rejected",review_note:note||null};
     const {error}=await sb.from("inspections").update(body).eq("id",sel.id); if(error)throw error;
     closeDrawer(); await loadPending(); }
@@ -164,6 +230,7 @@ window.decide=async(status)=>{
 (async()=>{
   $("hdr").innerHTML=GMS.header("Validasi Inspeksi","Bahodopi Block 2 & 3");
   const p=await GMS.guard({requireAdmin:true,mount:"#app"}); if(!p) return;
+  try{ const u=await sb.auth.getUser(); ME=(u&&u.data&&u.data.user)?u.data.user.id:null; }catch(e){ ME=null; }
   await loadAll();
 })();
 </script>
