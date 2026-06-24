@@ -7,18 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <title>Inspeksi Geoteknik — Bahodopi</title>
 <link rel="stylesheet" href="common.css">
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-  crossorigin=""
-></script>
 <script src="common.js"></script>
 <style>
   .wrap{max-width:980px;}
@@ -41,40 +30,6 @@
   #outbox{position:fixed;bottom:70px;left:0;right:0;max-width:980px;margin:0 auto;padding:0 14px;z-index:24;}
   #outbox .chip{background:#1e293b;color:#fff;border-radius:10px;padding:9px 12px;font-size:12px;display:flex;align-items:center;gap:8px;}
   #outbox .chip button{margin-left:auto;background:#334155;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;}
-  .risk-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;margin-top:12px;}
-  .risk-toggle .txt1{font-size:13px;font-weight:700;color:var(--txt);}
-  .risk-toggle .txt2{font-size:11px;color:var(--mut);margin-top:2px;}
-  .switch{position:relative;width:50px;height:28px;display:inline-block;flex:none;}
-  .switch input{opacity:0;width:0;height:0;}
-  .slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s;}
-  .slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
-  .switch input:checked + .slider{background:#16a34a;}
-  .switch input:checked + .slider:before{transform:translateX(22px);}
-  .btn-group{display:flex;gap:8px;flex-wrap:wrap;}
-  .risk-summary{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;}
-  .risk-summary .row1{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-  .risk-summary .meta{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5;}
-  .risk-summary .points{margin-top:8px;font-size:11px;color:var(--txt2);word-break:break-word;}
-  .risk-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 9px;border-radius:999px;color:#fff;}
-  .risk-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-  .risk-modal{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:stretch;justify-content:center;z-index:60;}
-  .risk-modal.show{display:flex;}
-  .risk-sheet{background:#fff;width:min(100%,980px);height:100%;display:flex;flex-direction:column;}
-  .risk-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-  .risk-head .h1{font-size:16px;font-weight:800;}
-  .risk-head .h2{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.45;}
-  .risk-head .close{background:#e2e8f0;color:#0f172a;border:none;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;flex:none;}
-  .risk-map{flex:1;min-height:320px;}
-  .risk-foot{border-top:1px solid var(--line);padding:10px 14px;background:#fff;display:flex;flex-direction:column;gap:10px;}
-  .risk-note{font-size:12px;color:var(--mut);line-height:1.45;}
-  .risk-actions{display:flex;gap:8px;flex-wrap:wrap;}
-  .risk-points{font-size:11px;color:var(--txt2);line-height:1.5;}
-  .risk-points strong{color:var(--txt);}
-  @media(min-width:700px){
-    .risk-foot{flex-direction:row;align-items:flex-start;justify-content:space-between;}
-    .risk-foot .left{max-width:55%;}
-    .risk-foot .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
-  }
 </style>
 </head>
 <body>
@@ -84,33 +39,6 @@
 <div id="actions" class="actions hidden">
   <button class="btn" id="btnDraft">Simpan Draft</button>
   <button class="btn primary" id="btnSubmit" style="flex:1">Simpan Inspeksi</button>
-</div>
-
-<div id="riskModal" class="risk-modal" aria-hidden="true">
-  <div class="risk-sheet">
-    <div class="risk-head">
-      <div>
-        <div class="h1">Risk Area</div>
-        <div class="h2">Tap peta untuk menambah titik. Minimal 3 titik, maksimal bebas. Polygon akan terbentuk otomatis mengikuti urutan titik.</div>
-      </div>
-      <button class="close" id="btnCloseRisk" aria-label="Tutup">&times;</button>
-    </div>
-    <div id="riskMap" class="risk-map"></div>
-    <div class="risk-foot">
-      <div class="left">
-        <div class="risk-note" id="riskModalMsg">Tap peta untuk menaruh titik. Seret (drag) titik untuk menggeser presisi. Tap titik untuk menghapus. Minimal 3 titik.</div>
-        <div class="risk-points" id="riskPointList"></div>
-      </div>
-      <div class="right">
-        <div class="risk-actions">
-          <button class="btn" id="btnRiskCenter">Ke Lokasi</button>
-          <button class="btn" id="btnRiskUndo">Undo Titik</button>
-          <button class="btn" id="btnRiskClear">Hapus Semua</button>
-          <button class="btn primary" id="btnRiskSave">Simpan Area</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -133,9 +61,7 @@ async function obxDel(id){ const db=await idb(); return new Promise((res,rej)=>{
 
 // ===================== STATE =====================
 let PARAMS=[], CRITERIA={}, BANDS=[], LOCATIONS=[];
-let cond={}, locId="", inspector="", status="OPEN", geo=null, photos=[];
-let riskEnabled=false;
-let riskArea={points:[],saved:false};
+let cond={}, locId="", inspector="", status="OPEN", geo=null, photos=[]; // photos: [{url(dataURL)}]
 let inspectorName="";
 
 // ===================== RISK ENGINE (mirror platform) =====================
@@ -143,8 +69,6 @@ const TIER1={mv1:true,mv2:true,mv3:true,piezo:true,crack:true,f2:true,f7:true};
 const WATER="f8";
 const FLOORS={Low:1,Medium:2,High:3,"Very High":4};
 const FLOOR_REV={1:"Low",2:"Medium",3:"High",4:"Very High"};
-const RISK_COLORS={Low:"#16a34a",Medium:"#facc15",High:"#f97316","Very High":"#dc2626"};
-const RISK_AREA_TABLE="inspection_risk_areas";
 const optsOf=(code)=> (CRITERIA[code]||[]).slice().sort((a,b)=>(a.score||0)-(b.score||0));
 const scoreOf=(code,label)=> ((CRITERIA[code]||[]).find(x=>x.condition_label===label)||{}).score||0;
 const floorOf=(code,label)=>{ const o=(CRITERIA[code]||[]).find(x=>x.condition_label===label); return FLOORS[o&&o.tier1_floor]||1; };
@@ -153,22 +77,13 @@ function compute(){
   let total=0, floor=1;
   PARAMS.forEach(p=> total+=scoreOf(p.code,cond[p.code]));
   Object.keys(TIER1).forEach(c=> floor=Math.max(floor,floorOf(c,cond[c])));
-  floor=Math.max(floor, Math.min(2, floorOf(WATER,cond[WATER])));
+  floor=Math.max(floor, Math.min(2, floorOf(WATER,cond[WATER])));   // water capped at Medium
   const composite = total<=10?1:total<=30?2:total<=60?3:4;
   let fin=Math.max(composite,floor);
   const instrT1=Math.max.apply(null,["mv1","mv2","mv3","piezo","crack"].map(c=>floorOf(c,cond[c])))>=2;
   const visT1=floorOf("f2",cond["f2"])>=2;
   const corr=instrT1&&visT1; if(corr) fin=Math.min(4,fin+1);
   return { total, level:FLOOR_REV[fin], tarp:fin, corr, composite:FLOOR_REV[composite], floor:FLOOR_REV[floor], band:bandOf(total) };
-}
-function currentRiskMeta(){
-  const c=compute();
-  return {
-    level:c.level,
-    color:RISK_COLORS[c.level]||"#16a34a",
-    total:c.total,
-    tarp:c.tarp
-  };
 }
 
 // ===================== GPS =====================
@@ -187,168 +102,11 @@ function geoVal(){ const l=LOCATIONS.find(x=>String(x.id)===String(locId)); cons
   const dist=Math.round(haversineM(geo.lat,geo.lng,t.lat,t.lng)); const onR=(l.on_radius_m)||50, nearR=(l.near_radius_m)||150;
   if(dist<=onR) return {s:"On Location",c:"#16a34a",dist}; if(dist<=nearR) return {s:"Near Location",c:"#d97706",dist}; return {s:"Off Location",c:"#dc2626",dist}; }
 
-// ===================== RISK AREA MAP =====================
-let riskMap=null, riskBase=null, riskSat=null, riskMarkers=null, riskPolygon=null, riskTargetMarker=null;
-function getRiskCenter(){
-  if(geo && geo.lat && geo.lng) return [geo.lat,geo.lng];
-  const l=LOCATIONS.find(x=>String(x.id)===String(locId));
-  const t=locTarget(l);
-  if(t) return [t.lat,t.lng];
-  return [-2.55, 122.25];
-}
-function ensureRiskMap(){
-  if(riskMap) return;
-  riskMap = L.map("riskMap",{zoomControl:true,attributionControl:true});
-  riskBase = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
-  riskSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
-  const riskAerial = L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:1,maxZoom:22,minNativeZoom:14,maxNativeZoom:19,tms:false,attribution:"Aerial PT Vale Bahodopi 2026"});
-  riskSat.addTo(riskMap);
-  L.control.layers({"Satelit":riskSat,"Basemap":riskBase,"Aerial PT Vale 2026":riskAerial},null,{position:"topright"}).addTo(riskMap);
-  riskMarkers = L.layerGroup().addTo(riskMap);
-  riskPolygon = L.polygon([],{
-    color:"#2563eb",
-    weight:2,
-    fillColor:"#60a5fa",
-    fillOpacity:.28
-  }).addTo(riskMap);
-  riskMap.on("click",e=>{
-    if(!riskEnabled) return;
-    riskArea.points.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]);
-    riskArea.saved=false;
-    syncRiskMap();
-    saveDraft();
-  });
-}
-function syncRiskMap(){
-  if(!riskMap) return;
-  riskMarkers.clearLayers();
-  if(riskTargetMarker){ riskMap.removeLayer(riskTargetMarker); riskTargetMarker=null; }
-  const l=LOCATIONS.find(x=>String(x.id)===String(locId));
-  const t=locTarget(l);
-  if(t){
-    riskTargetMarker=L.circleMarker([t.lat,t.lng],{
-      radius:7,color:"#0f172a",weight:2,fillColor:"#fff",fillOpacity:1
-    }).addTo(riskMap).bindTooltip("Lokasi target",{permanent:false});
-  }
-  riskArea.points.forEach((pt,i)=>{
-    const mk=L.marker(pt,{draggable:true,autoPan:true}).addTo(riskMarkers);
-    mk.bindTooltip("Titik "+(i+1)+" — seret untuk geser, tap untuk hapus",{permanent:false});
-    mk.on("drag",e=>{ const ll=e.target.getLatLng(); riskArea.points[i]=[+ll.lat.toFixed(6),+ll.lng.toFixed(6)];
-      if(riskArea.points.length>=3) riskPolygon.setLatLngs(riskArea.points); });
-    mk.on("dragend",()=>{ riskArea.saved=false; updateRiskPointList(); updateRiskSummary(); saveDraft(); });
-    mk.on("click",ev=>{ L.DomEvent.stopPropagation(ev);
-      if(confirm("Hapus Titik "+(i+1)+"?")){ riskArea.points.splice(i,1); riskArea.saved=false; syncRiskMap(); updateRiskSummary(); saveDraft(); } });
-  });
-  if(riskArea.points.length>=3){
-    riskPolygon.setLatLngs(riskArea.points);
-    if(!riskMap.hasLayer(riskPolygon)) riskPolygon.addTo(riskMap);
-  }else{
-    riskPolygon.setLatLngs([]);
-  }
-  updateRiskPointList();
-}
-function updateRiskPointList(){
-  const el=$("riskPointList"); if(!el) return;
-  if(!riskArea.points.length){
-    el.innerHTML="<strong>Belum ada titik.</strong>";
-    return;
-  }
-  el.innerHTML="<strong>"+riskArea.points.length+" titik</strong> · "+
-    riskArea.points.map((pt,i)=>"#"+(i+1)+" ("+pt[0].toFixed(5)+", "+pt[1].toFixed(5)+")").join(" · ");
-}
-function openRiskModal(){
-  if(!riskEnabled){
-    alert("Aktifkan Risk Area dulu bila area berisiko perlu digambar.");
-    return;
-  }
-  $("riskModal").classList.add("show");
-  $("riskModal").setAttribute("aria-hidden","false");
-  setTimeout(()=>{
-    ensureRiskMap();
-    riskMap.invalidateSize();
-    // center SEKALI saat dibuka: ke lokasi pengambilan koordinat / titik yang sudah ada
-    if(riskArea.points.length>=3){ const b=L.latLngBounds(riskArea.points); if(b.isValid()) riskMap.fitBounds(b.pad(.2)); }
-    else { riskMap.setView(getRiskCenter(),17); }
-    syncRiskMap();
-  },60);
-}
-function closeRiskModal(){
-  $("riskModal").classList.remove("show");
-  $("riskModal").setAttribute("aria-hidden","true");
-}
-function undoRiskPoint(){
-  if(!riskArea.points.length) return;
-  riskArea.points.pop();
-  riskArea.saved=false;
-  syncRiskMap();
-  saveDraft();
-}
-function clearRiskPoints(){
-  riskArea.points=[];
-  riskArea.saved=false;
-  syncRiskMap();
-  saveDraft();
-}
-function saveRiskArea(){
-  if(riskArea.points.length<3){
-    $("riskModalMsg").textContent="Minimal 3 titik diperlukan untuk membentuk polygon.";
-    return;
-  }
-  riskArea.saved=true;
-  $("riskModalMsg").textContent="Area risiko tersimpan di form inspeksi.";
-  updateRiskSummary();
-  saveDraft();
-  closeRiskModal();
-}
-function riskGeoJSON(){
-  if(!riskEnabled || riskArea.points.length<3) return null;
-  const ring=riskArea.points.map(pt=>[pt[1],pt[0]]);
-  ring.push([riskArea.points[0][1],riskArea.points[0][0]]);
-  return {
-    type:"Feature",
-    properties:{
-      source:"inspection_checklist",
-      point_count:riskArea.points.length
-    },
-    geometry:{
-      type:"Polygon",
-      coordinates:[ring]
-    }
-  };
-}
-function toggleRiskEnabled(checked){
-  riskEnabled=!!checked;
-  if(!riskEnabled){
-    riskArea={points:[],saved:false};
-    if(riskMap) syncRiskMap();
-  }
-  updateRiskSummary();
-  saveDraft();
-}
-function updateRiskSummary(){
-  const box=$("riskSummary"); const btn=$("btnRiskArea"); const toggle=$("riskEnabled");
-  if(btn) btn.disabled=!riskEnabled;
-  if(toggle) toggle.checked=!!riskEnabled;
-  if(!box) return;
-  if(!riskEnabled){
-    box.innerHTML='<div class="meta">Risk Area tidak aktif. Aktifkan hanya bila inspeksi ini memang memiliki area bahaya yang perlu dipetakan.</div>';
-    return;
-  }
-  const meta=currentRiskMeta();
-  const badge='<span class="risk-badge" style="background:'+meta.color+'"><span class="risk-dot" style="background:rgba(255,255,255,.92)"></span>'+meta.level.toUpperCase()+'</span>';
-  const geojson=riskGeoJSON();
-  box.innerHTML=
-    '<div class="row1"><div style="font-size:13px;font-weight:800">Risk Area aktif</div>'+badge+'</div>'+
-    '<div class="meta">Polygon akan dikaitkan ke hasil checklist saat submit. Level risiko mengikuti skor inspeksi saat submit, bukan saat tombol simpan area ditekan.</div>'+
-    '<div class="meta">Titik tersimpan: <b>'+(riskArea.points.length||0)+'</b>'+(geojson?' · Polygon siap disubmit.':' · Minimal 3 titik.')+'</div>'+
-    (riskArea.points.length?'<div class="points">'+riskArea.points.map((pt,i)=>'#'+(i+1)+' '+pt[0].toFixed(5)+', '+pt[1].toFixed(5)).join(' · ')+'</div>':'');
-}
-
 // ===================== PHOTO =====================
 function fileToDataURL(file){ return new Promise(res=>{ const img=new Image(),rd=new FileReader();
   rd.onload=()=>{ img.onload=()=>{ let{width:w,height:h}=img; const MAX=1280; if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h);w=Math.round(w*s);h=Math.round(h*s);}
-    const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);res(c.toDataURL("image/jpeg",0.7)); }; img.src=rd.result; };
-  rd.readAsDataURL(file); }); }
+    const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);res(c.toDataURL("image/jpeg",0.7)); }; img.onerror=()=>res(rd.result); img.src=rd.result; };
+  rd.onerror=()=>res(null); rd.readAsDataURL(file); }); }
 function dataURLtoBlob(d){ const[meta,b64]=d.split(","),mime=meta.match(/:(.*?);/)[1],bin=atob(b64),u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new Blob([u],{type:mime}); }
 
 // ===================== LOAD CONFIG =====================
@@ -387,47 +145,44 @@ function render(){
   $("app").innerHTML =
     '<div class="grid">'+
       '<div style="display:flex;flex-direction:column;gap:16px">'+
+        // SITE
         '<div class="panel"><div class="eyebrow">Site &amp; Inspeksi</div><div class="grid2">'+
           '<div><label class="f">Lokasi <span class="req">*</span></label><select id="locId"><option value="">— pilih —</option>'+
             LOCATIONS.map(l=>'<option value="'+l.id+'"'+(String(l.id)===String(locId)?' selected':'')+'>'+GMS.esc(l.name)+'</option>').join("")+'</select></div>'+
           '<div><label class="f">Inspektor <span class="req">*</span></label><input id="inspector" placeholder="Nama petugas" value="'+GMS.esc(inspector)+'"></div>'+
           '<div><label class="f">Status</label><select id="status">'+["OPEN","IN PROGRESS","CLOSED"].map(s=>'<option'+(s===status?' selected':'')+'>'+s+'</option>').join("")+'</select></div>'+
         '</div></div>'+
+        // GPS
         '<div class="panel"><div class="eyebrow">Validasi Lokasi GPS</div>'+
-          '<div class="btn-group">'+
+          '<div class="row" style="flex-wrap:wrap;gap:8px">'+
             '<button class="btn" id="btnGeo">&#128205; Ambil Koordinat</button>'+
-            '<button class="btn" id="btnRiskArea">Risk Area</button>'+
             '<button class="btn" id="btnManual">&#9000; Manual</button>'+
-          '</div>'+
-          '<div class="risk-toggle">'+
-            '<div><div class="txt1">Aktifkan Risk Area bila ada bahaya</div><div class="txt2">Jika tidak ada risk, fitur ini tetap nonaktif dan tidak ikut submit.</div></div>'+
-            '<label class="switch"><input type="checkbox" id="riskEnabled" '+(riskEnabled?'checked':'')+'><span class="slider"></span></label>'+
-          '</div>'+
-          '<div id="riskSummary" class="risk-summary"></div>'+
-          '<div class="row" style="flex-wrap:wrap;gap:8px;margin-top:12px">'+
             '<span id="geoTxt" class="mono" style="font-size:12px;color:var(--mut)"></span>'+
-          '</div><div id="manualBox"></div><div id="geoMsg" class="mono" style="font-size:11px;color:#64748b;margin-top:6px"></div>'+
+          '</div><div id="manualBox"></div><div id="geoMsg" class="mono" style="font-size:11px;color:#dc2626;margin-top:6px"></div>'+
         '</div>'+
+        // PHOTOS
         '<div class="panel"><div class="eyebrow">Foto Temuan</div>'+
           '<div class="photos" id="photos"></div></div>'+
+        // INSTRUMENT
         '<div class="panel"><div class="eyebrow">Instrumentation Scoring</div><div class="grid2" id="instr">'+instr.map(fieldHTML).join("")+'</div></div>'+
+        // VISUAL
         '<div class="panel"><div class="eyebrow">Visual Inspection</div><div class="grid2" id="vis">'+vis.map(fieldHTML).join("")+'</div></div>'+
       '</div>'+
+      // SCORE PANEL
       '<div class="scorebox"><div class="panel" id="scoreCard"></div>'+
         '<div class="panel" style="margin-top:12px"><div class="eyebrow" id="findHead">Findings</div><div class="findings" id="findList"></div></div>'+
         '<div id="gpsWarn"></div></div>'+
     '</div>';
 
-  $("locId").onchange=e=>{ locId=e.target.value; geo=null; updateGeo(); if(riskMap) syncRiskMap(); saveDraft(); };
+  // bind
+  $("locId").onchange=e=>{ locId=e.target.value; geo=null; updateGeo(); };
   $("inspector").oninput=e=>{ inspector=e.target.value; saveDraft(); };
-  $("status").onchange=e=>{ status=e.target.value; saveDraft(); };
-  $("btnGeo").onclick=getGeo;
-  $("btnManual").onclick=toggleManual;
-  $("btnRiskArea").onclick=openRiskModal;
-  $("riskEnabled").onchange=e=>toggleRiskEnabled(e.target.checked);
-  document.querySelectorAll("select[data-code]").forEach(s=> s.onchange=e=>{ cond[e.target.dataset.code]=e.target.value; saveDraft(); updateScore(); updateRiskSummary(); });
+  $("status").onchange=e=>{ status=e.target.value; };
+  $("btnGeo").onclick=getGeo; $("btnManual").onclick=toggleManual;
+  document.querySelectorAll("select[data-code]").forEach(s=> s.onchange=e=>{ cond[e.target.dataset.code]=e.target.value; saveDraft(); updateScore(); });
+  // init cond defaults
   PARAMS.forEach(p=>{ if(!cond[p.code]){ const o=optsOf(p.code)[0]; if(o) cond[p.code]=o.condition_label; } });
-  renderPhotos(); updateGeo(); updateScore(); updateRiskSummary();
+  renderPhotos(); updateGeo(); updateScore();
   $("actions").classList.remove("hidden");
 }
 
@@ -437,10 +192,19 @@ function renderPhotos(){
     w.innerHTML='<img src="'+ph.url+'"><button class="x">&times;</button>';
     w.querySelector(".x").onclick=()=>{ photos.splice(i,1); saveDraft(); renderPhotos(); };
     box.appendChild(w); });
-  const add=document.createElement("label"); add.className="addph";
-  add.innerHTML='<span style="font-size:17px">&#128247;</span><span>Tambah</span><input type="file" accept="image/*" capture="environment">';
-  add.querySelector("input").onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const d=await fileToDataURL(f); photos.push({url:d}); saveDraft(); renderPhotos(); };
-  box.appendChild(add);
+  const handleFiles=async(files)=>{
+    const arr=Array.from(files||[]); if(!arr.length)return;
+    for(const f of arr){ if(!f||(f.type&&!f.type.startsWith("image/")))continue; const d=await fileToDataURL(f); if(d)photos.push({url:d}); }
+    saveDraft(); renderPhotos();
+  };
+  const cam=document.createElement("label"); cam.className="addph";
+  cam.innerHTML='<span style="font-size:17px">&#128247;</span><span>Kamera</span><input type="file" accept="image/*" capture="environment" style="display:none">';
+  cam.querySelector("input").onchange=e=>{ handleFiles(e.target.files); e.target.value=""; };
+  box.appendChild(cam);
+  const gal=document.createElement("label"); gal.className="addph";
+  gal.innerHTML='<span style="font-size:17px">&#128194;</span><span>Galeri</span><input type="file" accept="image/*" multiple style="display:none">';
+  gal.querySelector("input").onchange=e=>{ handleFiles(e.target.files); e.target.value=""; };
+  box.appendChild(gal);
 }
 
 function updateScore(){
@@ -470,8 +234,8 @@ function updateGeo(){
     (v?' · <b style="color:'+v.c+'">'+v.s+' ('+v.dist+'m)</b>':''); }
   else gt.textContent="";
   let warn="";
-  if(!geo) warn='<div class="banner warn" style="margin-top:12px">&#9888; GPS belum diambil — tetap wajib sebelum simpan.</div>';
-  else if(v && v.s==="Off Location") warn='<div class="banner warn" style="margin-top:12px">&#9432; Posisi di luar radius referensi ('+v.dist+'m). Informasi ini tidak memblokir simpan inspeksi.</div>';
+  if(!geo) warn='<div class="banner warn" style="margin-top:12px">&#9888; GPS belum diambil — wajib sebelum simpan.</div>';
+  else if(v&&v.s==="Off Location") warn='<div class="banner err" style="margin-top:12px">&#9940; Off Location ('+v.dist+'m) — terlalu jauh dari titik, inspeksi tidak bisa disimpan.</div>';
   if(gw) gw.innerHTML=warn;
 }
 
@@ -484,13 +248,13 @@ function toggleManual(){
     '<button class="btn" id="mUse">Pakai</button></div>';
   $("mUse").onclick=()=>{ const la=parseFloat($("mLat").value),ln=parseFloat($("mLng").value);
     if(isNaN(la)||isNaN(ln)||la<-90||la>90||ln<-180||ln>180){ $("geoMsg").textContent="Koordinat manual tidak valid."; return; }
-    geo={lat:la,lng:ln,accuracy:null,time:new Date().toISOString(),manual:true}; $("geoMsg").textContent=""; box.innerHTML=""; updateGeo(); if(riskMap) syncRiskMap(); saveDraft(); };
+    geo={lat:la,lng:ln,accuracy:null,time:new Date().toISOString(),manual:true}; $("geoMsg").textContent=""; box.innerHTML=""; updateGeo(); };
 }
 function getGeo(){
   if(!locId){ $("geoMsg").textContent="Pilih lokasi target dulu."; return; }
   if(!navigator.geolocation||!window.isSecureContext){ $("geoMsg").textContent="Geolocation butuh HTTPS. Gunakan input manual."; toggleManual(); return; }
   $("geoMsg").textContent="Mencari sinyal GPS…";
-  const ok=p=>{ geo={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),time:new Date(p.timestamp).toISOString()}; $("geoMsg").textContent=""; updateGeo(); if(riskMap) syncRiskMap(); saveDraft(); };
+  const ok=p=>{ geo={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),time:new Date(p.timestamp).toISOString()}; $("geoMsg").textContent=""; updateGeo(); };
   navigator.geolocation.getCurrentPosition(ok, e1=>{
     if(e1.code===1){ $("geoMsg").textContent="Izin lokasi ditolak. Aktifkan Location Services lalu reload."; return; }
     navigator.geolocation.getCurrentPosition(ok, e2=>{ $("geoMsg").textContent="Gagal ambil GPS. Coba lagi / input manual."; toggleManual(); }, {enableHighAccuracy:false,timeout:20000,maximumAge:60000});
@@ -499,30 +263,17 @@ function getGeo(){
 
 // ===================== DRAFT =====================
 let _dt=null;
-function saveDraft(){ clearTimeout(_dt); _dt=setTimeout(()=>metaSet("draft",{cond,locId,inspector,status,geo,photos,riskEnabled,riskArea}),400); }
-async function loadDraft(){ const d=await metaGet("draft"); if(d){ cond=d.cond||{}; locId=d.locId||""; inspector=d.inspector||""; status=d.status||"OPEN"; geo=d.geo||null; photos=d.photos||[]; riskEnabled=!!d.riskEnabled; riskArea=d.riskArea||{points:[],saved:false}; } }
+function saveDraft(){ clearTimeout(_dt); _dt=setTimeout(()=>metaSet("draft",{cond,locId,inspector,status,geo,photos}),400); }
+async function loadDraft(){ const d=await metaGet("draft"); if(d){ cond=d.cond||{}; locId=d.locId||""; inspector=d.inspector||""; status=d.status||"OPEN"; geo=d.geo||null; photos=d.photos||[]; } }
 
 // ===================== VALIDATE + SAVE =====================
 function validate(){
+  const v=geoVal();
   if(!locId) return "Lokasi wajib dipilih.";
   if(!inspector.trim()) return "Nama inspektor wajib diisi.";
   if(!geo) return "GPS wajib diambil sebelum simpan.";
-  if(riskEnabled && riskArea.points.length<3) return "Risk Area aktif, tetapi polygon belum valid. Tambahkan minimal 3 titik.";
+  if(v&&v.s==="Off Location") return "Off Location — terlalu jauh dari titik.";
   return null;
-}
-function buildRiskAreaPayload(){
-  const feature=riskGeoJSON();
-  if(!feature) return null;
-  const meta=currentRiskMeta();
-  return {
-    risk_level:meta.level,
-    risk_color:meta.color,
-    score_total:meta.total,
-    tarp_level:meta.tarp,
-    point_count:riskArea.points.length,
-    polygon_geojson:feature,
-    source:"checklist"
-  };
 }
 function buildRecord(){
   const v=geoVal();
@@ -536,36 +287,15 @@ function buildRecord(){
     geo_time:geo.time||null,
   };
   PARAMS.forEach(p=> payload[p.code+"_condition"]=cond[p.code]);
-  return {
-    client_uuid:payload.client_uuid,
-    payload,
-    _photoData:photos.map(p=>p.url),
-    _riskArea:riskEnabled?buildRiskAreaPayload():null
-  };
-}
-async function pushRiskArea(inspectionId,riskPayload){
-  if(!inspectionId || !riskPayload) return null;
-  const insertPayload={
-    inspection_id:inspectionId,
-    risk_level:riskPayload.risk_level,
-    risk_color:riskPayload.risk_color,
-    score_total:riskPayload.score_total,
-    tarp_level:riskPayload.tarp_level,
-    point_count:riskPayload.point_count,
-    polygon_geojson:riskPayload.polygon_geojson,
-    source:riskPayload.source,
-    created_by:inspector.trim()
-  };
-  const { error } = await sb.from(RISK_AREA_TABLE).upsert(insertPayload,{onConflict:"inspection_id"});
-  if(error) return error;
-  return null;
+  return { client_uuid:payload.client_uuid, payload, _photoData:photos.map(p=>p.url) };
 }
 async function pushRecord(rec){
-  const warnings=[];
+  // idempotent insert by client_uuid
   const { error:ue } = await sb.from("inspections").upsert(rec.payload,{onConflict:"client_uuid",ignoreDuplicates:true});
   if(ue) throw ue;
   const { data:ins } = await sb.from("inspections").select("id").eq("client_uuid",rec.client_uuid).single();
   if(ins && rec._photoData && rec._photoData.length){
+    // deterministic paths -> safe on retry; refresh photo rows for this inspection
     await sb.from("inspection_photos").delete().eq("inspection_id",ins.id);
     for(let i=0;i<rec._photoData.length;i++){
       const path=rec.client_uuid+"/"+(i+1)+".jpg";
@@ -574,47 +304,26 @@ async function pushRecord(rec){
       await sb.from("inspection_photos").insert({inspection_id:ins.id,storage_path:path});
     }
   }
-  if(ins && rec._riskArea){
-    const riskErr=await pushRiskArea(ins.id,rec._riskArea);
-    if(riskErr) warnings.push("Risk Area belum masuk ke tabel hazard: "+(riskErr.message||riskErr));
-  }
-  return warnings;
 }
 async function submit(){
   const err=validate(); if(err){ alert(err); return; }
   $("btnSubmit").disabled=true; $("btnSubmit").textContent="Memproses…";
   const rec=buildRecord();
   try{
-    if(isOnline()){
-      const warnings=await pushRecord(rec);
-      await metaSet("draft",null);
-      done(true, warnings.join(" · "));
-    }else{
-      await obxPut(rec);
-      await metaSet("draft",null);
-      done(false);
-    }
+    if(isOnline()){ await pushRecord(rec); await metaSet("draft",null); done(true); }
+    else { await obxPut(rec); await metaSet("draft",null); done(false); }
   }catch(e){
-    try{
-      await obxPut(rec);
-      await metaSet("draft",null);
-      done(false,String(e.message||e));
-    }catch(e2){
-      $("btnSubmit").disabled=false; $("btnSubmit").textContent="Simpan Inspeksi"; alert("Gagal menyimpan: "+(e2.message||e2));
-    }
+    try{ await obxPut(rec); await metaSet("draft",null); done(false,String(e.message||e)); }
+    catch(e2){ $("btnSubmit").disabled=false; $("btnSubmit").textContent="Simpan Inspeksi"; alert("Gagal menyimpan: "+(e2.message||e2)); }
   }
 }
 function done(sent,warn){
-  const online = navigator.onLine;
-  const title = sent?'Inspeksi Tersimpan':(online?'Tersimpan lokal — akan dikirim ulang':'Tersimpan (menunggu sinyal)');
-  const sub = sent?'Data inspeksi berhasil dikirim. Jika Risk Area aktif, polygon ikut tersimpan ke tabel hazard area.'
-              :(online?'Tersimpan di perangkat. Pengiriman akan dicoba ulang otomatis (tap "Kirim sekarang" bila perlu).':'Tidak ada sinyal. Inspeksi dan Risk Area disimpan di perangkat & otomatis terkirim saat online.');
   $("actions").classList.add("hidden"); $("outbox").innerHTML="";
   $("app").innerHTML='<div class="center">'+
     '<div style="width:64px;height:64px;border-radius:50%;background:'+(sent?'#dcfce7':'#fef3c7')+';color:'+(sent?'#16a34a':'#d97706')+';display:flex;align-items:center;justify-content:center;font-size:32px">'+(sent?'&#10003;':'&#8681;')+'</div>'+
-    '<div style="font-size:18px;font-weight:700">'+title+'</div>'+
-    '<div style="font-size:13px;max-width:360px">'+sub+'</div>'+
-    (warn?'<div class="banner warn" style="max-width:380px">Catatan: '+GMS.esc(warn)+'</div>':'')+
+    '<div style="font-size:18px;font-weight:700">'+(sent?'Inspeksi Tersimpan':'Tersimpan (menunggu sinyal)')+'</div>'+
+    '<div style="font-size:13px;max-width:340px">'+(sent?'Data inspeksi berhasil dikirim ke database. Risiko dihitung otomatis di server.':'Tidak ada sinyal. Inspeksi disimpan di perangkat & otomatis terkirim saat online.')+'</div>'+
+    (warn?'<div class="banner warn" style="max-width:360px">Kirim online gagal ('+GMS.esc(warn)+'); masuk antrean offline.</div>':'')+
     '<button class="btn primary" style="max-width:240px" onclick="location.reload()">Inspeksi Baru</button>'+
     '<a class="btn" style="max-width:240px;text-decoration:none" href="index.html">Kembali ke Menu</a></div>';
   refreshOutbox();
@@ -642,12 +351,6 @@ async function init(){
 }
 $("btnDraft").onclick=()=>{ saveDraft(); setTimeout(()=>alert("Draft tersimpan di perangkat."),420); };
 $("btnSubmit").onclick=submit;
-$("btnCloseRisk").onclick=closeRiskModal;
-$("btnRiskCenter").onclick=()=>{ if(riskMap) riskMap.setView(getRiskCenter(),17); };
-$("btnRiskUndo").onclick=undoRiskPoint;
-$("btnRiskClear").onclick=clearRiskPoints;
-$("btnRiskSave").onclick=saveRiskArea;
-$("riskModal").addEventListener("click",e=>{ if(e.target.id==="riskModal") closeRiskModal(); });
 window.addEventListener("online",()=>{ GMS.setNet(); syncOutbox(); });
 window.addEventListener("offline",GMS.setNet);
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
