@@ -634,7 +634,7 @@ async function refreshOutbox(){ const box=$("outbox"); if(!box)return; const ite
 
 // ===================== INIT =====================
 async function init(){
-  $("hdr").innerHTML=GMS.header("Inspeksi Geoteknik","Bahodopi Block 2 & 3",{net:true}); GMS.setNet();
+  const _hd=$("hdr"); if(_hd) _hd.style.display="none";   // header disembunyikan — konteks sudah dari shell
   const session=await GMS.getSession();
   if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><div style="font-size:13px">Login dulu di halaman utama, lalu kembali.</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
   await loadConfig(); await loadDraft();
