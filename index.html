@@ -236,6 +236,7 @@
   .ov-act .ev-tx{flex:1;min-width:0;} .ov-act .ev-tx b{font-weight:600;}
   .ov-act .ev-d{color:var(--mutL);font-size:11px;}
   .ov-act .rk{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:auto;flex:0 0 auto;align-self:center;}
+  .ov-feed{max-height:228px;overflow-y:auto;padding-right:4px;}
   .big2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:4px 0 20px;}
   .bigtile{background:linear-gradient(165deg,rgba(26,48,86,.78),rgba(16,32,60,.7));border:1px solid rgba(125,160,220,.28);border-radius:18px;padding:22px;text-decoration:none;color:var(--txtL);position:relative;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:.16s;}
   .bigtile:hover{transform:translateY(-2px);border-color:rgba(120,170,240,.45);}
@@ -311,10 +312,11 @@ function renderShell(p){
   const navItems=NAV.filter(n=> n.access==="member"||p.canValidate);
   const nav=navItems
     .map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span> '+esc(n.label)+'</button>').join("");
-  const prim=navItems.slice(0,4);
+  const bottomKeys=["overview","inspeksi","pera","validasi"];
+  const prim=bottomKeys.map(k=>navItems.find(n=>n.key===k)).filter(Boolean);
   let bottomNav='<div class="s-bottomnav">'+
     prim.map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span>'+esc(shortLabel(n.label))+'</button>').join("")+
-    (navItems.length>4?'<button onclick="toggleSide(true)"><span class="i">&#9776;</span>More</button>':'')+
+    (navItems.length>prim.length?'<button onclick="toggleSide(true)"><span class="i">&#9776;</span>More</button>':'')+
   '</div>';
   $("root").innerHTML =
     '<div class="shell" id="shell">'+
@@ -373,13 +375,7 @@ function renderOverview(){
   } else {
     view.innerHTML='<div class="ov">'+
       '<div class="ov-kpis" id="ovk"></div>'+
-      '<div class="ov-qa">'+
-        '<button onclick="navTo(\'validasi\')">&#9745; Validate Inspections</button>'+
-        '<button onclick="navTo(\'dashboard\')">&#9636; Dashboard</button>'+
-        '<button onclick="navTo(\'inspeksi\')">&#9633; New Inspection</button>'+
-        '<button onclick="navTo(\'eews\')">&#9883; EEWS</button>'+
-      '</div>'+
-      '<div class="ov-panel"><h3>Recent Events</h3><div id="ovrecent" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
+      '<div class="ov-panel"><h3>Recent Events</h3><div id="ovrecent" class="ov-feed" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
     '</div>';
   }
   loadOverview(member);
