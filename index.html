@@ -254,6 +254,14 @@
     .s-tools .it{display:none;}            /* hide System + Time on phone, keep Sign out */
     .s-top .exit{padding:8px 11px;font-size:12px;white-space:nowrap;}
   }
+  .s-bottomnav{display:none;}
+  @media(max-width:900px){
+    .s-bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:58;background:rgba(8,18,36,.97);border-top:1px solid var(--line-d);padding:6px 2px;padding-bottom:calc(6px + env(safe-area-inset-bottom));backdrop-filter:blur(10px);}
+    .s-bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:var(--mutL);font-size:9.5px;font-weight:700;padding:5px 2px;cursor:pointer;min-width:0;}
+    .s-bottomnav button .i{font-size:18px;line-height:1;}
+    .s-bottomnav button.on{color:#38bdf8;}
+    .s-view{padding-bottom:68px;}
+  }
 </style>
 
 </head>
@@ -289,14 +297,21 @@ function nowClock(){ return new Date().toLocaleTimeString("en-GB"); }
 function weekStartISO(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); }
 function toggleSide(open){ const s=$("shell"); if(s) s.classList.toggle("open",!!open); }
 window.toggleSide=toggleSide;
+function shortLabel(l){ return ({"Overview":"Home","New Inspection":"Inspect","PERA":"PERA","Dashboard":"Dash","EEWS":"EEWS","Validation":"Validate","Database":"Data"})[l]||l; }
 
 function renderShell(p){
   SHELL.p=p;
   const nm=(p.profile&&p.profile.full_name)||(p.email||"").split("@")[0]||"";
   const roleLbl=p.role==="super_admin"?"Super Admin":p.role==="admin"?"Admin":"Member";
   const posdep=[(p.profile&&p.profile.position),(p.profile&&p.profile.department)].filter(Boolean).join(" · ")||roleLbl;
-  const nav=NAV.filter(n=> n.access==="member"||p.canValidate)
+  const navItems=NAV.filter(n=> n.access==="member"||p.canValidate);
+  const nav=navItems
     .map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span> '+esc(n.label)+'</button>').join("");
+  const prim=navItems.slice(0,4);
+  let bottomNav='<div class="s-bottomnav">'+
+    prim.map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span>'+esc(shortLabel(n.label))+'</button>').join("")+
+    (navItems.length>4?'<button onclick="toggleSide(true)"><span class="i">&#9776;</span>More</button>':'')+
+  '</div>';
   $("root").innerHTML =
     '<div class="shell" id="shell">'+
       '<div class="s-backdrop" onclick="toggleSide(false)"></div>'+
@@ -320,6 +335,7 @@ function renderShell(p){
         '</div>'+
         '<div class="s-view" id="view"></div>'+
       '</div>'+
+      bottomNav+
     '</div>';
   if(SHELL.clock) clearInterval(SHELL.clock);
   SHELL.clock=setInterval(()=>{ const c=$("s_clock"); if(c)c.textContent=nowClock(); },1000);
@@ -330,6 +346,7 @@ function navTo(key){
   const item=NAV.find(n=>n.key===key); if(!item) return;
   if(item.full){ window.location.href=item.href; return; }   // analytical → full screen (own sidebar, no double)
   document.querySelectorAll("#snav button").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
+  document.querySelectorAll(".s-bottomnav button[data-k]").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
   toggleSide(false);
   if(key==="overview"){ renderOverview(); return; }
   $("view").innerHTML='<iframe class="modframe" src="'+item.href+'"></iframe>';
