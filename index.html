@@ -293,6 +293,8 @@ const NAV = [
   { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"monitoring.html",    access:"admin", full:true },
   { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin", full:true },
   { key:"validasi",  label:"Validation",      ic:"&#9745;",  href:"validasi.html",      access:"admin" },
+  { key:"shift",     label:"Round Check",     ic:"&#9202;",  href:"shift.html",         access:"admin" },
+  { key:"shiftrep",  label:"Shift Report",    ic:"&#9776;",  href:"shiftreport.html",   access:"admin" },
   { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
 ];
 let SHELL = {};
@@ -302,7 +304,7 @@ function nowClock(){ return new Date().toLocaleTimeString("en-GB"); }
 function weekStartISO(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); }
 function toggleSide(open){ const s=$("shell"); if(s) s.classList.toggle("open",!!open); }
 window.toggleSide=toggleSide;
-function shortLabel(l){ return ({"Overview":"Home","New Inspection":"Inspect","PERA":"PERA","Dashboard":"Dash","EEWS":"EEWS","Validation":"Validate","Database":"Data"})[l]||l; }
+function shortLabel(l){ return ({"Overview":"Home","New Inspection":"Inspect","PERA":"PERA","Dashboard":"Dash","EEWS":"EEWS","Validation":"Validate","Round Check":"Check","Shift Report":"Report","Database":"Data"})[l]||l; }
 
 function renderShell(p){
   SHELL.p=p;
