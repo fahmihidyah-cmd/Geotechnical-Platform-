@@ -192,7 +192,62 @@
   .tile-d .go{position:absolute;right:14px;bottom:13px;color:var(--mutL);font-size:17px;transition:.18s;}
   .tile-d:hover .go{color:#fff;transform:translateX(3px);}
   .foot-d{text-align:center;color:rgba(143,166,200,.6);font-size:10px;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace;margin-top:30px;}
+
+  /* ===== APP SHELL ===== */
+  .shell{display:grid;grid-template-columns:248px 1fr;height:100svh;overflow:hidden;
+    background:radial-gradient(900px 600px at 88% -8%,rgba(56,189,248,.07),transparent 60%),linear-gradient(180deg,#0c1d39,#0a1830 60%,#081428);}
+  .s-side{border-right:1px solid var(--line-d);padding:16px 12px;display:flex;flex-direction:column;gap:3px;background:rgba(7,15,30,.55);overflow-y:auto;}
+  .s-brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px;}
+  .s-brand .tri{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;background:linear-gradient(150deg,rgba(251,146,60,.2),rgba(37,99,235,.16));border:1px solid rgba(251,146,60,.4);color:var(--orange);}
+  .s-brand b{font-size:15px;font-weight:800;} .s-brand small{display:block;font-size:8.5px;letter-spacing:.16em;color:var(--mutL);font-family:ui-monospace,Menlo,monospace;}
+  .s-navlbl{font-size:9.5px;letter-spacing:.18em;color:var(--mutL);text-transform:uppercase;margin:12px 8px 6px;}
+  .s-nav button{width:100%;display:flex;align-items:center;gap:11px;padding:10px 11px;border:0;border-radius:10px;color:var(--mutL);background:none;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;text-align:left;}
+  .s-nav button .i{width:18px;text-align:center;font-size:15px;}
+  .s-nav button:hover{background:rgba(56,189,248,.07);color:var(--txtL);}
+  .s-nav button.on{background:linear-gradient(120deg,rgba(59,130,246,.92),rgba(30,64,175,.82));color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.3);}
+  .s-user{margin-top:auto;display:flex;align-items:center;gap:10px;background:rgba(14,30,56,.6);border:1px solid var(--line-d);border-radius:12px;padding:10px;}
+  .s-user .av{width:34px;height:34px;border-radius:50%;background:#1e3a6b;color:#9fc2ff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto;}
+  .s-user b{font-size:12.5px;} .s-user small{font-size:10.5px;color:var(--mutL);}
+  .s-main{display:flex;flex-direction:column;height:100svh;overflow:hidden;min-width:0;}
+  .s-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line-d);background:rgba(8,18,36,.4);}
+  .s-top .hb{display:none;background:none;border:1px solid var(--line-d);color:var(--txtL);border-radius:9px;padding:6px 11px;font-size:16px;cursor:pointer;}
+  .s-greet h1{margin:0;font-family:'Space Grotesk',system-ui,sans-serif;font-size:21px;font-weight:700;}
+  .s-greet p{margin:2px 0 0;font-size:12px;color:var(--mutL);}
+  .s-tools{display:flex;align-items:center;gap:16px;}
+  .s-tools .it{font-size:10.5px;color:var(--mutL);text-align:right;} .s-tools .it b{display:block;font-size:12.5px;color:var(--txtL);font-family:ui-monospace,Menlo,monospace;}
+  .s-tools .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;margin-right:5px;}
+  .s-view{flex:1;overflow:auto;position:relative;}
+  .modframe{width:100%;height:100%;border:0;display:block;background:#0a1830;}
+  .ov{padding:20px 22px 40px;}
+  .ov-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+  .ov-kpi{background:rgba(18,38,68,.5);border:1px solid var(--line-d);border-radius:14px;padding:15px;}
+  .ov-kpi .ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);}
+  .ov-kpi .n{font-size:27px;font-weight:800;line-height:1;} .ov-kpi .l{font-size:12px;color:var(--c);font-weight:700;margin-top:3px;} .ov-kpi .s2{font-size:10.5px;color:var(--mutL);margin-top:5px;}
+  .ov-qa{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 20px;}
+  .ov-qa button{background:rgba(14,30,56,.6);border:1px solid var(--line-d);color:var(--txtL);border-radius:11px;padding:11px 15px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;gap:8px;align-items:center;}
+  .ov-qa button:hover{border-color:rgba(120,170,240,.45);}
+  .ov-panel{background:rgba(18,38,68,.5);border:1px solid var(--line-d);border-radius:14px;padding:16px;}
+  .ov-panel h3{margin:0 0 12px;font-size:11.5px;letter-spacing:.05em;color:var(--mutL);text-transform:uppercase;}
+  .ov-act{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line-d);font-size:12.5px;}
+  .ov-act:first-of-type{border-top:0;}
+  .ov-act .t{font-family:ui-monospace,Menlo,monospace;color:var(--mutL);font-size:10.5px;width:78px;flex:0 0 auto;}
+  .ov-act .rk{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:auto;}
+  .big2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:4px 0 20px;}
+  .bigtile{background:rgba(18,38,68,.5);border:1px solid var(--line-d);border-radius:18px;padding:22px;text-decoration:none;color:var(--txtL);position:relative;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:.16s;}
+  .bigtile:hover{transform:translateY(-2px);border-color:rgba(120,170,240,.45);}
+  .bigtile .ic{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);border:1px solid color-mix(in srgb,var(--c) 42%,transparent);}
+  .bigtile b{font-size:18px;}
+  .s-backdrop{display:none;}
+  @media(max-width:900px){
+    .shell{grid-template-columns:1fr;}
+    .s-side{position:fixed;left:0;top:0;bottom:0;width:248px;z-index:60;transform:translateX(-100%);transition:.22s;}
+    .shell.open .s-side{transform:none;}
+    .shell.open .s-backdrop{display:block;position:fixed;inset:0;background:rgba(3,8,18,.55);z-index:55;}
+    .s-top .hb{display:inline-block;}
+    .ov-kpis{grid-template-columns:repeat(2,1fr);} .big2{grid-template-columns:1fr;}
+  }
 </style>
+
 </head>
 <body>
 <div id="root"><div class="center"><div class="spin"></div></div></div>
@@ -211,32 +266,133 @@ const TILES = [
   { key:"validasi", href:"validasi.html", label:"Validation",     sub:"Verify & approve inspections", ic:"&#9745;", c:"#2dd4bf", access:"admin" },
   { key:"database", href:"database.html", label:"Database",       sub:"Checklist · Users · Reporting · PERA audit", ic:"&#9638;", c:"#a78bfa", access:"admin" },
 ];
-function renderHome(p){
-  const canV = p.canValidate;                              // admin/super only
-  const tiles = TILES.filter(t => t.access==="member" || canV);
-  const nm = (p.profile&&p.profile.full_name) || (p.email||"").split("@")[0] || "";
-  const sub = [(p.profile&&p.profile.position), (p.profile&&p.profile.department)].filter(Boolean).join(" · ");
-  const roleLbl = p.role==="super_admin"?"Super Admin":p.role==="admin"?"Admin":"Member";
-  const tileHtml = tiles.map(t =>
-    '<a class="tile-d" href="'+t.href+'" style="--c:'+t.c+'">'+
-      '<div class="ic" style="--c:'+t.c+'">'+t.ic+'</div>'+
-      '<div class="lab">'+esc(t.label)+'</div><div class="sub">'+esc(t.sub)+'</div>'+
-      '<span class="go">&#8594;</span></a>').join("");
-  $("root").innerHTML = sceneBg()+
-    '<div class="home-wrap">'+
-      '<div class="topbar-d">'+
-        '<div class="brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
-        '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Sign out</button>'+
+const NAV = [
+  { key:"overview",  label:"Overview",       ic:"&#8962;",  access:"member" },
+  { key:"inspeksi",  label:"New Inspection",  ic:"&#9633;",  href:"inspeksi.html",      access:"member" },
+  { key:"pera",      label:"PERA",            ic:"&#9888;",  href:"pera.html",          access:"member" },
+  { key:"monitoring",label:"Monitoring",      ic:"&#9707;",  href:"monitoring.html",    access:"admin" },
+  { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin" },
+  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"exec_dashboard.html",access:"admin" },
+  { key:"validasi",  label:"Validation",      ic:"&#9745;",  href:"validasi.html",      access:"admin" },
+  { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
+];
+let SHELL = {};
+function daypart(){ const h=new Date().getHours(); return h<11?"morning":h<18?"afternoon":"evening"; }
+function nowClock(){ return new Date().toLocaleTimeString("en-GB"); }
+function weekStartISO(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); }
+function toggleSide(open){ const s=$("shell"); if(s) s.classList.toggle("open",!!open); }
+window.toggleSide=toggleSide;
+
+function renderShell(p){
+  SHELL.p=p;
+  const nm=(p.profile&&p.profile.full_name)||(p.email||"").split("@")[0]||"";
+  const roleLbl=p.role==="super_admin"?"Super Admin":p.role==="admin"?"Admin":"Member";
+  const posdep=[(p.profile&&p.profile.position),(p.profile&&p.profile.department)].filter(Boolean).join(" · ")||roleLbl;
+  const nav=NAV.filter(n=> n.access==="member"||p.canValidate)
+    .map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span> '+esc(n.label)+'</button>').join("");
+  $("root").innerHTML =
+    '<div class="shell" id="shell">'+
+      '<div class="s-backdrop" onclick="toggleSide(false)"></div>'+
+      '<aside class="s-side">'+
+        '<div class="s-brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
+        '<div class="s-navlbl">Workspace</div>'+
+        '<div class="s-nav" id="snav">'+nav+'</div>'+
+        '<div class="s-user"><div class="av">'+esc((nm||"?").slice(0,2).toUpperCase())+'</div><div><b>'+esc(nm)+'</b><small>'+esc(roleLbl)+'</small></div></div>'+
+      '</aside>'+
+      '<div class="s-main">'+
+        '<div class="s-top">'+
+          '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
+            '<button class="hb" onclick="toggleSide(true)">&#9776;</button>'+
+            '<div class="s-greet"><h1>Good '+daypart()+', '+esc(nm.split(" ")[0]||nm)+' &#128075;</h1><p>'+esc(posdep)+'</p></div>'+
+          '</div>'+
+          '<div class="s-tools">'+
+            '<div class="it"><span class="dot"></span>System<b>Operational</b></div>'+
+            '<div class="it">Time<b id="s_clock">'+nowClock()+'</b></div>'+
+            '<button class="exit" onclick="GMS.logout()"><span>&#9211;</span> Sign out</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="s-view" id="view"></div>'+
       '</div>'+
-      '<div class="home-main">'+
-        '<div class="greet"><div class="hi">Welcome</div>'+
-          '<h1>Hello, '+esc(nm)+' <span class="wave">&#128075;</span></h1>'+
-          '<p>'+(sub?esc(sub)+' · ':'')+'<span class="mono" style="opacity:.85">'+esc(roleLbl)+'</span></p></div>'+
-        '<div class="eyebrow-d">Applications</div>'+
-        '<div class="tiles-d">'+tileHtml+'</div>'+
-      '</div>'+
-      '<div class="foot-d">IGP MOROWALI · PT VALE INDONESIA · INTERNAL USE ONLY</div>'+
     '</div>';
+  if(SHELL.clock) clearInterval(SHELL.clock);
+  SHELL.clock=setInterval(()=>{ const c=$("s_clock"); if(c)c.textContent=nowClock(); },1000);
+  navTo("overview");
+}
+
+function navTo(key){
+  const item=NAV.find(n=>n.key===key); if(!item) return;
+  document.querySelectorAll("#snav button").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
+  toggleSide(false);
+  if(key==="overview"){ renderOverview(); return; }
+  $("view").innerHTML='<iframe class="modframe" src="'+item.href+'"></iframe>';
+}
+window.navTo=navTo;
+
+function kpi(c,ic,n,l,s){ return '<div class="ov-kpi" style="--c:'+c+'"><div class="ic">'+ic+'</div><div class="n">'+n+'</div><div class="l">'+l+'</div><div class="s2">'+esc(s)+'</div></div>'; }
+
+function renderOverview(){
+  const p=SHELL.p, member=!p.canValidate, view=$("view");
+  if(member){
+    view.innerHTML='<div class="ov">'+
+      '<div class="big2">'+
+        '<div class="bigtile" style="--c:#fb923c" onclick="navTo(\'inspeksi\')"><div class="ic">&#9633;</div><div><b>New Inspection</b><br><small style="color:var(--mutL)">Checklist · GPS · photos (offline)</small></div><span style="color:var(--mutL)">Start &#8594;</span></div>'+
+        '<div class="bigtile" style="--c:#22d3ee" onclick="navTo(\'pera\')"><div class="ic">&#9888;</div><div><b>PERA</b><br><small style="color:var(--mutL)">Rapid post-earthquake assessment</small></div><span style="color:var(--mutL)">Open &#8594;</span></div>'+
+      '</div>'+
+      '<div class="s-navlbl" style="margin-left:2px">My Activity</div>'+
+      '<div class="ov-kpis" id="ovk" style="grid-template-columns:repeat(3,1fr)"></div>'+
+    '</div>';
+  } else {
+    view.innerHTML='<div class="ov">'+
+      '<div class="ov-kpis" id="ovk"></div>'+
+      '<div class="ov-qa">'+
+        '<button onclick="navTo(\'validasi\')">&#9745; Validate Inspections</button>'+
+        '<button onclick="navTo(\'dashboard\')">&#9636; Open Dashboard</button>'+
+        '<button onclick="navTo(\'inspeksi\')">&#9633; New Inspection</button>'+
+        '<button onclick="navTo(\'monitoring\')">&#9707; Monitoring</button>'+
+      '</div>'+
+      '<div class="ov-panel"><h3>Recent Inspections</h3><div id="ovrecent" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
+    '</div>';
+  }
+  loadOverview(member);
+}
+
+async function loadOverview(member){
+  const ovk=$("ovk");
+  try{
+    if(member){
+      const u=await sb.auth.getUser(); const uid=u&&u.data&&u.data.user?u.data.user.id:null;
+      const ms=(()=>{const d=new Date();d.setDate(1);return d.toISOString().slice(0,10);})();
+      const [open,month]=await Promise.all([
+        sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).neq("status","CLOSED"),
+        sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).gte("inspection_date",ms)
+      ]);
+      if(ovk) ovk.innerHTML=
+        kpi("#fb923c","&#9633;",open.count||0,"My Open Findings","status not closed")+
+        kpi("#eab308","&#9201;",month.count||0,"This Month","inspections created")+
+        kpi("#22c55e","&#10003;","OK","Sync","offline queue");
+    } else {
+      const ws=weekStartISO();
+      const [pend,openf,highf,wk]=await Promise.all([
+        sb.from("inspections").select("id",{count:"exact",head:true}).eq("approval_status","pending"),
+        sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED"),
+        sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED").in("risk_final",["High","Very High"]),
+        sb.from("inspections").select("id",{count:"exact",head:true}).gte("inspection_date",ws)
+      ]);
+      if(ovk) ovk.innerHTML=
+        kpi("#eab308","&#9636;",pend.count||0,"Pending Validation","awaiting engineer")+
+        kpi("#fb923c","&#9670;",openf.count||0,"Open Findings","not yet closed")+
+        kpi("#ef4444","&#9888;",highf.count||0,"High / Very High","open, elevated risk")+
+        kpi("#22c55e","&#9201;",wk.count||0,"This Week","inspections logged");
+      const { data:rec }=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
+      const el=$("ovrecent");
+      if(el) el.innerHTML=((rec||[]).map(r=>{
+        const risk=(r.risk_override&&String(r.risk_override).trim())||r.risk_final||"—"; const c=RC[risk]||"#64748b";
+        return '<div class="ov-act"><span class="t">'+esc(String(r.inspection_date||"").slice(0,10))+'</span>'+
+          '<span>'+esc((r.locations&&r.locations.name)||"—")+'</span>'+
+          '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
+      }).join("")) || '<span style="color:var(--mutL)">No data.</span>';
+    }
+  }catch(e){ if(ovk) ovk.innerHTML='<div style="color:var(--mutL);font-size:12px">Failed to load overview.</div>'; }
 }
 
 /* ===================== AUTH ===================== */
@@ -501,7 +657,7 @@ async function boot(){
       '</div>';
     return;
   }
-  renderHome(p);
+  renderShell(p);
 }
 sb.auth.onAuthStateChange((ev)=>{ if(ev==="PASSWORD_RECOVERY"){ mode="newpass"; ndaOpen=false; renderAuth(); } });
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
