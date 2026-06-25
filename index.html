@@ -268,9 +268,8 @@ const sb = GMS.sb, $ = GMS.$, esc = GMS.esc;
 const TILES = [
   { key:"inspeksi", href:"inspeksi.html", label:"New Inspection", sub:"Checklist · GPS · photos (offline)", ic:"&#9633;", c:"#fb923c", access:"member" },
   { key:"pera",     href:"pera.html",     label:"PERA",           sub:"Rapid post-earthquake assessment (offline)", ic:"&#9888;", c:"#22d3ee", access:"member" },
-  { key:"monitoring",href:"monitoring.html",label:"Monitoring",   sub:"Integrated dashboard (EEWS · risk · instruments)", ic:"&#9707;", c:"#60a5fa", access:"admin" },
+  { key:"dashboard",href:"monitoring.html",label:"Dashboard", sub:"Integrated dashboard (EEWS · risk · instruments)", ic:"&#9636;", c:"#3b82f6", access:"admin" },
   { key:"eews",     href:"eews.html",     label:"EEWS",           sub:"Earthquake early warning", ic:"&#9883;", c:"#f87171", access:"admin" },
-  { key:"dashboard",href:"exec_dashboard.html",label:"Dashboard", sub:"Risk map, list & reports", ic:"&#9636;", c:"#3b82f6", access:"admin" },
   { key:"validasi", href:"validasi.html", label:"Validation",     sub:"Verify & approve inspections", ic:"&#9745;", c:"#2dd4bf", access:"admin" },
   { key:"database", href:"database.html", label:"Database",       sub:"Checklist · Users · Reporting · PERA audit", ic:"&#9638;", c:"#a78bfa", access:"admin" },
 ];
@@ -278,9 +277,8 @@ const NAV = [
   { key:"overview",  label:"Overview",       ic:"&#8962;",  access:"member" },
   { key:"inspeksi",  label:"New Inspection",  ic:"&#9633;",  href:"inspeksi.html",      access:"member" },
   { key:"pera",      label:"PERA",            ic:"&#9888;",  href:"pera.html",          access:"member" },
-  { key:"monitoring",label:"Monitoring",      ic:"&#9707;",  href:"monitoring.html",    access:"admin" },
+  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"monitoring.html",    access:"admin" },
   { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin" },
-  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"exec_dashboard.html",access:"admin" },
   { key:"validasi",  label:"Validation",      ic:"&#9745;",  href:"validasi.html",      access:"admin" },
   { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
 ];
@@ -355,9 +353,9 @@ function renderOverview(){
       '<div class="ov-kpis" id="ovk"></div>'+
       '<div class="ov-qa">'+
         '<button onclick="navTo(\'validasi\')">&#9745; Validate Inspections</button>'+
-        '<button onclick="navTo(\'dashboard\')">&#9636; Open Dashboard</button>'+
+        '<button onclick="navTo(\'dashboard\')">&#9636; Dashboard</button>'+
         '<button onclick="navTo(\'inspeksi\')">&#9633; New Inspection</button>'+
-        '<button onclick="navTo(\'monitoring\')">&#9707; Monitoring</button>'+
+        '<button onclick="navTo(\'eews\')">&#9883; EEWS</button>'+
       '</div>'+
       '<div class="ov-panel"><h3>Recent Inspections</h3><div id="ovrecent" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
     '</div>';
@@ -365,45 +363,47 @@ function renderOverview(){
   loadOverview(member);
 }
 
+async function sc(q){ try{ const r=await q; if(!r||r.error) return null; return (r.count==null?0:r.count); }catch(e){ return null; } }
+function fmtN(v){ return v==null?"—":v; }
+
 async function loadOverview(member){
-  const ovk=$("ovk");
-  try{
-    if(member){
-      const u=await sb.auth.getUser(); const uid=u&&u.data&&u.data.user?u.data.user.id:null;
-      const ms=(()=>{const d=new Date();d.setDate(1);return d.toISOString().slice(0,10);})();
-      const [open,month]=await Promise.all([
-        sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).neq("status","CLOSED"),
-        sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).gte("inspection_date",ms)
-      ]);
-      if(ovk) ovk.innerHTML=
-        kpi("#fb923c","&#9633;",open.count||0,"My Open Findings","status not closed")+
-        kpi("#eab308","&#9201;",month.count||0,"This Month","inspections created")+
-        kpi("#22c55e","&#10003;","OK","Sync","offline queue");
-    } else {
-      const ws=weekStartISO();
-      const [pend,openf,highf,wk]=await Promise.all([
-        sb.from("inspections").select("id",{count:"exact",head:true}).eq("approval_status","pending"),
-        sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED"),
-        sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED").in("risk_final",["High","Very High"]),
-        sb.from("inspections").select("id",{count:"exact",head:true}).gte("inspection_date",ws)
-      ]);
-      if(ovk) ovk.innerHTML=
-        kpi("#eab308","&#9636;",pend.count||0,"Pending Validation","awaiting engineer")+
-        kpi("#fb923c","&#9670;",openf.count||0,"Open Findings","not yet closed")+
-        kpi("#ef4444","&#9888;",highf.count||0,"High / Very High","open, elevated risk")+
-        kpi("#22c55e","&#9201;",wk.count||0,"This Week","inspections logged");
-      const el=$("ovrecent");
-      try{
-        const { data:rec }=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
-        if(el) el.innerHTML=((rec||[]).map(r=>{
-          const risk=(r.risk_override&&String(r.risk_override).trim())||r.risk_final||"—"; const c=RC[risk]||"#64748b";
-          return '<div class="ov-act"><span class="t">'+esc(String(r.inspection_date||"").slice(0,10))+'</span>'+
-            '<span>'+esc((r.locations&&r.locations.name)||"—")+'</span>'+
-            '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
-        }).join("")) || '<span style="color:var(--mutL)">No data.</span>';
-      }catch(e2){ if(el) el.innerHTML='<span style="color:var(--mutL)">Could not load recent items.</span>'; }
-    }
-  }catch(e){ if(ovk) ovk.innerHTML='<div style="color:var(--mutL);font-size:12px">Failed to load overview.</div>'; }
+  const ovk=$("ovk"); if(!ovk) return;
+  if(member){
+    let uid=null; try{ const u=await sb.auth.getUser(); uid=u&&u.data&&u.data.user?u.data.user.id:null; }catch(e){}
+    const ms=(()=>{const d=new Date();d.setDate(1);return d.toISOString().slice(0,10);})();
+    const [open,month]=await Promise.all([
+      uid?sc(sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).neq("status","CLOSED")):Promise.resolve(null),
+      uid?sc(sb.from("inspections").select("id",{count:"exact",head:true}).eq("created_by",uid).gte("inspection_date",ms)):Promise.resolve(null)
+    ]);
+    ovk.innerHTML=
+      kpi("#fb923c","&#9633;",fmtN(open),"My Open Findings","status not closed")+
+      kpi("#eab308","&#9201;",fmtN(month),"This Month","inspections created")+
+      kpi("#22c55e","&#10003;","OK","Sync","offline queue");
+    return;
+  }
+  const ws=weekStartISO();
+  const [pend,openf,highf,wk]=await Promise.all([
+    sc(sb.from("inspections").select("id",{count:"exact",head:true}).eq("approval_status","pending")),
+    sc(sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED")),
+    sc(sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED").in("risk_final",["High","Very High"])),
+    sc(sb.from("inspections").select("id",{count:"exact",head:true}).gte("inspection_date",ws))
+  ]);
+  ovk.innerHTML=
+    kpi("#eab308","&#9636;",fmtN(pend),"Pending Validation","awaiting engineer")+
+    kpi("#fb923c","&#9670;",fmtN(openf),"Open Findings","not yet closed")+
+    kpi("#ef4444","&#9888;",fmtN(highf),"High / Very High","open, elevated risk")+
+    kpi("#22c55e","&#9201;",fmtN(wk),"This Week","inspections logged");
+  const el=$("ovrecent");
+  if(el) try{
+    const r=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
+    const rec=(r&&!r.error&&r.data)?r.data:[];
+    el.innerHTML=(rec.map(row=>{
+      const risk=(row.risk_override&&String(row.risk_override).trim())||row.risk_final||"—"; const c=RC[risk]||"#64748b";
+      return '<div class="ov-act"><span class="t">'+esc(String(row.inspection_date||"").slice(0,10))+'</span>'+
+        '<span>'+esc((row.locations&&row.locations.name)||"—")+'</span>'+
+        '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
+    }).join("")) || '<span style="color:var(--mutL)">No recent inspections.</span>';
+  }catch(e2){ el.innerHTML='<span style="color:var(--mutL)">Could not load recent items.</span>'; }
 }
 
 /* ===================== AUTH ===================== */
