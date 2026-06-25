@@ -246,6 +246,14 @@
     .s-top .hb{display:inline-block;}
     .ov-kpis{grid-template-columns:repeat(2,1fr);} .big2{grid-template-columns:1fr;}
   }
+  @media(max-width:640px){
+    .s-top{padding:10px 14px;gap:8px;}
+    .s-greet h1{font-size:15px;line-height:1.2;}
+    .s-greet p{display:none;}
+    .s-tools{gap:8px;}
+    .s-tools .it{display:none;}            /* hide System + Time on phone, keep Sign out */
+    .s-top .exit{padding:8px 11px;font-size:12px;white-space:nowrap;}
+  }
 </style>
 
 </head>
@@ -277,6 +285,7 @@ const NAV = [
   { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
 ];
 let SHELL = {};
+const RC = { "Low":"#16a34a", "Medium":"#eab308", "High":"#f97316", "Very High":"#dc2626" };
 function daypart(){ const h=new Date().getHours(); return h<11?"morning":h<18?"afternoon":"evening"; }
 function nowClock(){ return new Date().toLocaleTimeString("en-GB"); }
 function weekStartISO(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); }
@@ -383,14 +392,16 @@ async function loadOverview(member){
         kpi("#fb923c","&#9670;",openf.count||0,"Open Findings","not yet closed")+
         kpi("#ef4444","&#9888;",highf.count||0,"High / Very High","open, elevated risk")+
         kpi("#22c55e","&#9201;",wk.count||0,"This Week","inspections logged");
-      const { data:rec }=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
       const el=$("ovrecent");
-      if(el) el.innerHTML=((rec||[]).map(r=>{
-        const risk=(r.risk_override&&String(r.risk_override).trim())||r.risk_final||"—"; const c=RC[risk]||"#64748b";
-        return '<div class="ov-act"><span class="t">'+esc(String(r.inspection_date||"").slice(0,10))+'</span>'+
-          '<span>'+esc((r.locations&&r.locations.name)||"—")+'</span>'+
-          '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
-      }).join("")) || '<span style="color:var(--mutL)">No data.</span>';
+      try{
+        const { data:rec }=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
+        if(el) el.innerHTML=((rec||[]).map(r=>{
+          const risk=(r.risk_override&&String(r.risk_override).trim())||r.risk_final||"—"; const c=RC[risk]||"#64748b";
+          return '<div class="ov-act"><span class="t">'+esc(String(r.inspection_date||"").slice(0,10))+'</span>'+
+            '<span>'+esc((r.locations&&r.locations.name)||"—")+'</span>'+
+            '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
+        }).join("")) || '<span style="color:var(--mutL)">No data.</span>';
+      }catch(e2){ if(el) el.innerHTML='<span style="color:var(--mutL)">Could not load recent items.</span>'; }
     }
   }catch(e){ if(ovk) ovk.innerHTML='<div style="color:var(--mutL);font-size:12px">Failed to load overview.</div>'; }
 }
