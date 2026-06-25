@@ -201,8 +201,8 @@ function ensureRiskMap(){
   riskBase = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
   riskSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
   riskAerial = L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:0,maxZoom:22,minNativeZoom:14,maxNativeZoom:19,tms:false,attribution:"Aerial &copy; PT Vale"});
-  riskAerial.addTo(riskMap);
-  L.control.layers({"Aerial PT Vale":riskAerial,"Satelit (Esri)":riskSat,"Peta (OSM)":riskBase},null,{position:"topright"}).addTo(riskMap);
+  riskSat.addTo(riskMap);
+  L.control.layers({"Satelit (Esri)":riskSat,"Aerial PT Vale":riskAerial,"Peta (OSM)":riskBase},null,{position:"topright"}).addTo(riskMap);
   riskMarkers = L.layerGroup().addTo(riskMap);
   riskPolygon = L.polygon([],{
     color:"#2563eb",
@@ -470,13 +470,11 @@ function updateScore(){
 
 function updateGeo(){
   const gt=$("geoTxt"), gw=$("gpsWarn"); if(!gt)return;
-  const v=geoVal();
-  if(geo){ gt.innerHTML=geo.lat.toFixed(5)+", "+geo.lng.toFixed(5)+(geo.accuracy!=null?" ±"+geo.accuracy+"m":"")+(geo.manual?" (manual)":"")+
-    (v?' · <b style="color:'+v.c+'">'+v.s+' ('+v.dist+'m)</b>':''); }
+  if(geo){ gt.innerHTML=geo.lat.toFixed(5)+", "+geo.lng.toFixed(5)+(geo.accuracy!=null?" ±"+geo.accuracy+"m":"")+(geo.manual?" (manual)":""); }
   else gt.textContent="";
+  // Status lokasi (On/Near/Off) sengaja TIDAK ditampilkan di form — dihitung & disimpan utk ditinjau engineer saat validasi.
   let warn="";
-  if(!geo) warn='<div class="banner warn" style="margin-top:12px">&#9888; GPS belum diambil — tetap wajib sebelum simpan.</div>';
-  else if(v && v.s==="Off Location") warn='<div class="banner warn" style="margin-top:12px">&#9432; Posisi di luar radius referensi ('+v.dist+'m). Informasi ini tidak memblokir simpan inspeksi.</div>';
+  if(!geo) warn='<div class="banner warn" style="margin-top:12px">&#9888; GPS belum diambil — wajib sebelum simpan. Jarak ke lokasi tidak membatasi submit.</div>';
   if(gw) gw.innerHTML=warn;
 }
 
@@ -531,13 +529,15 @@ function buildRiskAreaPayload(){
 }
 function buildRecord(){
   const v=geoVal();
+  const geoStr = v ? (v.s + (v.dist!=null ? " · "+v.dist+" m" : "") + (geo.manual?" (manual)":""))
+                   : (geo.manual ? "Manual (tanpa referensi)" : "Tidak tervalidasi");
   const payload={
     client_uuid: GMS.uuid(),
     location_id:Number(locId),
     inspection_date:new Date().toISOString().slice(0,10),
     inspector:inspector.trim(), status,
     inspector_lat:geo.lat, inspector_lng:geo.lng, inspector_accuracy_m:geo.accuracy,
-    geo_validation:(geo.manual?((v&&v.s||"Manual")+" (manual)"):(v&&v.s||"Tidak tervalidasi")),
+    geo_validation:geoStr,
     geo_time:geo.time||null,
   };
   PARAMS.forEach(p=> payload[p.code+"_condition"]=cond[p.code]);
