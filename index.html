@@ -277,8 +277,8 @@ const NAV = [
   { key:"overview",  label:"Overview",       ic:"&#8962;",  access:"member" },
   { key:"inspeksi",  label:"New Inspection",  ic:"&#9633;",  href:"inspeksi.html",      access:"member" },
   { key:"pera",      label:"PERA",            ic:"&#9888;",  href:"pera.html",          access:"member" },
-  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"monitoring.html",    access:"admin" },
-  { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin" },
+  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"monitoring.html",    access:"admin", full:true },
+  { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin", full:true },
   { key:"validasi",  label:"Validation",      ic:"&#9745;",  href:"validasi.html",      access:"admin" },
   { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
 ];
@@ -328,6 +328,7 @@ function renderShell(p){
 
 function navTo(key){
   const item=NAV.find(n=>n.key===key); if(!item) return;
+  if(item.full){ window.location.href=item.href; return; }   // analytical → full screen (own sidebar, no double)
   document.querySelectorAll("#snav button").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
   toggleSide(false);
   if(key==="overview"){ renderOverview(); return; }
