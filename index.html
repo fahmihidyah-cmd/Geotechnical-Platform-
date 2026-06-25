@@ -229,10 +229,13 @@
   .ov-qa button:hover{border-color:rgba(120,170,240,.45);}
   .ov-panel{background:linear-gradient(165deg,rgba(26,48,86,.7),rgba(16,32,60,.64));border:1px solid rgba(125,160,220,.26);border-radius:14px;padding:16px;}
   .ov-panel h3{margin:0 0 12px;font-size:11.5px;letter-spacing:.05em;color:var(--mutL);text-transform:uppercase;}
-  .ov-act{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line-d);font-size:12.5px;}
+  .ov-act{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line-d);font-size:12.5px;}
   .ov-act:first-of-type{border-top:0;}
-  .ov-act .t{font-family:ui-monospace,Menlo,monospace;color:var(--mutL);font-size:10.5px;width:78px;flex:0 0 auto;}
-  .ov-act .rk{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:auto;}
+  .ov-act .t{font-family:ui-monospace,Menlo,monospace;color:var(--mutL);font-size:10px;width:88px;flex:0 0 auto;padding-top:1px;}
+  .ov-act .ev-ic{flex:0 0 auto;font-size:14px;line-height:1.2;}
+  .ov-act .ev-tx{flex:1;min-width:0;} .ov-act .ev-tx b{font-weight:600;}
+  .ov-act .ev-d{color:var(--mutL);font-size:11px;}
+  .ov-act .rk{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:auto;flex:0 0 auto;align-self:center;}
   .big2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:4px 0 20px;}
   .bigtile{background:linear-gradient(165deg,rgba(26,48,86,.78),rgba(16,32,60,.7));border:1px solid rgba(125,160,220,.28);border-radius:18px;padding:22px;text-decoration:none;color:var(--txtL);position:relative;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:.16s;}
   .bigtile:hover{transform:translateY(-2px);border-color:rgba(120,170,240,.45);}
@@ -376,7 +379,7 @@ function renderOverview(){
         '<button onclick="navTo(\'inspeksi\')">&#9633; New Inspection</button>'+
         '<button onclick="navTo(\'eews\')">&#9883; EEWS</button>'+
       '</div>'+
-      '<div class="ov-panel"><h3>Recent Inspections</h3><div id="ovrecent" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
+      '<div class="ov-panel"><h3>Recent Events</h3><div id="ovrecent" style="color:var(--mutL);font-size:12px">Loading…</div></div>'+
     '</div>';
   }
   loadOverview(member);
@@ -414,15 +417,18 @@ async function loadOverview(member){
     kpi("#22c55e","&#9201;",fmtN(wk),"This Week","inspections logged");
   const el=$("ovrecent");
   if(el) try{
-    const r=await sb.from("inspections").select("id,inspection_date,risk_final,risk_override,locations(name)").order("inspection_date",{ascending:false}).limit(6);
-    const rec=(r&&!r.error&&r.data)?r.data:[];
-    el.innerHTML=(rec.map(row=>{
-      const risk=(row.risk_override&&String(row.risk_override).trim())||row.risk_final||"—"; const c=RC[risk]||"#64748b";
-      return '<div class="ov-act"><span class="t">'+esc(String(row.inspection_date||"").slice(0,10))+'</span>'+
-        '<span>'+esc((row.locations&&row.locations.name)||"—")+'</span>'+
-        '<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(risk)+'</span></div>';
-    }).join("")) || '<span style="color:var(--mutL)">No recent inspections.</span>';
-  }catch(e2){ el.innerHTML='<span style="color:var(--mutL)">Could not load recent items.</span>'; }
+    const r=await sb.rpc("recent_events",{p_limit:12});
+    const ev=(r&&!r.error&&Array.isArray(r.data))?r.data:[];
+    const ICON={inspection:"&#9633;",rain:"&#127783;",movement:"&#128200;",offline:"&#9211;",quake:"&#127759;"};
+    el.innerHTML=(ev.map(e=>{
+      const c=RC[e.severity]||"#64748b"; const ic=ICON[e.type]||"&#8226;";
+      const d=new Date(e.ts); const tl=isNaN(d.getTime())?"":d.toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+      return '<div class="ov-act"><span class="t">'+esc(tl)+'</span>'+
+        '<span class="ev-ic">'+ic+'</span>'+
+        '<span class="ev-tx"><b>'+esc(e.title||"")+'</b>'+(e.detail?'<br><span class="ev-d">'+esc(e.detail)+'</span>':'')+'</span>'+
+        (e.severity?'<span class="rk" style="background:'+c+'22;color:'+c+'">'+esc(e.severity)+'</span>':'')+'</div>';
+    }).join("")) || '<span style="color:var(--mutL)">No recent events.</span>';
+  }catch(e2){ el.innerHTML='<span style="color:var(--mutL)">Could not load recent events.</span>'; }
 }
 
 /* ===================== AUTH ===================== */
