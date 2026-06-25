@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Shift Round Check — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .wrap{max-width:760px;}
+  .eyebrow .right{float:right;text-transform:none;letter-spacing:0;color:var(--txt2);font-weight:600;}
+  .ctx{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+  @media(max-width:520px){.ctx{grid-template-columns:1fr;}}
+  .lastchk{font-size:12px;color:var(--mut);margin-top:10px;}
+  .lastchk b{color:var(--txt2);}
+  .sec{margin-top:16px;}
+  .sec h3{font-size:13px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .sec .hint{font-size:11.5px;color:var(--mut);margin:0 0 10px;}
+  .cnt{font-size:11px;font-weight:700;color:var(--mut);background:var(--line2);padding:2px 8px;border-radius:99px;}
+  /* instrument card */
+  .inst{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px;}
+  .inst .top{display:flex;align-items:flex-start;gap:8px;justify-content:space-between;}
+  .inst .nm{font-weight:700;font-size:14px;}
+  .inst .meta{font-size:11.5px;color:var(--mut);margin-top:2px;}
+  .inst .meta b{color:var(--txt2);font-weight:700;}
+  .sb{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;flex:0 0 auto;}
+  .sb.online{color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;}
+  .sb.offline{color:#dc2626;background:#fef2f2;border:1px solid #fecaca;}
+  /* segmented classifier */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:10px;flex-wrap:wrap;}
+  .seg button{border:none;background:#fff;padding:7px 11px;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;border-right:1px solid var(--line);}
+  .seg button:last-child{border-right:none;}
+  .seg button.on[data-v="Valid"]{background:var(--green);color:#fff;}
+  .seg button.on[data-v="Noise"]{background:var(--amber);color:#fff;}
+  .seg button.on[data-v="Error"]{background:var(--red);color:#fff;}
+  .seg button.on[data-v="Cek"]{background:var(--blue2);color:#fff;}
+  .notein{margin-top:8px;font-size:13px;padding:8px 10px;}
+  .qk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;}
+  .qk input[type=checkbox]{width:18px;height:18px;flex:0 0 auto;margin-top:2px;}
+  .qk .qt{font-size:13px;font-weight:600;} .qk .qs{font-size:11px;color:var(--mut);}
+  .ostate{display:flex;gap:8px;flex-wrap:wrap;}
+  .ostate button{flex:1;min-width:96px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px;font-weight:700;font-size:13px;color:var(--mut);cursor:pointer;}
+  .ostate button.on[data-v="Normal"]{background:var(--green);color:#fff;border-color:var(--green);}
+  .ostate button.on[data-v="Watch"]{background:var(--amber);color:#fff;border-color:var(--amber);}
+  .ostate button.on[data-v="Abnormal"]{background:var(--red);color:#fff;border-color:var(--red);}
+  .empty{font-size:12.5px;color:var(--mut);padding:8px 0;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap" id="app">
+  <div class="center"><div class="spin"></div><div>Memuat data monitoring…</div></div>
+</div>
+
+<script>
+const $=GMS.$, sb=GMS.sb, esc=GMS.esc;
+let PROFILE=null, EXT=[], QK=[], RAIN=null, FINDINGS=0, OVERALL="Normal";
+
+function nowWITAHour(){ return new Date().getHours(); }
+function deriveShift(){ const h=nowWITAHour(); return (h>=6 && h<18) ? "Pagi" : "Malam"; }
+function fmtTime(iso){ if(!iso) return "—"; try{return new Date(iso).toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;} }
+function staleHours(iso){ if(!iso) return 999; return (Date.now()-new Date(iso).getTime())/3600000; }
+
+async function loadData(){
+  // Instruments (extensometer only)
+  const ri=await sb.from("v_instrument_sensors")
+    .select("sensor_id,sensor_name,unit,device_name,latest_value,latest_ts,manual_state")
+    .eq("kind","extensometer").order("sensor_name");
+  EXT=((ri&&!ri.error&&ri.data)?ri.data:[]).map(s=>{
+    const offline = (s.manual_state==="offline") || !s.latest_ts || staleHours(s.latest_ts)>3;
+    return { sensor_id:s.sensor_id, name:s.sensor_name, unit:s.unit||"mm",
+             last_value:s.latest_value, last_ts:s.latest_ts, device:s.device_name,
+             state: offline?"offline":"online", cls:null, note:"" };
+  });
+  // Rain (latest event, show if within 12h)
+  const rr=await sb.from("v_rain_events").select("started_at,ended_at,total_mm").order("started_at",{ascending:false}).limit(1);
+  const rev=(rr&&!rr.error&&rr.data&&rr.data[0])?rr.data[0]:null;
+  RAIN = (rev && staleHours(rev.ended_at||rev.started_at)<12) ? {active:true, total_mm:rev.total_mm, started_at:rev.started_at, ended_at:rev.ended_at, note:""} : {active:false, note:""};
+  // Trigger quakes since 12h
+  const since=new Date(Date.now()-12*3600000).toISOString();
+  const rq=await sb.from("earthquakes").select("event_id,magnitude,wilayah,status,tanggal")
+    .in("status",["LV2","LV3","LV4"]).gte("tanggal",since).order("tanggal",{ascending:false}).limit(10);
+  QK=((rq&&!rq.error&&rq.data)?rq.data:[]).map(q=>({ event_id:q.event_id, mag:q.magnitude, wilayah:q.wilayah, status:q.status, tanggal:q.tanggal, ack:false, note:"" }));
+  // Open findings count
+  const rf=await sb.from("inspections").select("id",{count:"exact",head:true}).neq("status","CLOSED").eq("is_dummy",false);
+  FINDINGS = (rf&&typeof rf.count==="number")?rf.count:0;
+}
+
+async function lastCheckInfo(){
+  const r=await sb.from("shift_round_checks").select("checked_at,dispatcher,overall_state").order("checked_at",{ascending:false}).limit(1);
+  return (r&&!r.error&&r.data&&r.data[0])?r.data[0]:null;
+}
+
+function instRow(s,i){
+  const sb_=s.state==="online"?'<span class="sb online">ONLINE</span>':'<span class="sb offline">OFFLINE</span>';
+  const val=(s.last_value!=null)?('<b>'+esc(String(s.last_value))+' '+esc(s.unit)+'</b>'):'<b>—</b>';
+  return '<div class="inst">'+
+    '<div class="top"><div><div class="nm">'+esc(s.name)+'</div>'+
+      '<div class="meta">'+val+' · '+esc(s.device||"")+'<br>Data terakhir: '+fmtTime(s.last_ts)+'</div></div>'+
+      sb_+'</div>'+
+    '<div class="seg" data-i="'+i+'">'+
+      ['Valid','Noise','Error','Cek'].map(v=>'<button type="button" data-v="'+v+'" onclick="setCls('+i+',\''+v+'\',this)">'+v+'</button>').join("")+
+    '</div>'+
+    '<input class="notein" placeholder="Catatan (opsional)" value="'+esc(s.note)+'" oninput="EXT['+i+'].note=this.value">'+
+  '</div>';
+}
+
+function render(last){
+  const shift=deriveShift();
+  const dispatcher=(PROFILE&&(PROFILE.full_name||PROFILE.email))||"";
+  const lastTxt = last ? ('Round check terakhir: <b>'+fmtTime(last.checked_at)+'</b>'+(last.dispatcher?' oleh '+esc(last.dispatcher):'')+' · '+esc(last.overall_state)) : 'Belum ada round check tercatat.';
+  $("app").innerHTML=
+    '<div class="panel">'+
+      '<div class="eyebrow">Shift Round Check <span class="right">'+fmtTime(new Date().toISOString())+' WITA</span></div>'+
+      '<div class="ctx">'+
+        '<div><label class="f">Shift</label><select id="fShift"><option'+(shift==="Pagi"?" selected":"")+'>Pagi</option><option'+(shift==="Malam"?" selected":"")+'>Malam</option></select></div>'+
+        '<div><label class="f">Dispatcher</label><input id="fDisp" value="'+esc(dispatcher)+'"></div>'+
+      '</div>'+
+      '<div class="lastchk">'+lastTxt+'</div>'+
+
+      '<div class="sec"><h3>1 · Validasi Instrumen <span class="cnt" id="clsCnt"></span></h3>'+
+        '<p class="hint">Klasifikasikan tiap pembacaan: Valid · Noise · Error alat · Cek (perlu pengecekan). Ini inti tugas validasi.</p>'+
+        '<div id="instList">'+(EXT.length?EXT.map(instRow).join(""):'<div class="empty">Tidak ada instrumen extensometer.</div>')+'</div>'+
+      '</div>'+
+
+      '<div class="sec"><h3>2 · Curah Hujan (AWS)</h3>'+
+        (RAIN.active
+          ? '<div class="banner info" style="margin-bottom:8px">&#127783; Hujan terdeteksi: <b style="margin:0 4px">'+esc(String(RAIN.total_mm))+' mm</b> ('+fmtTime(RAIN.started_at)+' – '+fmtTime(RAIN.ended_at)+')</div>'
+          : '<p class="hint">Tidak ada hujan signifikan dalam 12 jam terakhir.</p>')+
+        '<input class="notein" id="rainNote" placeholder="Catatan hujan / kondisi drainase (opsional)">'+
+      '</div>'+
+
+      '<div class="sec"><h3>3 · Seismik (Gempa Trigger)</h3>'+
+        '<p class="hint">Akui (acknowledge) tiap gempa trigger sejak pemeriksaan terakhir + tindak lanjut.</p>'+
+        '<div id="qkList">'+(QK.length?QK.map((q,i)=>(
+          '<div class="qk"><input type="checkbox" onchange="QK['+i+'].ack=this.checked">'+
+          '<div style="flex:1"><div class="qt">M'+esc(String(q.mag))+' — '+esc(q.wilayah||"")+' <span class="pill '+(q.status==="LV4"?"VeryHigh":q.status==="LV3"?"High":"Medium")+'">'+esc(q.status)+'</span></div>'+
+          '<div class="qs">'+fmtTime(q.tanggal)+'</div>'+
+          '<input class="notein" placeholder="Tindak lanjut (lapor ke…)" oninput="QK['+i+'].note=this.value"></div></div>'
+        )).join(""):'<div class="empty">Tidak ada gempa trigger (TARP ≥ LV2) sejak 12 jam terakhir.</div>')+'</div>'+
+      '</div>'+
+
+      '<div class="sec"><h3>4 · Open Findings</h3>'+
+        '<p class="hint">Temuan inspeksi yang belum CLOSED saat ini: <b>'+FINDINGS+'</b>.</p>'+
+        '<input class="notein" id="findNote" placeholder="Catatan follow-up temuan (opsional)">'+
+      '</div>'+
+
+      '<div class="sec"><h3>5 · Status Keseluruhan</h3>'+
+        '<div class="ostate" id="ostate">'+
+          ['Normal','Watch','Abnormal'].map(v=>'<button type="button" data-v="'+v+'" class="'+(v===OVERALL?"on":"")+'" onclick="setOverall(\''+v+'\',this)">'+v+'</button>').join("")+
+        '</div>'+
+        '<textarea id="comment" rows="3" style="margin-top:10px" placeholder="Komentar shift / kondisi umum…"></textarea>'+
+      '</div>'+
+
+      '<div id="msg"></div>'+
+      '<button class="btn primary block" id="btnSubmit" style="margin-top:14px" disabled>Simpan Round Check</button>'+
+    '</div>';
+  $("btnSubmit").onclick=submit;
+  updateClsCount();
+}
+
+function setCls(i,val,btn){ EXT[i].cls=val; const seg=btn.parentElement; [].forEach.call(seg.children,b=>{ b.classList.toggle("on", b.getAttribute("data-v")===val); }); updateClsCount(); }
+function setOverall(val,btn){ OVERALL=val; const p=btn.parentElement; [].forEach.call(p.children,b=>{ b.classList.toggle("on", b.getAttribute("data-v")===val); }); }
+function updateClsCount(){
+  const done=EXT.filter(s=>s.cls).length, n=EXT.length;
+  const c=$("clsCnt"); if(c) c.textContent=done+" / "+n;
+  const btn=$("btnSubmit"); if(btn) btn.disabled = (n>0 && done<n);
+}
+
+async function submit(){
+  const btn=$("btnSubmit"); btn.disabled=true; btn.textContent="Menyimpan…";
+  const payload={
+    checked_at:new Date().toISOString(),
+    shift: $("fShift").value,
+    dispatcher: $("fDisp").value.trim()||null,
+    overall_state: OVERALL,
+    instruments: EXT.map(s=>({sensor_id:s.sensor_id,name:s.name,last_value:s.last_value,unit:s.unit,last_ts:s.last_ts,state:s.state,classification:s.cls,note:s.note||null})),
+    rain: { active:RAIN.active, total_mm:RAIN.active?RAIN.total_mm:null, note:($("rainNote").value.trim()||null) },
+    quakes: QK.filter(q=>q.ack).map(q=>({event_id:q.event_id,mag:q.mag,wilayah:q.wilayah,status:q.status,note:q.note||null})),
+    open_findings: FINDINGS,
+    connectivity: EXT.filter(s=>s.state==="offline").map(s=>({name:s.name,last_ts:s.last_ts})),
+    comment: $("comment").value.trim()||null
+  };
+  const r=await sb.from("shift_round_checks").insert(payload).select("id").single();
+  if(r&&r.error){
+    $("msg").innerHTML='<div class="banner err">Gagal menyimpan: '+esc(r.error.message)+'</div>';
+    btn.disabled=false; btn.textContent="Simpan Round Check"; return;
+  }
+  $("app").innerHTML='<div class="panel"><div class="banner ok" style="margin-bottom:0">&#10003; Round check tersimpan. Pemeriksaan berikutnya disarankan dalam 2 jam.</div>'+
+    '<button class="btn primary block" style="margin-top:14px" onclick="location.reload()">Round Check Baru</button>'+
+    '<a class="btn block" style="margin-top:8px;text-decoration:none" href="index.html">Kembali ke Menu</a></div>';
+}
+
+async function init(){
+  const _hd=$("hdr"); if(_hd) _hd.style.display="none";
+  const session=await GMS.getSession();
+  if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
+  PROFILE=await GMS.getProfile();
+  let last=null;
+  try{ await loadData(); last=await lastCheckInfo(); }
+  catch(e){ $("app").innerHTML='<div class="center">Gagal memuat data monitoring. Coba muat ulang.</div>'; return; }
+  render(last);
+}
+window.addEventListener("online",GMS.setNet);
+window.addEventListener("offline",GMS.setNet);
+init();
+</script>
+</body>
+</html>
