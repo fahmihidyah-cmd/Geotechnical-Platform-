@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Shift Report — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .wrap{max-width:1140px;}
+  .toprow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .toprow .ttl{font-weight:800;font-size:17px;}
+  .toprow .ttl small{display:block;font-weight:500;font-size:11px;color:var(--mut);}
+  .toprow .meta{display:flex;align-items:center;gap:10px;}
+  .clock{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mut);}
+  .tarpbadge{font-weight:800;font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid;}
+  .layout{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:1000px){.layout{grid-template-columns:1fr 300px;align-items:start;} .side{position:sticky;top:14px;}}
+  .sec{margin-bottom:16px;}
+  .sec-h{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;} @media(max-width:560px){.grid2{grid-template-columns:1fr;}}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;} @media(max-width:560px){.grid3{grid-template-columns:1fr;}}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;padding:9px 10px;background:#f8fafc;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;border-bottom:1px solid var(--line);white-space:nowrap;}
+  td{padding:7px 10px;border-bottom:1px solid var(--line2);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  td input,td select{border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px;font-size:12.5px;min-width:54px;}
+  td input:focus,td select:focus{border-color:var(--line);background:#fcfdff;}
+  .itag{font-size:9px;font-weight:800;padding:1px 6px;border-radius:5px;letter-spacing:.04em;}
+  .itag.IPI{background:#ede9fe;color:#7c3aed;} .itag.VWP{background:#dbeafe;color:#2563eb;}
+  .itag.PRM{background:#d1fae5;color:#059669;} .itag.EXT{background:#fef3c7;color:#d97706;}
+  .auto-tag{font-size:8px;font-weight:800;color:var(--teal);border:1px solid #99f6e4;background:#f0fdfa;padding:1px 5px;border-radius:5px;margin-left:5px;}
+  .sbadge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;border:1px solid;}
+  .sb-Online{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;}
+  .sb-Down{background:#fef2f2;color:#dc2626;border-color:#fecaca;}
+  .sb-Parsial{background:#fffbeb;color:#d97706;border-color:#fde68a;}
+  .sb-Manual{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
+  .tind{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;border:1px solid;}
+  .addrow{display:flex;align-items:center;gap:6px;padding:9px;width:100%;justify-content:center;background:#fff;border:1px dashed var(--line2);border-radius:0 0 12px 12px;color:var(--mut);font-size:12px;font-weight:700;cursor:pointer;}
+  .addrow:hover{border-color:var(--blue2);color:var(--blue2);}
+  .delbtn{background:none;border:none;color:var(--mut2);cursor:pointer;font-size:14px;}
+  /* checklist */
+  .cl{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line2);}
+  .cl:first-child{border-top:none;}
+  .cl .q{font-size:12.5px;} .cl .s{font-size:10.5px;color:var(--mut);margin-top:1px;}
+  .clb{display:flex;gap:4px;flex:0 0 auto;}
+  .clbtn{padding:4px 11px;border-radius:7px;border:1px solid var(--line);background:#fff;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;}
+  .clbtn.y.on{background:var(--green);color:#fff;border-color:var(--green);}
+  .clbtn.n.on{background:var(--red);color:#fff;border-color:var(--red);}
+  .clbtn.p.on{background:var(--amber);color:#fff;border-color:var(--amber);}
+  .sig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;} @media(max-width:620px){.sig{grid-template-columns:1fr;}}
+  .sigbox{border:1px solid var(--line);border-radius:10px;padding:12px;}
+  .sigrole{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin-bottom:24px;}
+  .sigbox input{border:none;border-top:1px solid var(--line);border-radius:0;text-align:center;font-size:12px;padding-top:7px;}
+  /* sidebar */
+  .sbx{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .sbx .t{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;margin-bottom:10px;}
+  .tarpinfo{border-radius:10px;border:1px solid;padding:12px;}
+  .tarpinfo .lv{font-size:20px;font-weight:800;} .tarpinfo .nm{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:2px 0 6px;}
+  .tarpinfo .ds{font-size:11px;line-height:1.5;opacity:.9;}
+  .thr{font-size:10.5px;line-height:1.8;font-family:ui-monospace,Menlo,monospace;}
+  .thr b{font-weight:700;}
+  .stat4{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .stbox{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:9px 11px;}
+  .stbox .l{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;}
+  .stbox .v{font-size:19px;font-weight:800;line-height:1.1;}
+  .stbox .u{font-size:9px;color:var(--mut);}
+  .proto{font-size:11px;line-height:1.7;}
+  .proto .d{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .rcrow{font-size:11.5px;display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--line2);}
+  .rcrow:first-child{border-top:none;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap" id="app"><div class="center"><div class="spin"></div><div>Memuat data…</div></div></div>
+
+<script>
+const $=GMS.$, sb=GMS.sb, esc=GMS.esc;
+let PROFILE=null;
+
+const RISK={
+  0:{lab:'Normal',   c:'#64748b',bg:'#f1f5f9'},
+  1:{lab:'Low',      c:'#16a34a',bg:'#f0fdf4'},
+  2:{lab:'Medium',   c:'#eab308',bg:'#fefce8'},
+  3:{lab:'High',     c:'#f97316',bg:'#fff7ed'},
+  4:{lab:'High Risk',c:'#dc2626',bg:'#fef2f2'}
+};
+const TARP_DESC={
+  0:'Tidak ada threshold terlampaui. Kondisi normal.',
+  1:'Deformasi kecil. Monitoring rutin.',
+  2:'Deformasi bertahap. Tingkatkan frekuensi & lapor engineer.',
+  3:'Akselerasi progresif. Monitoring intensif & siapkan tindakan.',
+  4:'Indikasi kegagalan. Isolasi area & eskalasi segera.'
+};
+const TYPES=['IPI','PRM','EXT','VWP'];
+const AREAS=['PIT','WD','ETO','EFO','INFRA','SP','MHR','DYKE','WOC','PORT','OTHER'];
+const UNIT={IPI:'mm',PRM:'mm',EXT:'mm/h',VWP:'ΔkPa'};
+
+const CHECKLIST=[
+  {q:'Semua instrumen terbaca minimal 1x shift ini',s:'Coverage telemetry'},
+  {q:'Tidak ada threshold velocity terlampaui',s:'Velocity & rasio'},
+  {q:'Tidak ada threshold displacement terlampaui',s:'Displacement absolut'},
+  {q:'Telemetry realtime berfungsi normal',s:'Datalogger · transmisi · server'},
+  {q:'Tidak ada anomali visual lereng',s:'Tension crack · seepage · deformasi'},
+  {q:'Curah hujan dicatat bila terjadi',s:'Termasuk jam mulai & berhenti'},
+  {q:'Follow-up shift sebelumnya ditindaklanjuti',s:'Open items shift lalu'}
+];
+
+let INST=[], clState={}, counter=0;
+
+function tarpLv(type,val){
+  val=parseFloat(val)||0;
+  if(val<=0) return 0;
+  if(type==='EXT'){ if(val<23.33)return 1; if(val<46.67)return 2; if(val<70)return 3; return 4; }
+  if(type==='VWP'){ const k=val/0.5; if(k<1.4)return 1; if(k<4.3)return 2; if(k<7.14)return 3; return 4; }
+  // IPI / PRM : displacement mm (LV1<50, LV2 50-100, LV3>=100)
+  if(val<50)return 1; if(val<100)return 2; return 3;
+}
+function fmt(iso){ if(!iso)return'—'; try{return new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
+function deriveShift(){ const h=new Date().getHours(); return (h>=6&&h<18)?'Pagi':'Malam'; }
+function genReportId(){ const n=new Date(),p=x=>String(x).padStart(2,'0'); return `RPT-${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}`; }
+
+async function loadAuto(){
+  const ri=await sb.from('v_instrument_sensors')
+    .select('sensor_id,sensor_name,unit,device_name,latest_value,latest_ts,manual_state')
+    .eq('kind','extensometer').order('sensor_name');
+  const rows=(ri&&!ri.error&&ri.data)?ri.data:[];
+  // velocity from last 2 readings (48h)
+  let velMap={};
+  if(rows.length){
+    const ids=rows.map(r=>r.sensor_id);
+    const since=new Date(Date.now()-48*3600000).toISOString();
+    const rr=await sb.from('v_instrument_readings').select('sensor_id,ts,value').in('sensor_id',ids).gte('ts',since).order('ts',{ascending:true});
+    const by={};
+    ((rr&&!rr.error&&rr.data)?rr.data:[]).forEach(x=>{ (by[x.sensor_id]=by[x.sensor_id]||[]).push(x); });
+    Object.keys(by).forEach(id=>{ const a=by[id]; if(a.length>=2){ const p=a[a.length-2],q=a[a.length-1]; const dh=(new Date(q.ts)-new Date(p.ts))/3600000; if(dh>0) velMap[id]=Math.abs((q.value-p.value)/dh); } });
+  }
+  rows.forEach(s=>{
+    const off=(s.manual_state==='offline')||!s.latest_ts||((Date.now()-new Date(s.latest_ts).getTime())/3600000>3);
+    const vel=velMap[s.sensor_id];
+    let area='OTHER'; const dn=(s.device_name||'').toUpperCase();
+    if(dn.includes('WOC'))area='WOC'; else if(dn.includes('PORT'))area='PORT';
+    INST.push({idx:counter++, id:s.sensor_name, type:'EXT', area, loc:s.device_name||'', status:off?'Down':'Online',
+      val:(vel!=null?Math.round(vel*1000)/1000:''), ref:(s.latest_value!=null?(s.latest_value+' mm @ '+fmt(s.latest_ts)):''), source:'auto'});
+  });
+}
+
+function rowHtml(d){
+  const typeOpts=TYPES.map(t=>`<option ${d.type===t?'selected':''}>${t}</option>`).join('');
+  const areaOpts=AREAS.map(a=>`<option ${d.area===a?'selected':''}>${a}</option>`).join('');
+  const lv=tarpLv(d.type,d.val); const rk=RISK[lv];
+  return `<tr id="row-${d.idx}">
+    <td><input value="${esc(d.id)}" oninput="upd(${d.idx},'id',this.value)" style="font-weight:700;min-width:96px">${d.source==='auto'?'<span class="auto-tag">AUTO</span>':''}</td>
+    <td><select onchange="updType(${d.idx},this.value)">${typeOpts}</select> <span class="itag ${d.type}">${d.type}</span></td>
+    <td><select onchange="upd(${d.idx},'area',this.value)" style="min-width:70px">${areaOpts}</select></td>
+    <td><input value="${esc(d.loc||'')}" placeholder="lokasi" oninput="upd(${d.idx},'loc',this.value)" style="min-width:90px"></td>
+    <td><span class="sbadge sb-${d.status}" onclick="cycle(${d.idx})" title="klik ganti">${d.status}</span></td>
+    <td><input type="number" step="0.001" value="${d.val}" oninput="updVal(${d.idx},this.value)" style="width:78px" placeholder="0"><div style="font-size:9px;color:var(--mut2)">${esc(d.ref||'')}</div></td>
+    <td style="font-size:10px;color:var(--mut)">${UNIT[d.type]||'mm'}</td>
+    <td id="lv-${d.idx}"><span class="tind" style="color:${rk.c};background:${rk.bg};border-color:${rk.c}">${rk.lab}</span></td>
+    <td><input value="${esc(d.catatan||'')}" placeholder="—" oninput="upd(${d.idx},'catatan',this.value)" style="min-width:80px"></td>
+    <td><button class="delbtn" onclick="del(${d.idx})">&times;</button></td>
+  </tr>`;
+}
+function renderRows(){ $("inst-body").innerHTML=INST.map(rowHtml).join(""); updateStats(); }
+function upd(idx,f,v){ const d=INST.find(x=>x.idx===idx); if(d){d[f]=v;} }
+function updType(idx,v){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.type=v; renderRows(); }
+function updVal(idx,v){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.val=v; const lv=tarpLv(d.type,v); const rk=RISK[lv];
+  const c=$("lv-"+idx); if(c) c.innerHTML=`<span class="tind" style="color:${rk.c};background:${rk.bg};border-color:${rk.c}">${rk.lab}</span>`; updateStats(); }
+const CYCLE=['Online','Down','Parsial','Manual'];
+function cycle(idx){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.status=CYCLE[(CYCLE.indexOf(d.status)+1)%CYCLE.length]; renderRows(); }
+function del(idx){ INST=INST.filter(x=>x.idx!==idx); $("row-"+idx)?.remove(); updateStats(); }
+function addRow(){ INST.push({idx:counter++,id:`INST-${counter}`,type:'IPI',area:'PIT',loc:'',status:'Online',val:'',ref:'',source:'manual'}); renderRows(); }
+
+function overallLv(){ return INST.reduce((m,d)=>Math.max(m,tarpLv(d.type,d.val)),0); }
+function updateStats(){
+  const on=INST.filter(d=>d.status==='Online').length, dn=INST.filter(d=>d.status==='Down').length;
+  const al=INST.filter(d=>tarpLv(d.type,d.val)>=2).length, n=INST.length;
+  const cv=n?Math.round(on/n*100):0;
+  if($("st-on"))$("st-on").textContent=on; if($("st-dn"))$("st-dn").textContent=dn;
+  if($("st-al"))$("st-al").textContent=al; if($("st-cv"))$("st-cv").textContent=cv;
+  const lv=overallLv(), rk=RISK[lv];
+  const box=$("tarpinfo");
+  if(box){ box.style.color=rk.c; box.style.borderColor=rk.c; box.style.background=rk.bg;
+    box.innerHTML=`<div class="lv">${lv===0?'—':'LV'+lv}</div><div class="nm">${rk.lab}</div><div class="ds" style="color:var(--txt2)">${TARP_DESC[lv]}</div>`; }
+  const tb=$("topTarp"); if(tb){ tb.textContent='TARP · '+rk.lab; tb.style.color=rk.c; tb.style.borderColor=rk.c; tb.style.background=rk.bg; }
+}
+
+function setCL(i,v,btn){ clState[i]=v; const wrap=btn.parentElement; [].forEach.call(wrap.children,b=>b.classList.remove("on")); btn.classList.add("on"); }
+function buildChecklist(){
+  return CHECKLIST.map((c,i)=>`<div class="cl"><div><div class="q">${c.q}</div><div class="s">${c.s}</div></div>
+    <div class="clb">
+      <button class="clbtn y" onclick="setCL(${i},'Ya',this)">Ya</button>
+      <button class="clbtn n" onclick="setCL(${i},'Tidak',this)">Tidak</button>
+      <button class="clbtn p" onclick="setCL(${i},'NA',this)">N/A</button>
+    </div></div>`).join("");
+}
+
+async function loadRoundChecks(){
+  const today=new Date().toISOString().slice(0,10);
+  const r=await sb.from("shift_round_checks").select("checked_at,has_trigger,has_anomaly,has_rain,has_quake,overall_state")
+    .gte("checked_at",today+"T00:00:00").order("checked_at",{ascending:false});
+  return (r&&!r.error&&r.data)?r.data:[];
+}
+
+function render(rcs){
+  const shift=deriveShift();
+  const operator=(PROFILE&&(PROFILE.full_name||PROFILE.email))||"";
+  const rcCount=rcs.length;
+  const flags={trigger:rcs.some(x=>x.has_trigger),anomaly:rcs.some(x=>x.has_anomaly),rain:rcs.some(x=>x.has_rain),quake:rcs.some(x=>x.has_quake)};
+  $("app").innerHTML=`
+  <div class="toprow">
+    <div class="ttl">Shift Report<small>Geotechnical Monitoring — Bahodopi Block 2 &amp; 3</small></div>
+    <div class="meta"><span class="clock" id="clock"></span><span class="tarpbadge" id="topTarp" style="color:#64748b;border-color:#cbd5e1;background:#f1f5f9">TARP · Normal</span></div>
+  </div>
+  <div class="layout">
+    <div class="mainc">
+      <div class="panel sec">
+        <div class="sec-h">Informasi Shift</div>
+        <div class="grid3">
+          <div><label class="f">Tanggal</label><input type="date" id="f-date"></div>
+          <div><label class="f">Shift</label><select id="f-shift"><option ${shift==='Pagi'?'selected':''}>Pagi</option><option ${shift==='Malam'?'selected':''}>Malam</option></select></div>
+          <div><label class="f">Operator / Dispatcher</label><input id="f-operator" value="${esc(operator)}"></div>
+          <div><label class="f">No. Laporan</label><input id="f-reportid" placeholder="${genReportId()}"></div>
+          <div><label class="f">Cuaca</label><select id="f-weather"><option>Cerah</option><option>Berawan</option><option>Hujan ringan</option><option>Hujan lebat</option><option>Badai</option></select></div>
+          <div><label class="f">Curah Hujan (mm)</label><input type="number" step="0.1" id="f-rain" placeholder="0.0"></div>
+          <div><label class="f">Jam Hujan Mulai</label><input type="time" id="f-rain-start"></div>
+          <div><label class="f">Jam Hujan Berhenti</label><input type="time" id="f-rain-end"></div>
+        </div>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h">Data Instrumen <button class="btn" style="padding:5px 10px;font-size:11px" onclick="addRow()">+ Tambah</button></div>
+        <div class="tbl-wrap">
+          <table><thead><tr>
+            <th>ID</th><th>Tipe</th><th>Area</th><th>Lokasi</th><th>Status</th><th>Nilai</th><th>Unit</th><th>TARP</th><th>Catatan</th><th></th>
+          </tr></thead><tbody id="inst-body"></tbody></table>
+          <div class="addrow" onclick="addRow()">+ Tambah instrumen manual (IPI · Prisma · VWP)</div>
+        </div>
+        <div style="font-size:11px;color:var(--mut);margin-top:8px">Extensometer ditarik otomatis (AUTO). Nilai = velocity mm/jam; instrumen lain isi manual.</div>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h">Site Base Map</div>
+        <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px">Peta dashboard: basemap + aerial PTVI + boundary risiko, marker instrumen, legend & filter.</p>
+        <a class="btn primary" style="text-decoration:none" href="exec_dashboard.html" target="_top">&#128506; Buka Site Base Map</a>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h">Checklist Validasi Shift</div>
+        <div id="cl-body">${buildChecklist()}</div>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h">Catatan &amp; Observasi</div>
+        <textarea id="f-notes" rows="3" placeholder="Kondisi lapangan, kejadian tidak biasa, rekomendasi shift berikutnya…"></textarea>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h">Serah Terima</div>
+        <div class="sig">
+          <div class="sigbox"><div class="sigrole">Operator Shift Keluar</div><input id="sig-out" placeholder="Nama · Waktu"></div>
+          <div class="sigbox"><div class="sigrole">Operator Shift Masuk</div><input id="sig-in" placeholder="Nama · Waktu"></div>
+          <div class="sigbox"><div class="sigrole">Geotechnical Engineer</div><input id="sig-eng" placeholder="Nama · Verifikasi"></div>
+        </div>
+      </div>
+
+      <div id="msg"></div>
+      <button class="btn primary block" id="btn-submit" style="margin-top:4px">Submit &amp; Simpan Laporan</button>
+    </div>
+
+    <div class="side">
+      <div class="sbx">
+        <div class="t">TARP Status</div>
+        <div class="tarpinfo" id="tarpinfo" style="color:#64748b;border-color:#cbd5e1;background:#f1f5f9"><div class="lv">—</div><div class="nm">Normal</div><div class="ds" style="color:var(--txt2)">Tidak ada threshold terlampaui.</div></div>
+      </div>
+      <div class="sbx">
+        <div class="t">Guideline Threshold</div>
+        <div class="thr">
+          <div style="color:#d97706"><b>Extensometer</b> (mm/jam)</div>
+          <div style="color:#16a34a">Low &lt; 23.3</div>
+          <div style="color:#eab308">Medium 23.3–46.7</div>
+          <div style="color:#f97316">High 46.7–70</div>
+          <div style="color:#dc2626">High Risk &gt; 70</div>
+          <div style="height:6px"></div>
+          <div style="color:#7c3aed"><b>IPI / Prisma</b> (mm)</div>
+          <div style="color:#16a34a">Low &lt; 50</div>
+          <div style="color:#eab308">Medium 50–100</div>
+          <div style="color:#f97316">High &ge; 100</div>
+          <div style="height:6px"></div>
+          <div style="color:#2563eb"><b>VWP</b> (kPa/hari)</div>
+          <div style="color:#16a34a">Low &lt; 1.4</div>
+          <div style="color:#eab308">Medium 1.4–4.3</div>
+          <div style="color:#f97316">High 4.3–7.14</div>
+          <div style="color:#dc2626">High Risk &gt; 7.14</div>
+        </div>
+      </div>
+      <div class="sbx">
+        <div class="t">Protokol Respon</div>
+        <div class="proto">
+          <div><span class="d" style="background:#16a34a"></span><b>Low</b> — monitoring rutin.</div>
+          <div><span class="d" style="background:#eab308"></span><b>Medium</b> — naikkan frekuensi + lapor engineer.</div>
+          <div><span class="d" style="background:#f97316"></span><b>High</b> — monitoring intensif + siapkan tindakan.</div>
+          <div><span class="d" style="background:#dc2626"></span><b>High Risk</b> — isolasi area + eskalasi segera.</div>
+        </div>
+      </div>
+      <div class="sbx">
+        <div class="t">Ringkasan Shift</div>
+        <div class="stat4">
+          <div class="stbox"><div class="l">Online</div><div class="v" style="color:#16a34a" id="st-on">—</div><div class="u">unit</div></div>
+          <div class="stbox"><div class="l">Down</div><div class="v" style="color:#dc2626" id="st-dn">—</div><div class="u">unit</div></div>
+          <div class="stbox"><div class="l">Alert</div><div class="v" style="color:#d97706" id="st-al">—</div><div class="u">≥Medium</div></div>
+          <div class="stbox"><div class="l">Coverage</div><div class="v" id="st-cv">—</div><div class="u">%</div></div>
+        </div>
+      </div>
+      <div class="sbx">
+        <div class="t">Round Check Hari Ini</div>
+        <div class="rcrow"><span>Jumlah round check</span><b>${rcCount}</b></div>
+        <div class="rcrow"><span>Ada trigger</span><b style="color:${flags.trigger?'#dc2626':'#16a34a'}">${flags.trigger?'Ya':'Tidak'}</b></div>
+        <div class="rcrow"><span>Ada anomali</span><b style="color:${flags.anomaly?'#dc2626':'#16a34a'}">${flags.anomaly?'Ya':'Tidak'}</b></div>
+        <div class="rcrow"><span>Hujan</span><b style="color:${flags.rain?'#d97706':'#16a34a'}">${flags.rain?'Ya':'Tidak'}</b></div>
+        <div class="rcrow"><span>Gempa</span><b style="color:${flags.quake?'#dc2626':'#16a34a'}">${flags.quake?'Ya':'Tidak'}</b></div>
+        <a class="btn block" style="margin-top:10px;text-decoration:none;font-size:12px;padding:8px" href="shift.html" target="_top">+ Round Check baru</a>
+      </div>
+    </div>
+  </div>`;
+  $("f-date").valueAsDate=new Date();
+  renderRows();
+  $("btn-submit").onclick=submit;
+  startClock();
+}
+function startClock(){ const t=()=>{ const c=$("clock"); if(c) c.textContent=new Date().toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }; t(); setInterval(t,1000); }
+
+async function submit(){
+  const btn=$("btn-submit"), msg=$("msg");
+  const operator=$("f-operator").value.trim(), tanggal=$("f-date").value;
+  if(!operator||!tanggal){ msg.innerHTML='<div class="banner err">Tanggal & operator wajib diisi.</div>'; return; }
+  btn.disabled=true; btn.textContent="Menyimpan…";
+  const lv=overallLv(); const reportId=$("f-reportid").value.trim()||genReportId();
+  const on=INST.filter(d=>d.status==='Online').length, dn=INST.filter(d=>d.status==='Down').length, n=INST.length;
+  try{
+    const head={ report_id:reportId, tanggal, shift:$("f-shift").value, operator,
+      cuaca:$("f-weather").value, curah_hujan:parseFloat($("f-rain").value)||0,
+      jam_hujan_mulai:$("f-rain-start").value||null, jam_hujan_berhenti:$("f-rain-end").value||null,
+      tarp_level:lv, tarp_label:RISK[lv].lab, catatan:$("f-notes").value||null,
+      checklist:CHECKLIST.map((c,i)=>({q:c.q,answer:clState[i]||null})),
+      handover:{out:$("sig-out").value||null,in:$("sig-in").value||null,eng:$("sig-eng").value||null},
+      total_instruments:n, online_instruments:on, down_instruments:dn,
+      alert_count:INST.filter(d=>tarpLv(d.type,d.val)>=2).length,
+      coverage_pct:n?Math.round(on/n*100):0 };
+    const ins=await sb.from("shift_reports").insert(head).select("id").single();
+    if(ins.error) throw ins.error;
+    const rid=ins.data.id;
+    if(INST.length){
+      const payload=INST.map(d=>{ const l=tarpLv(d.type,d.val); return {
+        report_uuid:rid, report_id:reportId, instrument_id:d.id, type:d.type, area:d.area, lokasi:d.loc,
+        status:d.status, nilai:parseFloat(d.val)||null, unit:UNIT[d.type]||'mm', tarp_lv:l, tarp_label:RISK[l].lab,
+        source:d.source||'manual', catatan:d.catatan||null }; });
+      const ri=await sb.from("shift_report_instruments").insert(payload);
+      if(ri.error) throw ri.error;
+    }
+    $("app").innerHTML=`<div class="panel" style="max-width:520px;margin:30px auto"><div class="banner ok" style="margin-bottom:0">&#10003; Shift Report tersimpan.<br><span style="font-size:11px;opacity:.8">${esc(reportId)} · TARP ${RISK[lv].lab}</span></div>
+      <button class="btn primary block" style="margin-top:14px" onclick="location.reload()">Laporan Baru</button>
+      <a class="btn block" style="margin-top:8px;text-decoration:none" href="index.html" target="_top">Kembali ke Menu</a></div>`;
+  }catch(err){ msg.innerHTML='<div class="banner err">Gagal menyimpan: '+esc(err.message||err)+'</div>'; btn.disabled=false; btn.textContent="Submit & Simpan Laporan"; }
+}
+
+async function init(){
+  const _hd=$("hdr"); if(_hd) _hd.style.display="none";
+  const session=await GMS.getSession();
+  if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
+  PROFILE=await GMS.getProfile();
+  let rcs=[];
+  try{ await loadAuto(); rcs=await loadRoundChecks(); }catch(e){}
+  render(rcs);
+}
+window.upd=upd; window.updType=updType; window.updVal=updVal; window.cycle=cycle; window.del=del; window.addRow=addRow; window.setCL=setCL;
+init();
+</script>
+</body>
+</html>
