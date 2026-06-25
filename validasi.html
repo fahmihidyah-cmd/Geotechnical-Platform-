@@ -109,6 +109,9 @@ function renderDrawer(){
   if(vmap){try{vmap.remove();}catch(e){}vmap=null;}
   const ovrLevel=effLevel();
   const loading = sel._riskArea===undefined;
+  const gv=String(sel.geo_validation||"Tidak tervalidasi");
+  const gc= gv.indexOf("Off")===0?'#dc2626' : gv.indexOf("Near")===0?'#d97706' : gv.indexOf("On")===0?'#16a34a' : '#475569';
+  const hasGPS=(sel.inspector_lat!=null&&sel.inspector_lng!=null);
   $("drawer").innerHTML='<div class="drawer" onclick="closeDrawer()"><div class="panelD" onclick="event.stopPropagation()">'+
     '<div class="dhead"><div class="row" style="justify-content:space-between;align-items:flex-start">'+
       '<div><div class="mono" style="font-size:10px;color:var(--mut)">INSPEKSI #'+sel.id+' · '+esc(sel.inspection_date||"")+'</div>'+
@@ -118,6 +121,11 @@ function renderDrawer(){
     '<div class="dbody">'+
       // ===== LEFT COLUMN: risk + map + override =====
       '<div class="col">'+
+        '<div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:14px">'+
+          '<div style="font-size:10px;letter-spacing:.08em;color:#64748b;text-transform:uppercase;margin-bottom:4px">Lokasi GPS Inspektor</div>'+
+          '<div style="font-size:13px;font-weight:700;color:'+gc+'">'+esc(gv)+'</div>'+
+          (hasGPS?'<div class="mono" style="color:#475569;font-size:11px;margin-top:2px">'+Number(sel.inspector_lat).toFixed(5)+', '+Number(sel.inspector_lng).toFixed(5)+(sel.inspector_accuracy_m!=null?' ±'+sel.inspector_accuracy_m+'m':'')+'</div>':'')+
+        '</div>'+
         '<div class="boxes">'+
           box("COMPOSITE",sel.risk_composite)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8852;</div>'+
           box("FLOOR · T1",sel.risk_floor)+'<div style="display:flex;align-items:center;color:var(--mut)">&#8594;</div>'+
