@@ -113,12 +113,45 @@ function parseTs(s, tz) {
   return new Date(utcMs).toISOString();
 }
 
-async function processNode(node, auth, mode) {
+function readingsToChannels(rows) {
+  // Group flat [{ts, channel, value}, ...] → [{name, readings:[{ts,value}]}, ...]
+  const byCh = new Map();
+  for (const r of rows) {
+    let arr = byCh.get(r.channel);
+    if (!arr) { arr = []; byCh.set(r.channel, arr); }
+    arr.push({ ts: r.ts, value: r.value });
+  }
+  const channels = [];
+  for (const [name, readings] of byCh) channels.push({ name, readings });
+  return channels;
+}
+
+async function callSupabaseRpc(env, body) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SR_KEY) {
+    return { ok: false, error: 'SUPABASE_URL / SUPABASE_SR_KEY not configured' };
+  }
+  const r = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/ingest_loadsensing_payload', {
+    method: 'POST',
+    headers: {
+      apikey: env.SUPABASE_SR_KEY,
+      Authorization: 'Bearer ' + env.SUPABASE_SR_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ p_payload: body }),
+  });
+  const text = await r.text();
+  if (!r.ok) return { ok: false, status: r.status, body: text };
+  try { return { ok: true, result: JSON.parse(text) }; }
+  catch { return { ok: true, result: text }; }
+}
+
+async function processNode(node, auth, mode, env) {
   const path = readingsPath(node);
   const { ok, status, text } = await fetchCsv(path, auth);
   if (!ok) return { node: node.id, label: node.label, kind: node.kind, ok: false, status };
   const parsed = parseCsv(text);
   if (parsed.error) return { node: node.id, label: node.label, kind: node.kind, ok: false, error: parsed.error };
+
   const out = {
     node: node.id,
     label: node.label,
@@ -132,6 +165,20 @@ async function processNode(node, auth, mode) {
     readingsParsed: parsed.readings.length,
   };
   if (mode === 'preview') out.sample = parsed.readings.slice(0, 20);
+
+  if (mode === 'ingest') {
+    const payload = {
+      node_id: node.id,
+      kind: node.kind,
+      label: node.label,
+      category: node.kind, // matches monitoring.device_category enum we extended
+      meta: parsed.meta,
+      csv_bytes: text.length,
+      channels: readingsToChannels(parsed.readings),
+    };
+    const rpc = await callSupabaseRpc(env, payload);
+    out.ingest = rpc;
+  }
   return out;
 }
 
@@ -140,7 +187,7 @@ async function runAll(env, mode) {
   const t0 = Date.now();
   const results = [];
   for (const node of NODES) {
-    try { results.push(await processNode(node, auth, mode)); }
+    try { results.push(await processNode(node, auth, mode, env)); }
     catch (e) { results.push({ node: node.id, label: node.label, ok: false, error: e.message }); }
   }
   return { took_ms: Date.now() - t0, count: results.length, results };
@@ -154,17 +201,19 @@ function json(body, status = 200) {
 }
 
 export default {
-  // Cron-triggered (wrangler.toml [triggers] crons): for now just log a
-  // summary so you can confirm the schedule is firing.
+  // Cron-triggered: fetch every node and ingest into Supabase via RPC.
   async scheduled(event, env, ctx) {
-    const summary = await runAll(env, 'summary');
+    const summary = await runAll(env, 'ingest');
     console.log('[scheduled]', JSON.stringify(summary));
   },
 
   // HTTP debug API:
-  //   GET /              → list endpoints
-  //   GET /run           → fetch every node, return counts (no DB write yet)
-  //   GET /preview/{id}  → fetch one node, return first 20 parsed readings
+  //   GET /                → list endpoints
+  //   GET /run             → fetch every node, return parse stats (no DB write)
+  //   GET /preview/{id}    → fetch one node, return first 20 parsed readings
+  //   GET /raw/{id}        → return the raw CSV text for one node
+  //   GET /ingest          → fetch every node AND push to Supabase (idempotent)
+  //   GET /ingest/{id}     → ingest one node only
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -172,24 +221,34 @@ export default {
     if (path === '/' || path === '') {
       return json({
         endpoints: {
-          'GET /run': 'fetch every node, return CSV stats',
-          'GET /preview/{nodeId}': 'fetch one node, return first 20 readings',
-          'GET /raw/{nodeId}': 'return the raw CSV text for one node',
+          'GET /run': 'fetch every node, return parse stats (no DB write)',
+          'GET /preview/{nodeId}': 'fetch one node, return first 20 parsed readings',
+          'GET /raw/{nodeId}': 'return raw CSV',
+          'GET /ingest': 'fetch every node AND push to Supabase (idempotent)',
+          'GET /ingest/{nodeId}': 'ingest one node only',
         },
         nodes: NODES.map(n => n.id),
+        configured: { supabase: !!(env.SUPABASE_URL && env.SUPABASE_SR_KEY) },
       });
     }
 
-    if (path === '/run') {
-      return json(await runAll(env, 'summary'));
-    }
+    if (path === '/run')    return json(await runAll(env, 'summary'));
+    if (path === '/ingest') return json(await runAll(env, 'ingest'));
 
     const prev = path.match(/^\/preview\/(\d+)$/);
     if (prev) {
       const node = NODES.find(n => n.id === prev[1]);
       if (!node) return json({ error: 'unknown node id' }, 404);
       const auth = 'Basic ' + btoa(`${env.LS_USER}:${env.LS_PASS}`);
-      return json(await processNode(node, auth, 'preview'));
+      return json(await processNode(node, auth, 'preview', env));
+    }
+
+    const ing = path.match(/^\/ingest\/(\d+)$/);
+    if (ing) {
+      const node = NODES.find(n => n.id === ing[1]);
+      if (!node) return json({ error: 'unknown node id' }, 404);
+      const auth = 'Basic ' + btoa(`${env.LS_USER}:${env.LS_PASS}`);
+      return json(await processNode(node, auth, 'ingest', env));
     }
 
     const raw = path.match(/^\/raw\/(\d+)$/);
