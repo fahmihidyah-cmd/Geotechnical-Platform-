@@ -1661,22 +1661,30 @@
         const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution:'Esri World Imagery' });
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'OpenStreetMap' });
         // Aerial PT Vale — high-res imagery for Bahodopi site.
-        // The worker only has tiles at zoom 16+ (confirmed via 404s at z15),
-        // so don't request lower native zooms — Leaflet will hide the layer
-        // when out of native range instead of spamming 404s.
+        // The worker's tile coverage is sparse, so we keep aerial OFF at
+        // default zoom and only attach it when the user zooms in past
+        // AERIAL_THRESHOLD. That way the dashboard opens with a clean
+        // satellite view of Bahodopi and aerial only loads on demand.
+        const AERIAL_THRESHOLD = 17;
         const aerial = L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg', {
           minZoom:1, maxZoom:22, minNativeZoom:16, maxNativeZoom:19, tms:false,
-          opacity:1, zIndex:400,
+          opacity:1, zIndex:400, errorTileUrl:'',
           attribution:'Aerial PT Vale Bahodopi 2026'
         });
         let satFailed = false;
         sat.on('tileerror', ()=>{ if(!satFailed){ satFailed = true; try{ map.removeLayer(sat); }catch(e){} osm.addTo(map); } });
-        aerial.on('tileerror', (e)=>{ try{ console.warn('[aerial tile fail]', e && e.tile && e.tile.src); }catch(_){} });
-        // Default: satellite + aerial overlay both on, so user sees aerial right away
+        // Suppress aerial 404 spam — coverage is intentionally partial.
+        aerial.on('tileerror', (e)=>{ try{ e.tile.style.display='none'; }catch(_){} });
         sat.addTo(map);
-        aerial.addTo(map);
-        // Initial view at WOC site at zoom 17 — well inside aerial native range.
-        map.setView(BAHODOPI_CENTER, 17);
+        // Default view at Bahodopi area, zoom 13 (whole site visible, no aerial yet).
+        map.setView(BAHODOPI_CENTER, 13);
+        // Auto-toggle aerial based on zoom — only attach when zoomed in.
+        function _syncAerial(){
+          const z = map.getZoom();
+          if(z >= AERIAL_THRESHOLD){ if(!map.hasLayer(aerial)) aerial.addTo(map); }
+          else { if(map.hasLayer(aerial)) map.removeLayer(aerial); }
+        }
+        map.on('zoomend', _syncAerial);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
@@ -1771,17 +1779,15 @@
         try{ (gj.geometry.coordinates[0]||[]).forEach(c=>points.push([c[1],c[0]])); }catch(e){}
       });
 
-      // Fit to data points if they exist, otherwise keep the WOC-centered
-      // initial view that was set during map creation. Aerial worker has
-      // tiles at zoom 16+, so we clamp the floor at 16.
-      if(points.length){
+      // Initial view stays at the Bahodopi-area satellite shot we set at
+      // map creation. fitBounds only kicks in if data points exist AND the
+      // user hasn't already moved the view (zoom > 13 means they interacted).
+      // Aerial auto-toggles via the zoomend listener installed above.
+      if(points.length && !map._hasInitialView){
         try{
-          const dataBounds = L.latLngBounds(points).pad(0.18);
-          map.fitBounds(dataBounds, { maxZoom:18 });
-          if(map.getZoom() < 16) map.setZoom(16);
-        } catch(e){ map.setView([-2.74, 122.014], 17); }
-      } else if(!map._hasInitialView){
-        map.setView([-2.74, 122.014], 17);
+          const dataBounds = L.latLngBounds(points).pad(0.2);
+          map.fitBounds(dataBounds, { maxZoom:15 });
+        } catch(e){ /* keep current view */ }
       }
       map._hasInitialView = true;
       [60,250,600,1200].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, d));

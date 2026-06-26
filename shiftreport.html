@@ -433,9 +433,16 @@ async function buildMap(){
   baseLayers.esri=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});
   baseLayers.aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:16,maxNativeZoom:19,maxZoom:19,tms:false,attribution:"PTVI"});
   baseLayers.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OSM"});
-  baseLayers.esri.addTo(map); baseLayers.aerial.addTo(map); curBase='esri';
+  baseLayers.esri.addTo(map); curBase='esri';
   riskGroup=L.layerGroup(); instGroup=L.layerGroup();
   const BAHODOPI_BOUNDS=L.latLngBounds([-2.755,121.992],[-2.718,122.034]);
+  // Aerial off by default; auto-attach on deep zoom only.
+  baseLayers.aerial.on('tileerror',(e)=>{ try{ e.tile.style.display='none'; }catch(_){} });
+  map.on('zoomend',()=>{
+    const z=map.getZoom();
+    if(z>=17){ if(!map.hasLayer(baseLayers.aerial)) baseLayers.aerial.addTo(map); }
+    else { if(map.hasLayer(baseLayers.aerial)) map.removeLayer(baseLayers.aerial); }
+  });
   const all=[];
   try{
     const rp=await sb.from("v_inspection_risk_areas").select("polygon_geojson,risk_color,risk_level,location_name").limit(300);
@@ -457,7 +464,7 @@ async function buildMap(){
     });
   }catch(e){}
   riskGroup.addTo(map); instGroup.addTo(map);
-  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:18}); if(map.getZoom()<16) map.setZoom(16); }catch(e){ map.setView([-2.74,122.014],17); } } else { map.setView([-2.74,122.014],17); }
+  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:15}); }catch(e){ map.setView([-2.74,122.014],13); } } else { map.setView([-2.74,122.014],13); }
   mapBuilt=true;
   setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },250);
 }

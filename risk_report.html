@@ -192,9 +192,11 @@
   function renderMap(){
     const mp=RPT.map||{}; const center=(RPT.meta&&RPT.meta.site_center)||{lat:-2.74,lng:122.0};
     if(map){ map.remove(); map=null; }
-    map=L.map('rmap',{zoomControl:true,attributionControl:false}).setView([center.lat,center.lng],17);
+    map=L.map('rmap',{zoomControl:true,attributionControl:false}).setView([center.lat,center.lng],13);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
-    L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg',{minZoom:1,maxZoom:22,minNativeZoom:16,maxNativeZoom:19}).addTo(map);
+    const _aerial=L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg',{minZoom:1,maxZoom:22,minNativeZoom:16,maxNativeZoom:19,zIndex:400});
+    _aerial.on('tileerror',(e)=>{ try{ e.tile.style.display='none'; }catch(_){} });
+    map.on('zoomend',()=>{ const z=map.getZoom(); if(z>=17){ if(!map.hasLayer(_aerial)) _aerial.addTo(map); } else { if(map.hasLayer(_aerial)) map.removeLayer(_aerial); } });
     const BAHODOPI_BOUNDS=L.latLngBounds([-2.755,121.992],[-2.718,122.034]);
     const bounds=[];
     (mp.risk_areas||[]).forEach(ra=>{
