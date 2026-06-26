@@ -1314,21 +1314,35 @@
       return out;
     }
 
-    function drawProfile(canvasId,depths,disp,label,color){
-      const cv=document.getElementById(canvasId); if(!cv||!window.Chart) return;
-      const pts=depths.map((d,i)=>({x:disp[i],y:d}));
-      const refPts=depths.map(d=>({x:0,y:d}));
+    function drawProfileMulti(canvasId,nd,axis,title){
+      const cv=document.getElementById(canvasId); if(!cv||!window.Chart||!nd) return;
+      const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899'];
+      const pick=pickProfileDates(nd.timestamps,6);
+      const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
+      pick.forEach((ts,i)=>{
+        const p=nd.profiles[ts]; if(!p) return;
+        const vals=axis==='a'?p.aCum:p.bCum;
+        const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
+        const lbl=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+        datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:3,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
+      });
       charts[canvasId]=new Chart(cv,{type:'scatter',
-        data:{datasets:[
-          {label:'Initial',data:refPts,showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
-          {label:label+' (latest)',data:pts,showLine:true,borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:3,pointBackgroundColor:color,fill:false,tension:0}
-        ]},
+        data:{datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:false,
-          plugins:{legend:{labels:{color:'#cbd5e1',font:{size:9},boxWidth:10}}},
+          plugins:{legend:{labels:{color:'#cbd5e1',font:{size:9},boxWidth:10}},title:{display:true,text:title,color:'#cbd5e1',font:{size:11}}},
           scales:{
-            x:{title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'}},
-            y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'}}
+            x:{title:{display:true,text:'Profile Change in mm',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'}},
+            y:{reverse:true,title:{display:true,text:'Depth in Meters',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:1},grid:{color:'rgba(148,163,184,.10)'}}
           }}});
+    }
+
+    function pickProfileDates(timestamps,max){
+      if(timestamps.length<=max) return timestamps.slice();
+      const step=Math.max(1,Math.floor((timestamps.length-1)/(max-1)));
+      const out=[];
+      for(let i=0;i<timestamps.length&&out.length<max-1;i+=step) out.push(timestamps[i]);
+      if(out[out.length-1]!==timestamps[timestamps.length-1]) out.push(timestamps[timestamps.length-1]);
+      return out;
     }
 
     function inclinometerView(){
@@ -1339,9 +1353,6 @@
           <div class="t">INCLINOMETER — cumulative displacement · baseline = first reading = 0 · gauge ${GAUGE_LEN} mm</div>
           <div>${lsRangeToggle('inc',STATE.incRange)}</div></div>
 
-        <div class="card"><div class="card-hd"><div class="t">📐 All Inclinometers — Top Cumulative Displacement vs Time (A-Axis)</div></div>
-          <div class="card-bd" style="height:190px"><canvas id="incCombA"></canvas></div></div>
-
         <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
           <div class="t" style="color:#9fb3cf">Node</div>
           <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)">${nodeOpts}</select>
@@ -1349,17 +1360,8 @@
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="card"><div class="card-hd"><div class="t">Vertical Profile — A-Axis</div></div>
-            <div class="card-bd" style="height:300px"><canvas id="incProfA"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">Vertical Profile — B-Axis</div></div>
-            <div class="card-bd" style="height:300px"><canvas id="incProfB"></canvas></div></div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-          <div class="card"><div class="card-hd"><div class="t">📈 A-Axis — Top Sensor Time Series</div></div>
-            <div class="card-bd" style="height:170px"><canvas id="incTsA"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">📈 B-Axis — Top Sensor Time Series</div></div>
-            <div class="card-bd" style="height:170px"><canvas id="incTsB"></canvas></div></div>
+          <div class="card"><div class="card-bd" style="height:500px"><canvas id="incProfA"></canvas></div></div>
+          <div class="card"><div class="card-bd" style="height:500px"><canvas id="incProfB"></canvas></div></div>
         </div>
 
         ${incRawPanel(nodeId)}
@@ -1408,33 +1410,14 @@
     function drawIncTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
       const incData=processInc(DATA.incData||[]);
-      const pal=['#a78bfa','#22d3ee','#f97316','#22c55e'];
-
-      const combSeries=[];
-      INC_NODES.forEach((n,i)=>{
-        const d=incData[n.id]; if(!d||!d.topSeries.length) return;
-        combSeries.push({name:n.label,rows:d.topSeries.map(p=>({ts:p.ts,value:p.a})),color:pal[i%pal.length]});
-      });
-      if(combSeries.length){ const ms=multiSeries(combSeries); tsChart('incCombA',ms,'mm'); }
-
       const nodeId=STATE.incNode||INC_NODES[0].id;
       const nd=incData[nodeId];
       if(!nd) return;
-
       const tempEl=document.getElementById('incTemp');
       if(tempEl) tempEl.textContent='🌡️ '+(nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'—');
-
-      const latestTs=nd.timestamps[nd.timestamps.length-1];
-      const latestP=nd.profiles[latestTs];
-      if(latestP){
-        drawProfile('incProfA',nd.depths,latestP.aCum,'A-Axis','#a78bfa');
-        drawProfile('incProfB',nd.depths,latestP.bCum,'B-Axis','#22d3ee');
-      }
-
-      const tsA=nd.topSeries.map(p=>({ts:p.ts,value:p.a}));
-      const tsB=nd.topSeries.map(p=>({ts:p.ts,value:p.b}));
-      tsChart('incTsA',multiSeries([{name:'A-Axis',rows:tsA,color:'#a78bfa'}]),'mm');
-      tsChart('incTsB',multiSeries([{name:'B-Axis',rows:tsB,color:'#22d3ee'}]),'mm');
+      const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
+      drawProfileMulti('incProfA',nd,'a',lbl+' A');
+      drawProfileMulti('incProfB',nd,'b',lbl+' B');
     }
 
     // ===================== VWP TAB =====================
@@ -1459,10 +1442,10 @@
       const nodeOpts=VWP_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">VWP — Pore Pressure vs Time · baseline = first reading</div>
+          <div class="t">VWP — Pore Pressure (kPa) vs Time</div>
           <div>${lsRangeToggle('vwp',STATE.vwpRange)}</div></div>
 
-        <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pressure vs Time (Ch1)</div></div>
+        <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pore Pressure (kPa) vs Time</div></div>
           <div class="card-bd" style="height:200px"><canvas id="vwpCombined"></canvas></div></div>
 
         <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
@@ -1471,7 +1454,7 @@
           <div id="vwpTemp" style="font-size:12px;color:#9fb3cf;margin-left:auto">🌡️ —</div>
         </div>
 
-        <div class="card"><div class="card-hd"><div class="t">📈 Pressure — Selected Node (all channels)</div></div>
+        <div class="card"><div class="card-hd"><div class="t">📈 Pore Pressure (kPa) — Selected Node</div></div>
           <div class="card-bd" style="height:200px"><canvas id="vwpDetail"></canvas></div></div>
 
         ${vwpRawPanel(nodeId)}
@@ -1529,10 +1512,9 @@
         if(!chKeys.length) return;
         const rows=d.channels[chKeys[0]].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
         if(!rows.length) return;
-        const base=rows[0].value;
-        combSeries.push({name:n.label+(chKeys.length>1?' (Ch1)':''),rows:rows.map(r=>({ts:r.ts,value:r.value-base})),color:pal[i%pal.length]});
+        combSeries.push({name:n.label+(chKeys.length>1?' (Ch1)':''),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]});
       });
-      if(combSeries.length){ const ms=multiSeries(combSeries); tsChart('vwpCombined',ms,'Pressure (relative)'); }
+      if(combSeries.length){ const ms=multiSeries(combSeries); tsChart('vwpCombined',ms,'kPa'); }
 
       const nodeId=STATE.vwpNode||VWP_NODES[0].id;
       const nd=vwpData[nodeId];
@@ -1542,11 +1524,10 @@
         const chKeys=Object.keys(nd.channels).sort();
         const detailSeries=chKeys.map((ch,i)=>{
           const rows=nd.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
-          const base=rows.length?rows[0].value:0;
           const shortName=ch.replace(/^p-\d+-/,'');
-          return {name:shortName,rows:rows.map(r=>({ts:r.ts,value:r.value-base})),color:pal[i%pal.length]};
+          return {name:shortName,rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]};
         });
-        if(detailSeries.length){ const ms=multiSeries(detailSeries); tsChart('vwpDetail',ms,'Pressure (relative)'); }
+        if(detailSeries.length){ const ms=multiSeries(detailSeries); tsChart('vwpDetail',ms,'kPa'); }
       }
     }
 
