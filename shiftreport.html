@@ -431,7 +431,7 @@ async function buildMap(){
   if(mapBuilt) return; const el=$("map"); if(!el||typeof L==="undefined") return;
   map=L.map("map",{scrollWheelZoom:true});
   baseLayers.esri=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});
-  baseLayers.aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:14,maxNativeZoom:19,maxZoom:19,tms:false,attribution:"PTVI"});
+  baseLayers.aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:16,maxNativeZoom:19,maxZoom:19,tms:false,attribution:"PTVI"});
   baseLayers.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OSM"});
   baseLayers.esri.addTo(map); baseLayers.aerial.addTo(map); curBase='esri';
   riskGroup=L.layerGroup(); instGroup=L.layerGroup();
@@ -457,7 +457,7 @@ async function buildMap(){
     });
   }catch(e){}
   riskGroup.addTo(map); instGroup.addTo(map);
-  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:17}); if(map.getZoom()<15) map.setZoom(15); }catch(e){ map.setView([-2.74,122.014],15); } } else { map.setView([-2.74,122.014],15); }
+  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:18}); if(map.getZoom()<16) map.setZoom(16); }catch(e){ map.setView([-2.74,122.014],17); } } else { map.setView([-2.74,122.014],17); }
   mapBuilt=true;
   setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },250);
 }

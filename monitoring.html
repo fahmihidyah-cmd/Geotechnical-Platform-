@@ -1660,10 +1660,12 @@
         // Basemap: ArcGIS satellite (fallback OSM) as wide-zoom base
         const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution:'Esri World Imagery' });
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'OpenStreetMap' });
-        // Aerial PT Vale — high-res imagery for Bahodopi site, only valid at zoom 14–19.
-        // Use higher zIndex so it always paints over the basemap.
+        // Aerial PT Vale — high-res imagery for Bahodopi site.
+        // The worker only has tiles at zoom 16+ (confirmed via 404s at z15),
+        // so don't request lower native zooms — Leaflet will hide the layer
+        // when out of native range instead of spamming 404s.
         const aerial = L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg', {
-          minZoom:1, maxZoom:22, minNativeZoom:14, maxNativeZoom:19, tms:false,
+          minZoom:1, maxZoom:22, minNativeZoom:16, maxNativeZoom:19, tms:false,
           opacity:1, zIndex:400,
           attribution:'Aerial PT Vale Bahodopi 2026'
         });
@@ -1673,9 +1675,8 @@
         // Default: satellite + aerial overlay both on, so user sees aerial right away
         sat.addTo(map);
         aerial.addTo(map);
-        // Initial view at WOC site (zoom 15) so aerial native tiles load immediately.
-        // fitBounds further down may refine if data points exist.
-        map.setView(BAHODOPI_CENTER, 15);
+        // Initial view at WOC site at zoom 17 — well inside aerial native range.
+        map.setView(BAHODOPI_CENTER, 17);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
@@ -1771,16 +1772,16 @@
       });
 
       // Fit to data points if they exist, otherwise keep the WOC-centered
-      // initial view that was set during map creation. Either way, clamp the
-      // zoom into [15, 18] so the aerial native zoom (14–19) is always loaded.
+      // initial view that was set during map creation. Aerial worker has
+      // tiles at zoom 16+, so we clamp the floor at 16.
       if(points.length){
         try{
           const dataBounds = L.latLngBounds(points).pad(0.18);
-          map.fitBounds(dataBounds, { maxZoom:17 });
-          if(map.getZoom() < 15) map.setZoom(15);
-        } catch(e){ map.setView([-2.74, 122.014], 15); }
+          map.fitBounds(dataBounds, { maxZoom:18 });
+          if(map.getZoom() < 16) map.setZoom(16);
+        } catch(e){ map.setView([-2.74, 122.014], 17); }
       } else if(!map._hasInitialView){
-        map.setView([-2.74, 122.014], 15);
+        map.setView([-2.74, 122.014], 17);
       }
       map._hasInitialView = true;
       [60,250,600,1200].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, d));
@@ -1888,7 +1889,11 @@
       }
 
       // Spark charts (7 days)
-      sparkLine('sparkExt', buildSpark(DATA.ext7, (r)=>r.external_device_id && r.sensor_name), '#a78bfa', (v)=>document.getElementById('sparkExtVal').textContent = v);
+      // Pass raw rows — sparkLine() will buildSpark() internally. Wrapping
+      // it here in buildSpark() returned {ts,vals} and then crashed inside
+      // sparkLine when it tried to .filter() on that object.
+      const extRows = (DATA.ext7||[]).filter(r=>r && r.external_device_id && r.sensor_name);
+      sparkLine('sparkExt', extRows, '#a78bfa', (v)=>document.getElementById('sparkExtVal').textContent = v);
       // Placeholder IP, VWP (no data)
       sparkLine('sparkIp', [], '#f59e0b', (v)=>document.getElementById('sparkIpVal').textContent = '—');
       sparkLine('sparkVwp', [], '#22c55e', (v)=>document.getElementById('sparkVwpVal').textContent = '—');

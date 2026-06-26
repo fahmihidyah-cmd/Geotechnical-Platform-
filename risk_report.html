@@ -192,9 +192,9 @@
   function renderMap(){
     const mp=RPT.map||{}; const center=(RPT.meta&&RPT.meta.site_center)||{lat:-2.74,lng:122.0};
     if(map){ map.remove(); map=null; }
-    map=L.map('rmap',{zoomControl:true,attributionControl:false}).setView([center.lat,center.lng],14);
+    map=L.map('rmap',{zoomControl:true,attributionControl:false}).setView([center.lat,center.lng],17);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
-    L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg',{minZoom:1,maxZoom:22,minNativeZoom:14,maxNativeZoom:19}).addTo(map);
+    L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg',{minZoom:1,maxZoom:22,minNativeZoom:16,maxNativeZoom:19}).addTo(map);
     const BAHODOPI_BOUNDS=L.latLngBounds([-2.755,121.992],[-2.718,122.034]);
     const bounds=[];
     (mp.risk_areas||[]).forEach(ra=>{
@@ -216,7 +216,7 @@
         .bindTooltip(ip.location+' — '+ip.risk+' (TARP '+ (ip.tarp_level||'-') +')',{permanent:false});
       mk.addTo(map); bounds.push(L.latLngBounds([[ip.lat,ip.lng]]));
     });
-    if(bounds.length){ let b=bounds[0]; bounds.slice(1).forEach(x=>b=b.extend(x)); try{ map.fitBounds(b.pad(.25),{maxZoom:17}); if(map.getZoom()<15) map.setZoom(15); }catch(e){ map.setView([-2.74,122.014],15); } } else { map.setView([-2.74,122.014],15); }
+    if(bounds.length){ let b=bounds[0]; bounds.slice(1).forEach(x=>b=b.extend(x)); try{ map.fitBounds(b.pad(.25),{maxZoom:18}); if(map.getZoom()<16) map.setZoom(16); }catch(e){ map.setView([-2.74,122.014],17); } } else { map.setView([-2.74,122.014],17); }
     setTimeout(()=>map.invalidateSize(),250);
   }
 

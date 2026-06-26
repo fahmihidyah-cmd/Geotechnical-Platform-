@@ -174,7 +174,7 @@ function initEditMap(){
   vmap=L.map(el,{zoomControl:true});
   const base=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
   const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
-  const aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:1,maxZoom:22,minNativeZoom:14,maxNativeZoom:19,tms:false,attribution:"Aerial PT Vale Bahodopi 2026"});
+  const aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:1,maxZoom:22,minNativeZoom:16,maxNativeZoom:19,tms:false,attribution:"Aerial PT Vale Bahodopi 2026"});
   aerial.addTo(vmap);
   L.control.layers({"Aerial PT Vale 2026":aerial,"Satelit (Esri)":sat,"OSM":base},null,{collapsed:true}).addTo(vmap);
   vmap._mk=L.layerGroup().addTo(vmap);
