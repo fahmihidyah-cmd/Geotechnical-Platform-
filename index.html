@@ -287,13 +287,17 @@ const TILES = [
   { key:"database", href:"database.html", label:"Database",       sub:"Checklist · Users · Reporting · PERA audit", ic:"&#9638;", c:"#a78bfa", access:"admin" },
 ];
 const NAV = [
-  { key:"overview",  label:"Overview",       ic:"&#8962;",  access:"member" },
-  { key:"inspeksi",  label:"New Inspection",  ic:"&#9633;",  href:"inspeksi.html",      access:"member" },
-  { key:"pera",      label:"PERA",            ic:"&#9888;",  href:"pera.html",          access:"member" },
-  { key:"dashboard", label:"Dashboard",       ic:"&#9636;",  href:"monitoring.html",    access:"admin", full:true },
-  { key:"eews",      label:"EEWS",            ic:"&#9883;",  href:"eews.html",          access:"admin", full:true },
-  { key:"validasi",  label:"Validation",      ic:"&#9745;",  href:"validasi.html",      access:"admin" },
-  { key:"database",  label:"Database",        ic:"&#9638;",  href:"database.html",      access:"admin" },
+  // ----- Workspace -----
+  { key:"overview",    label:"Overview",       ic:"&#8962;",  section:"workspace", access:"member" },
+  { key:"dashboard",   label:"Dashboard",      ic:"&#9636;",  href:"monitoring.html", section:"workspace", access:"admin", full:true },
+  { key:"eews",        label:"EEWS",           ic:"&#9883;",  href:"eews.html",       section:"workspace", access:"admin", full:true },
+  { key:"validasi",    label:"Validation",     ic:"&#9745;",  href:"validasi.html",   section:"workspace", access:"admin" },
+  { key:"database",    label:"Database",       ic:"&#9638;",  href:"database.html",   section:"workspace", access:"admin" },
+  // ----- Form (checklist & field entry) -----
+  { key:"inspeksi",    label:"New Inspection", ic:"&#9633;",  href:"inspeksi.html",   section:"form", access:"member" },
+  { key:"pera",        label:"PERA",           ic:"&#9888;",  href:"pera.html",       section:"form", access:"member" },
+  { key:"shiftreport", label:"Shift Report",   ic:"&#9776;",  href:"shiftreport.html",section:"form", access:"member" },
+  { key:"roundcheck",  label:"Round Check",    ic:"&#10227;", href:"shift.html",      section:"form", access:"member" },
 ];
 let SHELL = {};
 const RC = { "Low":"#16a34a", "Medium":"#eab308", "High":"#f97316", "Very High":"#dc2626" };
@@ -302,7 +306,7 @@ function nowClock(){ return new Date().toLocaleTimeString("en-GB"); }
 function weekStartISO(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); }
 function toggleSide(open){ const s=$("shell"); if(s) s.classList.toggle("open",!!open); }
 window.toggleSide=toggleSide;
-function shortLabel(l){ return ({"Overview":"Home","New Inspection":"Inspect","PERA":"PERA","Dashboard":"Dash","EEWS":"EEWS","Validation":"Validate","Database":"Data"})[l]||l; }
+function shortLabel(l){ return ({"Overview":"Home","New Inspection":"Inspect","PERA":"PERA","Dashboard":"Dash","EEWS":"EEWS","Validation":"Validate","Database":"Data","Shift Report":"Shift","Round Check":"Round"})[l]||l; }
 
 function renderShell(p){
   SHELL.p=p;
@@ -310,8 +314,9 @@ function renderShell(p){
   const roleLbl=p.role==="super_admin"?"Super Admin":p.role==="admin"?"Admin":"Member";
   const posdep=[(p.profile&&p.profile.position),(p.profile&&p.profile.department)].filter(Boolean).join(" · ")||roleLbl;
   const navItems=NAV.filter(n=> n.access==="member"||p.canValidate);
-  const nav=navItems
-    .map(n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span> '+esc(n.label)+'</button>').join("");
+  const btn=n=>'<button data-k="'+n.key+'" onclick="navTo(\''+n.key+'\')"><span class="i">'+n.ic+'</span> '+esc(n.label)+'</button>';
+  const navWorkspace=navItems.filter(n=>n.section==="workspace").map(btn).join("");
+  const navForm=navItems.filter(n=>n.section==="form").map(btn).join("");
   const bottomKeys=["overview","inspeksi","pera","validasi"];
   const prim=bottomKeys.map(k=>navItems.find(n=>n.key===k)).filter(Boolean);
   let bottomNav='<div class="s-bottomnav">'+
@@ -323,8 +328,8 @@ function renderShell(p){
       '<div class="s-backdrop" onclick="toggleSide(false)"></div>'+
       '<aside class="s-side">'+
         '<div class="s-brand"><div class="tri">&#9650;</div><div><b>Geotech Monitoring</b><small>BAHODOPI BLOCK 2 &amp; 3</small></div></div>'+
-        '<div class="s-navlbl">Workspace</div>'+
-        '<div class="s-nav" id="snav">'+nav+'</div>'+
+        (navWorkspace?'<div class="s-navlbl">Workspace</div><div class="s-nav">'+navWorkspace+'</div>':'')+
+        (navForm?'<div class="s-navlbl">Form</div><div class="s-nav">'+navForm+'</div>':'')+
         '<div class="s-user"><div class="av">'+esc((nm||"?").slice(0,2).toUpperCase())+'</div><div><b>'+esc(nm)+'</b><small>'+esc(roleLbl)+'</small></div></div>'+
       '</aside>'+
       '<div class="s-main">'+
@@ -351,7 +356,7 @@ function renderShell(p){
 function navTo(key){
   const item=NAV.find(n=>n.key===key); if(!item) return;
   if(item.full){ window.location.href=item.href; return; }   // analytical → full screen (own sidebar, no double)
-  document.querySelectorAll("#snav button").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
+  document.querySelectorAll(".s-nav button").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
   document.querySelectorAll(".s-bottomnav button[data-k]").forEach(b=>b.classList.toggle("on",b.getAttribute("data-k")===key));
   toggleSide(false);
   if(key==="overview"){ renderOverview(); return; }
