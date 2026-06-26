@@ -31,7 +31,8 @@
 const sb=GMS.sb,$=GMS.$,esc=GMS.esc,fmt=GMS.fmtDate;
 const RC={Low:'#16a34a',Medium:'#d97706',High:'#ea580c','Very High':'#dc2626'};
 const cls=l=>String(l||'Low').replace(' ','');
-let isSuper=false, tab="checklist", rows=[], users=[], peras=[], busy=false;
+let isSuper=false, tab="checklist", rows=[], users=[], peras=[], shifts=[], busy=false;
+const SRISK={0:'#64748b',1:'#16a34a',2:'#eab308',3:'#f97316',4:'#dc2626'};
 
 const apprColor=s=> s==="approved"?"#16a34a":s==="rejected"?"#dc2626":"#d97706";
 
@@ -44,9 +45,12 @@ async function loadUsers(){ busy=true; render();
 async function loadPeras(){ busy=true; render();
   const {data}=await sb.from("pera_assessments").select("id,event_id,event_snapshot,summary,inspector_name,status,created_at").order("created_at",{ascending:false});
   peras=data||[]; busy=false; render(); }
+async function loadShifts(){ busy=true; render();
+  const {data}=await sb.from("shift_reports").select("id,report_id,tanggal,shift,operator,tarp_level,tarp_label,total_instruments,online_instruments,created_at").order("created_at",{ascending:false});
+  shifts=data||[]; busy=false; render(); }
 
 function go(t){ tab=t; if(t==="checklist"||t==="reporting"){ if(!rows.length) loadChecklist(); else render(); }
-  else if(t==="user"){ loadUsers(); } else if(t==="pera"){ loadPeras(); } else render(); }
+  else if(t==="user"){ loadUsers(); } else if(t==="pera"){ loadPeras(); } else if(t==="shift"){ loadShifts(); } else render(); }
 window.go=go;
 
 function exportCSV(){
@@ -67,7 +71,7 @@ window.changeStatus=async(uid,v)=>{ busy=true; render(); const {error}=await sb.
   if(error){alert(error.message);} await loadUsers(); };
 
 function render(){
-  const TABS=[["checklist","Checklist"],["reporting","Reporting"],["pera","Audit PERA"]].concat(isSuper?[["user","User"]]:[]);
+  const TABS=[["checklist","Checklist"],["reporting","Reporting"],["pera","Audit PERA"],["shift","Shift Report"]].concat(isSuper?[["user","User"]]:[]);
   let body="";
   if(busy) body='<div class="mono" style="font-size:12px;color:var(--mut);margin-bottom:8px">memuat…</div>';
 
@@ -109,6 +113,20 @@ function render(){
         '<td>'+esc(s.triage||"—")+'</td><td><span class="badge">'+esc(a.status||"")+'</span></td>'+
         '<td><a class="lnk" href="report.html?type=pera&id='+esc(a.id)+'">PDF →</a></td></tr>';}).join("")
         :'<tr><td colspan="8" style="color:var(--mut);padding:18px">Belum ada penilaian PERA.</td></tr>')+
+      '</tbody></table></div></div>';
+  }
+  else if(tab==="shift"){
+    body+='<div class="tbl"><div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)">'+
+      '<span class="mono" style="font-size:11px;color:var(--mut)">'+shifts.length+' shift report</span>'+
+      '<button class="btn" onclick="loadShifts()">&#8635;</button></div><div class="scroll"><table>'+
+      '<thead><tr>'+["No. Laporan","Tanggal","Shift","Operator","TARP","Instrumen","PDF"].map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+
+      (shifts.length?shifts.map(s=>'<tr>'+
+        '<td class="mono" style="font-size:11px">'+esc(s.report_id||"—")+'</td>'+
+        '<td class="mono">'+esc(s.tanggal||"")+'</td><td>'+esc(s.shift||"—")+'</td><td>'+esc(s.operator||"—")+'</td>'+
+        '<td><span class="badge" style="color:'+(SRISK[s.tarp_level||0])+'">'+esc(s.tarp_label||"Normal")+'</span></td>'+
+        '<td class="mono" style="text-align:center">'+(s.online_instruments||0)+'/'+(s.total_instruments||0)+'</td>'+
+        '<td><a class="lnk" href="shiftreport_pdf.html?id='+esc(s.id)+'" target="_top">PDF →</a></td></tr>').join("")
+        :'<tr><td colspan="7" style="color:var(--mut);padding:18px">Belum ada shift report.</td></tr>')+
       '</tbody></table></div></div>';
   }
   else if(tab==="user" && isSuper){

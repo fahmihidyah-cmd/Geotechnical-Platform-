@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1f3a">
+<link rel="manifest" href="manifest.json">
+<title>Shift Round Check — Bahodopi</title>
+<link rel="stylesheet" href="common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  .wrap{max-width:720px;}
+  .eyebrow .right{float:right;text-transform:none;letter-spacing:0;color:var(--txt2);font-weight:600;}
+  .ctx{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+  @media(max-width:520px){.ctx{grid-template-columns:1fr;}}
+  .lastchk{font-size:12px;color:var(--mut);margin-top:10px;}
+  .lastchk b{color:var(--txt2);}
+  .q{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-top:12px;}
+  .q .qh{display:flex;align-items:flex-start;gap:8px;justify-content:space-between;}
+  .q .qt{font-size:13.5px;font-weight:700;color:var(--txt);}
+  .q .qd{font-size:11.5px;color:var(--mut);margin-top:2px;}
+  .q textarea{margin-top:10px;min-height:60px;}
+  .q .req{color:var(--red);}
+  .yn{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:0 0 auto;}
+  .yn button{border:none;background:#fff;padding:6px 13px;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;border-right:1px solid var(--line);}
+  .yn button:last-child{border-right:none;}
+  .yn button.on[data-v="ya"]{background:var(--red);color:#fff;}
+  .yn button.on[data-v="tidak"]{background:var(--green);color:#fff;}
+  .cond{display:none;} .cond.show{display:block;}
+  .sech{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:18px 0 2px;font-weight:700;}
+  .ostate{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .ostate button{flex:1;min-width:96px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px;font-weight:700;font-size:13px;color:var(--mut);cursor:pointer;}
+  .ostate button.on[data-v="Normal"]{background:var(--green);color:#fff;border-color:var(--green);}
+  .ostate button.on[data-v="Watch"]{background:var(--amber);color:#fff;border-color:var(--amber);}
+  .ostate button.on[data-v="Abnormal"]{background:var(--red);color:#fff;border-color:var(--red);}
+  .todo{font-size:12px;color:var(--accent);font-weight:600;margin-top:12px;}
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap" id="app">
+  <div class="center"><div class="spin"></div><div>Memuat…</div></div>
+</div>
+
+<script>
+const $=GMS.$, sb=GMS.sb, esc=GMS.esc;
+let PROFILE=null;
+const MIN=3;
+
+const S={
+  connectivity_note:"",
+  trigger:{yn:null,note:""}, anomaly:{yn:null,note:""}, issue_followup:"",
+  rain:{yn:null,note:""}, quake:{yn:null,note:""}, quake_para_followup:"",
+  overall:"Normal", general_note:""
+};
+
+function nowHour(){ return new Date().getHours(); }
+function deriveShift(){ const h=nowHour(); return (h>=6 && h<18) ? "Pagi" : "Malam"; }
+function fmtTime(iso){ if(!iso) return "—"; try{return new Date(iso).toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;} }
+
+async function lastCheckInfo(){
+  const r=await sb.from("shift_round_checks").select("checked_at,dispatcher,overall_state").order("checked_at",{ascending:false}).limit(1);
+  return (r&&!r.error&&r.data&&r.data[0])?r.data[0]:null;
+}
+
+function qBlock(id,title,desc,hasYN,condId){
+  return '<div class="q" id="q-'+id+'">'+
+    '<div class="qh"><div><div class="qt">'+title+' <span class="req">*</span></div>'+(desc?'<div class="qd">'+desc+'</div>':'')+'</div>'+
+    (hasYN?'<div class="yn" id="yn-'+id+'"><button type="button" data-v="ya" onclick="setYN(\''+id+'\',\'ya\')">Ya</button><button type="button" data-v="tidak" onclick="setYN(\''+id+'\',\'tidak\')">Tidak</button></div>':'')+
+    '</div>'+
+    '<textarea id="t-'+id+'" placeholder="Ketik jawaban…" oninput="setNote(\''+id+'\',this.value)"></textarea>'+
+    (condId?'<div class="cond" id="cond-'+condId+'"><textarea id="t-'+condId+'" placeholder="Ketik di sini…" oninput="setCond(\''+condId+'\',this.value)"></textarea></div>':'')+
+  '</div>';
+}
+
+function render(last){
+  const shift=deriveShift();
+  const dispatcher=(PROFILE&&(PROFILE.full_name||PROFILE.email))||"";
+  const lastTxt = last ? ('Round check terakhir: <b>'+fmtTime(last.checked_at)+'</b>'+(last.dispatcher?' oleh '+esc(last.dispatcher):'')+' · '+esc(last.overall_state)) : 'Belum ada round check tercatat.';
+  $("app").innerHTML=
+    '<div class="panel">'+
+      '<div class="eyebrow">Shift Round Check <span class="right">'+fmtTime(new Date().toISOString())+' WITA</span></div>'+
+      '<div class="ctx">'+
+        '<div><label class="f">Shift</label><select id="fShift"><option'+(shift==="Pagi"?" selected":"")+'>Pagi</option><option'+(shift==="Malam"?" selected":"")+'>Malam</option></select></div>'+
+        '<div><label class="f">Dispatcher</label><input id="fDisp" value="'+esc(dispatcher)+'"></div>'+
+      '</div>'+
+      '<div class="lastchk">'+lastTxt+'</div>'+
+      '<div class="banner info" style="margin-top:12px">&#9998; Jawab semua pertanyaan dengan <b style="margin:0 4px">mengetik</b> — bukan sekadar klik. Cek dashboard/instrumen langsung sebelum menjawab.</div>'+
+
+      '<div class="sech">Instrumen</div>'+
+      qBlock("connectivity","Bagaimana status alat saat ini?","Sebutkan instrumen yang offline / bermasalah, atau tulis kondisinya bila semua normal.",false,null)+
+      qBlock("trigger","Apakah ada threshold / TARP yang terlampaui?","Jika ada, sebut instrumen + nilai/level. Jika tidak, tulis &quot;tidak ada&quot;.",true,null)+
+      qBlock("anomaly","Apakah ada anomali pada tren pembacaan?","Lonjakan, drift, atau pola tak biasa. Jelaskan atau tulis &quot;tidak ada&quot;.",true,"issue_followup")+
+
+      '<div class="sech">Cuaca &amp; Seismik</div>'+
+      qBlock("rain","Apakah sedang / baru turun hujan?","Intensitas + dampak (genangan, rembesan, dll).",true,null)+
+      qBlock("quake","Apakah ada event gempa shift ini?","Magnitudo &amp; lokasi bila ada.",true,"quake_para_followup")+
+
+      '<div class="sech">Penutup</div>'+
+      '<div class="q"><div class="qt">Status keseluruhan shift</div>'+
+        '<div class="ostate" id="ostate">'+['Normal','Watch','Abnormal'].map(v=>'<button type="button" data-v="'+v+'" class="'+(v===S.overall?"on":"")+'" onclick="setOverall(\''+v+'\')">'+v+'</button>').join("")+'</div>'+
+      '</div>'+
+      qBlock("general","Catatan umum / serah info ke shift berikut","",false,null)+
+
+      '<div class="todo" id="todo"></div>'+
+      '<div id="msg"></div>'+
+      '<button class="btn primary block" id="btnSubmit" style="margin-top:12px" disabled>Simpan Round Check</button>'+
+    '</div>';
+
+  setCondLabel("issue_followup","Sudah di-follow up ke siapa? Tindakan apa?");
+  setCondLabel("quake_para_followup","Sudah koordinasi ke pengawas lapangan untuk mengisi PARA checklist? Status?");
+  $("btnSubmit").onclick=submit;
+  validate();
+}
+function setCondLabel(id,ph){ const t=$("t-"+id); if(t) t.placeholder=ph; }
+
+function setNote(id,v){
+  if(id==="connectivity") S.connectivity_note=v;
+  else if(id==="general") S.general_note=v;
+  else if(S[id]) S[id].note=v;
+  validate();
+}
+function setCond(id,v){ S[id]=v; validate(); }
+function setYN(id,val){
+  S[id].yn=val;
+  const yn=$("yn-"+id); if(yn)[].forEach.call(yn.children,b=>b.classList.toggle("on",b.getAttribute("data-v")===val));
+  const showIssue=(S.trigger.yn==="ya"||S.anomaly.yn==="ya");
+  const ci=$("cond-issue_followup"); if(ci) ci.classList.toggle("show",showIssue);
+  const cq=$("cond-quake_para_followup"); if(cq) cq.classList.toggle("show",S.quake.yn==="ya");
+  validate();
+}
+function setOverall(val){ S.overall=val; const p=$("ostate"); if(p)[].forEach.call(p.children,b=>b.classList.toggle("on",b.getAttribute("data-v")===val)); }
+
+function ok(s){ return s && s.trim().length>=MIN; }
+function validate(){
+  const miss=[];
+  if(!ok(S.connectivity_note)) miss.push("status alat");
+  if(S.trigger.yn===null) miss.push("trigger Ya/Tidak"); else if(!ok(S.trigger.note)) miss.push("jawaban trigger");
+  if(S.anomaly.yn===null) miss.push("anomali Ya/Tidak"); else if(!ok(S.anomaly.note)) miss.push("jawaban anomali");
+  if((S.trigger.yn==="ya"||S.anomaly.yn==="ya") && !ok(S.issue_followup)) miss.push("follow-up trigger/anomali");
+  if(S.rain.yn===null) miss.push("hujan Ya/Tidak"); else if(!ok(S.rain.note)) miss.push("jawaban hujan");
+  if(S.quake.yn===null) miss.push("gempa Ya/Tidak"); else if(!ok(S.quake.note)) miss.push("jawaban gempa");
+  if(S.quake.yn==="ya" && !ok(S.quake_para_followup)) miss.push("follow-up PARA gempa");
+  if(!ok(S.general_note)) miss.push("catatan umum");
+  const btn=$("btnSubmit"), todo=$("todo");
+  if(btn) btn.disabled=miss.length>0;
+  if(todo) todo.textContent = miss.length? ("Belum lengkap: "+miss.join(", ")) : "Semua terjawab — siap disimpan.";
+}
+
+async function submit(){
+  const btn=$("btnSubmit"); btn.disabled=true; btn.textContent="Menyimpan…";
+  const payload={
+    checked_at:new Date().toISOString(),
+    shift: $("fShift").value,
+    dispatcher: $("fDisp").value.trim()||null,
+    connectivity_note: S.connectivity_note.trim(),
+    has_trigger: S.trigger.yn==="ya", trigger_note: S.trigger.note.trim(),
+    has_anomaly: S.anomaly.yn==="ya", anomaly_note: S.anomaly.note.trim(),
+    issue_followup: (S.trigger.yn==="ya"||S.anomaly.yn==="ya")?S.issue_followup.trim():null,
+    has_rain: S.rain.yn==="ya", rain_note: S.rain.note.trim(),
+    has_quake: S.quake.yn==="ya", quake_note: S.quake.note.trim(),
+    quake_para_followup: S.quake.yn==="ya"?S.quake_para_followup.trim():null,
+    overall_state: S.overall,
+    general_note: S.general_note.trim()
+  };
+  const r=await sb.from("shift_round_checks").insert(payload).select("id").single();
+  if(r&&r.error){ $("msg").innerHTML='<div class="banner err" style="margin-top:10px">Gagal menyimpan: '+esc(r.error.message)+'</div>'; btn.disabled=false; btn.textContent="Simpan Round Check"; return; }
+  $("app").innerHTML='<div class="panel"><div class="banner ok" style="margin-bottom:0">&#10003; Round check tersimpan. Pemeriksaan berikutnya disarankan dalam 2 jam.</div>'+
+    '<button class="btn primary block" style="margin-top:14px" onclick="location.reload()">Round Check Baru</button>'+
+    '<a class="btn block" style="margin-top:8px;text-decoration:none" href="index.html">Kembali ke Menu</a></div>';
+}
+
+async function init(){
+  const _hd=$("hdr"); if(_hd) _hd.style.display="none";
+  const session=await GMS.getSession();
+  if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
+  PROFILE=await GMS.getProfile();
+  let last=null; try{ last=await lastCheckInfo(); }catch(e){}
+  render(last);
+}
+window.setYN=setYN; window.setNote=setNote; window.setCond=setCond; window.setOverall=setOverall;
+init();
+</script>
+</body>
+</html>
