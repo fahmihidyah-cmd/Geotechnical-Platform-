@@ -13,6 +13,8 @@
 <title>EEWS IGP Morowali — Earthquake Early Warning</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
 <style>
   :root {
     --bg:#0a0c12;--bg2:#161922;--bg3:#232736;
@@ -865,7 +867,21 @@ function startApp(){
   // Fallback polling setiap 60 detik kalau WebSocket mati
   setInterval(()=>{ if(!ws||ws.readyState!==1){ loadData(); } }, 60000);
 }
-document.addEventListener('DOMContentLoaded', startApp);
+// AUTH GATE — EEWS sebelumnya bisa diakses tanpa login. Sekarang require admin/validator session.
+document.addEventListener('DOMContentLoaded', async () => {
+  const s = await GMS.getSession();
+  if (!s) { location.replace("index.html"); return; }
+  const p = await GMS.getProfile();
+  if (!p || p.status !== "active") {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:-apple-system,Segoe UI,sans-serif;color:#e8eaf0;background:#0a0c12;min-height:100vh"><div style="font-size:40px">&#9888;</div><div style="margin-top:12px;font-weight:700;font-size:17px">Akun belum aktif</div><div style="margin-top:6px;color:#9097b0;font-size:13px">Hubungi Super Admin atau <a href="index.html" style="color:#1d9e75">kembali ke menu</a>.</div></div>';
+    return;
+  }
+  if (!p.canValidate) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:-apple-system,Segoe UI,sans-serif;color:#e8eaf0;background:#0a0c12;min-height:100vh"><div style="font-size:40px">&#128274;</div><div style="margin-top:12px;font-weight:700;font-size:17px">Akses ditolak</div><div style="margin-top:6px;color:#9097b0;font-size:13px">EEWS hanya untuk admin/validator. <a href="index.html" style="color:#1d9e75">Kembali ke menu</a>.</div></div>';
+    return;
+  }
+  startApp();
+});
 </script>
 </body>
 </html>

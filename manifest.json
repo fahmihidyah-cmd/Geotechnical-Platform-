@@ -1,12 +1,12 @@
 {
-  "name": "PERA — Post-Earthquake Rapid Assessment",
-  "short_name": "PERA",
-  "description": "Post-Earthquake Rapid Assessment — IGP Morowali Bahodopi",
-  "start_url": "./pera.html",
+  "name": "Geotech Monitoring — Bahodopi",
+  "short_name": "Geotech Monitoring",
+  "description": "Geotechnical Monitoring System — IGP Morowali Bahodopi Block 2 & 3",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f6f9",
-  "theme_color": "#0b1f3a",
+  "background_color": "#050b16",
+  "theme_color": "#050b16",
   "icons": []
 }

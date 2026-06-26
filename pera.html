@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <title>Post-Earthquake Rapid Assessment — IGP Morowali</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
 <style>
   :root{
     --navy:#0b1f3a; --blue:#1d4ed8; --blue2:#2563eb;
@@ -491,7 +492,17 @@ window.addEventListener("online", ()=>{ setNet(); syncOutbox(); });
 window.addEventListener("offline", setNet);
 
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
-init();
+// AUTH GATE — pera.html sebelumnya bisa diakses tanpa login. Sekarang require active session.
+(async () => {
+  const s = await GMS.getSession();
+  if (!s) { location.replace("index.html"); return; }
+  const p = await GMS.getProfile();
+  if (!p || p.status !== "active") {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:-apple-system,Segoe UI,sans-serif;color:#1e293b"><div style="font-size:40px">&#9888;</div><div style="margin-top:12px;font-weight:700;font-size:17px">Akun belum aktif</div><div style="margin-top:6px;color:#64748b;font-size:13px">Hubungi Super Admin atau <a href="index.html" style="color:#2563eb">kembali ke menu</a>.</div></div>';
+    return;
+  }
+  init();
+})();
 </script>
 </body>
 </html>
