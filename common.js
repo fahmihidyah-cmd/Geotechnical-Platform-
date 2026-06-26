@@ -76,7 +76,11 @@
   };
 
   // ---- standard header with optional back button ----
+  // When the page is loaded inside the shell iframe (index.html), the shell
+  // already provides the top bar. Returning '' avoids a double header stack.
+  GMS.embedded = function(){ try{ return window.self !== window.top; }catch(e){ return true; } };
   GMS.header = function(title, sub, opts){
+    if(GMS.embedded()) return '';
     opts = opts||{};
     const back = opts.back!==false ? '<a class="back" href="index.html">&#8592; Menu</a>' : '';
     const net  = opts.net ? '<span><span id="netDot" class="dot off"></span> <span id="netTxt">offline</span></span>' : '';

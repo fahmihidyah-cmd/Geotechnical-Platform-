@@ -95,6 +95,10 @@
   #outbox{position:fixed;bottom:74px;left:0;right:0;max-width:680px;margin:0 auto;padding:0 14px;}
   #outbox .chip{background:#1e293b;color:#fff;border-radius:10px;padding:9px 12px;font-size:12px;display:flex;align-items:center;gap:8px;}
   #outbox .chip button{margin-left:auto;background:#334155;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;}
+
+  /* Hide local header when this page is loaded inside the shell iframe — the
+     shell already provides a top bar; rendering ours too would stack them. */
+  body.embedded > header{display:none !important;}
 </style>
 </head>
 <body>
@@ -114,6 +118,8 @@
 
 <script>
 "use strict";
+// Mark body as embedded when running inside the shell iframe (hides local header).
+try{ if(window.self !== window.top) document.body.classList.add('embedded'); }catch(e){ document.body.classList.add('embedded'); }
 // ===================== CONFIG =====================
 const SUPABASE_URL = "https://dhddckamrkfleuigrsip.supabase.co";
 const SUPABASE_KEY = "sb_publishable_p52IeJQKTTcg1M_cIL1ybA_j5G7rG0l";

@@ -163,7 +163,22 @@
       border-radius:16px;
       box-shadow:var(--shadow);
       min-width:0;
+      position:relative;
     }
+    /* Clickable card — used on Overview for drill-down into detail tabs */
+    .card.clickable{cursor:pointer;transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease}
+    .card.clickable:hover{transform:translateY(-2px);border-color:rgba(59,130,246,.45);box-shadow:0 18px 36px rgba(2,8,20,.45)}
+    .card.clickable::after{
+      content:'';position:absolute;right:12px;top:12px;width:18px;height:18px;border-radius:50%;
+      background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.45);
+      opacity:0;transition:opacity .12s ease;
+    }
+    .card.clickable:hover::after{opacity:1}
+    .card.clickable .more-arrow{
+      position:absolute;right:14px;top:13px;font-size:13px;line-height:1;color:#bfdbfe;
+      opacity:.4;pointer-events:none;font-weight:900;transition:opacity .12s ease, transform .12s ease;z-index:1;
+    }
+    .card.clickable:hover .more-arrow{opacity:1;transform:translateX(2px)}
     .card-hd{
       padding:10px 12px 0;
       display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -693,7 +708,8 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card clickable" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
+            <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Total Risk Level</div><div class="ic">◔</div></div>
             <div class="card-bd" style="display:flex;gap:10px;align-items:center">
               <div style="width:62px;height:62px"><canvas id="riskDonut"></canvas></div>
@@ -705,7 +721,8 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+            <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Total Alerts</div><div class="ic">⚠</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kAlerts">—</div>
@@ -719,7 +736,8 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+            <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Active Instruments</div><div class="ic">📡</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kActive">—</div>
@@ -727,7 +745,8 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card clickable" onclick="setView('aws')" title="Lihat detail di AWS / Weather">
+            <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Rain Hours</div><div class="ic">🌧️</div></div>
             <div class="card-bd">
               <div style="display:flex;gap:14px;flex-wrap:wrap">
@@ -768,7 +787,8 @@
               </div>
             </div>
 
-            <div class="card" style="min-height:0">
+            <div class="card clickable" style="min-height:0" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
+              <span class="more-arrow">→</span>
               <div class="card-hd"><div class="t">Ringkasan Risiko Geoteknik</div><div class="ic">◑</div></div>
               <div class="card-bd" style="min-height:0">
                 <div class="split">
@@ -791,7 +811,8 @@
               </div>
             </div>
 
-            <div class="card" style="min-height:0">
+            <div class="card clickable" style="min-height:0" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
+              <span class="more-arrow">→</span>
               <div class="card-hd"><div class="t">Status Monitoring Inspeksi</div><div class="ic">☑</div></div>
               <div class="card-bd" style="min-height:0">
                 <table class="tbl">
@@ -808,14 +829,16 @@
 
           <div class="lower">
             <div class="two-stack">
-              <div class="card" style="min-height:0">
+              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+                <span class="more-arrow">→</span>
                 <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
                 <div class="card-bd">
                   <div class="instruments" id="instHealth"></div>
                 </div>
               </div>
 
-              <div class="card" style="min-height:0">
+              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+                <span class="more-arrow">→</span>
                 <div class="card-hd"><div class="t">Parameter Monitoring (Latest)</div><div class="ic">≋</div></div>
                 <div class="card-bd" style="min-height:0">
                   <table class="tbl">
@@ -826,7 +849,8 @@
               </div>
             </div>
 
-            <div class="card" style="min-height:0">
+            <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+              <span class="more-arrow">→</span>
               <div class="card-hd"><div class="t">Trend Parameter (7 days)</div><div class="ic">📈</div></div>
               <div class="card-bd">
                 <div class="sparks">
@@ -855,7 +879,8 @@
             </div>
 
             <div class="alerts-stack">
-              <div class="card" style="min-height:0">
+              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+                <span class="more-arrow">→</span>
                 <div class="card-hd"><div class="t">Alert Summary</div><div class="ic">◕</div></div>
                 <div class="card-bd">
                   <div class="split">
@@ -871,7 +896,8 @@
                 </div>
               </div>
 
-              <div class="card" style="min-height:0">
+              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+                <span class="more-arrow">→</span>
                 <div class="card-hd"><div class="t">Latest Alerts</div><div class="ic">🧯</div></div>
                 <div class="card-bd" style="min-height:0">
                   <div class="alert-list" id="latestAlerts"></div>
@@ -1149,7 +1175,7 @@
       const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
       const cards=groups.map((g,gi)=>`
         <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — ${esc(g.key)}</div><div class="t" id="exttrend_${gi}" style="color:#9fb3cf"></div></div>
-          <div class="card-bd" style="height:240px"><canvas id="extchart_${gi}"></canvas></div></div>`).join('');
+          <div class="card-bd" style="height:180px"><canvas id="extchart_${gi}"></canvas></div></div>`).join('');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t">AREA CHART · click a legend item to toggle that sensor · dashed = trendline</div>
@@ -1194,14 +1220,14 @@
             ${miniKpi('Peak intensity · '+rlabel, fmt(peakMax,1)+' mm/hr','#f97316')}
             ${miniKpi('Total wet-hours · '+rlabel, fmt(wetH,1)+' h','#a78bfa')}
           </div>
-          <div style="height:160px;margin-top:10px"><canvas id="awsDaily"></canvas></div>
+          <div style="height:130px;margin-top:8px"><canvas id="awsDaily"></canvas></div>
         </div></div>
-        <div class="card-hd" style="padding:8px 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="card-hd" style="padding:6px 2px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t" style="font-size:12px;color:#9fb3cf">Weather time-series</div>
           <div>${rangeToggle('aw',STATE.awRange)}</div></div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px">
-          <div class="card"><div class="card-hd"><div class="t">🌡️ Temperature & Humidity</div></div><div class="card-bd" style="height:190px"><canvas id="awsTH"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">💨 Wind & Radiation</div></div><div class="card-bd" style="height:190px"><canvas id="awsWR"></canvas></div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px">
+          <div class="card"><div class="card-hd"><div class="t">🌡️ Temperature & Humidity</div></div><div class="card-bd" style="height:150px"><canvas id="awsTH"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">💨 Wind & Radiation</div></div><div class="card-bd" style="height:150px"><canvas id="awsWR"></canvas></div></div>
         </div>
         ${statusPanel('weather')}
         ${rawPanelAws()}`;
@@ -1264,14 +1290,14 @@
 
           <div class="sechd">Tren & Operational effectiveness</div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
-            <div class="card"><div class="card-hd"><div class="t">Trend MTTR Inspection[Weekly] — Hourly</div></div><div class="card-bd" style="height:200px"><canvas id="cMttr"></canvas></div></div>
-            <div class="card"><div class="card-hd"><div class="t">Gap Temuan vs Perbaikan (kumulatif)</div></div><div class="card-bd" style="height:200px"><canvas id="cGap"></canvas></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Trend MTTR Inspection (Weekly · hours)</div></div><div class="card-bd" style="height:150px"><canvas id="cMttr"></canvas></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Gap Temuan vs Perbaikan (kumulatif)</div></div><div class="card-bd" style="height:150px"><canvas id="cGap"></canvas></div></div>
           </div>
 
           <div class="sechd">SEKSI 2 · Spasial Analysis & Correlation</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="card"><div class="card-hd"><div class="t">Tren Risiko Inspeksi (6 Monhts)</div></div><div class="card-bd" style="height:210px"><canvas id="cTrend"></canvas></div></div>
-            <div class="card"><div class="card-hd"><div class="t">Heatmap Lokasi × Parameter (finding aktif)</div></div><div class="card-bd" style="max-height:240px;overflow:auto" id="insHeat"><div style="color:var(--mut2)">memuat…</div></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Tren Risiko Inspeksi (6 Bulan)</div></div><div class="card-bd" style="height:160px"><canvas id="cTrend"></canvas></div></div>
+            <div class="card"><div class="card-hd"><div class="t">Heatmap Lokasi × Parameter (finding aktif)</div></div><div class="card-bd" style="max-height:180px;overflow:auto" id="insHeat"><div style="color:var(--mut2)">memuat…</div></div></div>
           </div>
 
           <div class="sechd">SEKSI 3 · Strategy & Improvement</div>
