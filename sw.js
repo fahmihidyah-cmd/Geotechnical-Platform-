@@ -1,6 +1,6 @@
 /* GMS service worker v8 — multi-page offline shell + map assets + aerial tile runtime cache */
 "use strict";
-const CACHE = "gms-shell-v9";
+const CACHE = "gms-shell-v10";
 const TILE_CACHE = "gms-aerial-tiles-v1";          // persistent: survives app updates
 const TILE_HOST = "young-mouse-1ee2.fahmihidyah.workers.dev"; // aerial XYZ tiles (Cloudflare)
 const SUPA_CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
@@ -11,7 +11,8 @@ const CDN_ASSETS = [
 ];
 const PRECACHE = [
   "common.css", "common.js",
-  "index.html", "pera.html", "inspeksi.html", "dashboard.html", "report.html", "eews.html", "validasi.html", "database.html", "monitoring.html", "risk_report.html",
+  "index.html", "pera.html", "inspeksi.html", "report.html", "eews.html", "validasi.html",
+  "database.html", "monitoring.html", "risk_report.html", "shift.html", "shiftreport.html",
   "manifest.json", SUPA_CDN, ...CDN_ASSETS
 ];
 
