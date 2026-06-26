@@ -216,7 +216,7 @@
         .bindTooltip(ip.location+' — '+ip.risk+' (TARP '+ (ip.tarp_level||'-') +')',{permanent:false});
       mk.addTo(map); bounds.push(L.latLngBounds([[ip.lat,ip.lng]]));
     });
-    if(bounds.length){ let b=bounds[0]; bounds.slice(1).forEach(x=>b=b.extend(x)); try{ map.fitBounds(b.pad(.25),{maxZoom:17}); if(map.getZoom()<14) map.setZoom(14); }catch(e){ map.fitBounds(BAHODOPI_BOUNDS,{maxZoom:16}); } } else { map.fitBounds(BAHODOPI_BOUNDS,{maxZoom:16}); }
+    if(bounds.length){ let b=bounds[0]; bounds.slice(1).forEach(x=>b=b.extend(x)); try{ map.fitBounds(b.pad(.25),{maxZoom:17}); if(map.getZoom()<15) map.setZoom(15); }catch(e){ map.setView([-2.74,122.014],15); } } else { map.setView([-2.74,122.014],15); }
     setTimeout(()=>map.invalidateSize(),250);
   }
 

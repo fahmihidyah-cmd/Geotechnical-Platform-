@@ -457,7 +457,7 @@ async function buildMap(){
     });
   }catch(e){}
   riskGroup.addTo(map); instGroup.addTo(map);
-  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:17}); if(map.getZoom()<14) map.setZoom(14); }catch(e){ map.fitBounds(BAHODOPI_BOUNDS,{maxZoom:16}); } } else { map.fitBounds(BAHODOPI_BOUNDS,{maxZoom:16}); }
+  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:17}); if(map.getZoom()<15) map.setZoom(15); }catch(e){ map.setView([-2.74,122.014],15); } } else { map.setView([-2.74,122.014],15); }
   mapBuilt=true;
   setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },250);
 }

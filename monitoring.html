@@ -1644,11 +1644,14 @@
       if(map && map.getContainer() !== el){ try{ map.remove(); }catch(e){} map=null; overlays=null; }
 
       if(!map){
-        // Bahodopi site bounding box (between WOC and Port)
-        const BAHODOPI_BOUNDS = L.latLngBounds([-2.755, 121.992], [-2.718, 122.034]);
+        // Bahodopi site — center on WOC (primary monitoring area) at zoom 15.
+        // Aerial native tiles are zoom 14–19, so we bias toward the upper end so
+        // the worker's high-res imagery is always within the loaded range.
+        const BAHODOPI_CENTER = [-2.74, 122.014];
+        const BAHODOPI_BOUNDS = L.latLngBounds([-2.752, 121.999], [-2.728, 122.029]);
         map = L.map('map', {
           scrollWheelZoom:true, zoomControl:true,
-          minZoom:10, maxZoom:22,
+          minZoom:12, maxZoom:22,
           zoomSnap:0.5, zoomDelta:0.5
         });
         // Place zoom control on the right so it doesn't overlap legend (bottom-left)
@@ -1657,16 +1660,22 @@
         // Basemap: ArcGIS satellite (fallback OSM) as wide-zoom base
         const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution:'Esri World Imagery' });
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'OpenStreetMap' });
-        // Aerial PT Vale — high-res imagery for Bahodopi site, only valid at zoom 14–19
+        // Aerial PT Vale — high-res imagery for Bahodopi site, only valid at zoom 14–19.
+        // Use higher zIndex so it always paints over the basemap.
         const aerial = L.tileLayer('https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg', {
           minZoom:1, maxZoom:22, minNativeZoom:14, maxNativeZoom:19, tms:false,
+          opacity:1, zIndex:400,
           attribution:'Aerial PT Vale Bahodopi 2026'
         });
         let satFailed = false;
         sat.on('tileerror', ()=>{ if(!satFailed){ satFailed = true; try{ map.removeLayer(sat); }catch(e){} osm.addTo(map); } });
+        aerial.on('tileerror', (e)=>{ try{ console.warn('[aerial tile fail]', e && e.tile && e.tile.src); }catch(_){} });
         // Default: satellite + aerial overlay both on, so user sees aerial right away
         sat.addTo(map);
         aerial.addTo(map);
+        // Initial view at WOC site (zoom 15) so aerial native tiles load immediately.
+        // fitBounds further down may refine if data points exist.
+        map.setView(BAHODOPI_CENTER, 15);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
@@ -1761,18 +1770,19 @@
         try{ (gj.geometry.coordinates[0]||[]).forEach(c=>points.push([c[1],c[0]])); }catch(e){}
       });
 
+      // Fit to data points if they exist, otherwise keep the WOC-centered
+      // initial view that was set during map creation. Either way, clamp the
+      // zoom into [15, 18] so the aerial native zoom (14–19) is always loaded.
       if(points.length){
-        // Fit to data points but always keep at least the full Bahodopi site visible
         try{
           const dataBounds = L.latLngBounds(points).pad(0.18);
-          const merged = dataBounds.extend(map.__bahodopiBounds);
-          map.fitBounds(merged, { maxZoom:17 });
-          if(map.getZoom() < 14) map.setZoom(14); // ensure aerial layer is visible
-        } catch(e){ map.fitBounds(map.__bahodopiBounds, { maxZoom:16 }); }
-      } else {
-        // No data yet → show full Bahodopi site at zoom where aerial is loaded
-        map.fitBounds(map.__bahodopiBounds, { maxZoom:16 });
+          map.fitBounds(dataBounds, { maxZoom:17 });
+          if(map.getZoom() < 15) map.setZoom(15);
+        } catch(e){ map.setView([-2.74, 122.014], 15); }
+      } else if(!map._hasInitialView){
+        map.setView([-2.74, 122.014], 15);
       }
+      map._hasInitialView = true;
       [60,250,600,1200].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, d));
       if(!window.__mapResizeBound){ window.__mapResizeBound=true; window.addEventListener('resize',()=>{ try{ map && map.invalidateSize(); }catch(e){} }); }
     }
