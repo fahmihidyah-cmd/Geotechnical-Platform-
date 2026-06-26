@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="common.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   .wrap{max-width:1140px;}
   .toprow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
@@ -73,6 +75,22 @@
   .proto .d{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}
   .rcrow{font-size:11.5px;display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--line2);}
   .rcrow:first-child{border-top:none;}
+  /* map with collapsible control panel */
+  .mapwrap{position:relative;}
+  #map{height:440px;border-radius:12px;border:1px solid var(--line);}
+  .lbltip{font-size:9px;font-weight:800;background:rgba(255,255,255,.88);border:none;box-shadow:none;padding:0 4px;color:#0f172a;}
+  .lbltip::before{display:none;}
+  .mapgear{position:absolute;top:10px;left:10px;z-index:500;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--txt);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .mappanel{position:absolute;top:48px;left:10px;z-index:500;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;width:210px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:none;}
+  .mappanel.show{display:block;}
+  .mappanel .pt{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin:8px 0 5px;}
+  .mappanel .pt:first-child{margin-top:0;}
+  .mappanel label{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;cursor:pointer;color:var(--txt);}
+  .mappanel input{width:15px;height:15px;}
+  .mlgd{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2);padding:2px 0;}
+  .mlgd .lgd{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  .mlgd .lgd.tri{width:0;height:0;border-radius:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid #16a34a;}
+  .maphint{font-size:11px;color:var(--mut);margin-top:8px;}
 </style>
 </head>
 <body>
@@ -246,12 +264,6 @@ function render(rcs){
       </div>
 
       <div class="panel sec">
-        <div class="sec-h">Site Base Map</div>
-        <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px">Peta dashboard: basemap + aerial PTVI + boundary risiko, marker instrumen, legend & filter.</p>
-        <a class="btn primary" style="text-decoration:none" href="exec_dashboard.html" target="_top">&#128506; Buka Site Base Map</a>
-      </div>
-
-      <div class="panel sec">
         <div class="sec-h">Checklist Validasi Shift</div>
         <div id="cl-body">${buildChecklist()}</div>
       </div>
@@ -268,6 +280,30 @@ function render(rcs){
           <div class="sigbox"><div class="sigrole">Operator Shift Masuk</div><input id="sig-in" placeholder="Nama · Waktu"></div>
           <div class="sigbox"><div class="sigrole">Geotechnical Engineer</div><input id="sig-eng" placeholder="Nama · Verifikasi"></div>
         </div>
+      </div>
+
+      <div class="panel sec" id="mapsec">
+        <div class="sec-h">Site Base Map — atur area untuk laporan</div>
+        <div class="mapwrap">
+          <div id="map"></div>
+          <button class="mapgear" type="button" onclick="toggleMapPanel()">&#9776; Layer &amp; Legend</button>
+          <div class="mappanel" id="mappanel">
+            <div class="pt">Base Map</div>
+            <label><input type="radio" name="mbase" value="esri" checked onchange="setBase('esri')"> Satelit (Esri)</label>
+            <label><input type="radio" name="mbase" value="aerial" onchange="setBase('aerial')"> Aerial PTVI</label>
+            <label><input type="radio" name="mbase" value="osm" onchange="setBase('osm')"> Peta (OSM)</label>
+            <div class="pt">Filter</div>
+            <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
+            <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
+            <div class="pt">Legend Risk</div>
+            <div class="mlgd"><span class="lgd tri"></span> Instrumen</div>
+            <div class="mlgd"><span class="lgd" style="background:#16a34a"></span> Low</div>
+            <div class="mlgd"><span class="lgd" style="background:#eab308"></span> Medium</div>
+            <div class="mlgd"><span class="lgd" style="background:#f97316"></span> High</div>
+            <div class="mlgd"><span class="lgd" style="background:#dc2626"></span> High Risk</div>
+          </div>
+        </div>
+        <div class="maphint">Atur posisi, zoom &amp; filter peta sesuai area yang ingin dilaporkan. Tampilan ini akan tersimpan & dipakai di PDF.</div>
       </div>
 
       <div id="msg"></div>
@@ -333,7 +369,9 @@ function render(rcs){
   renderRows();
   $("btn-submit").onclick=submit;
   startClock();
+  buildMap();
 }
+window.toggleMapPanel=toggleMapPanel; window.setBase=setBase; window.toggleRisk=toggleRisk; window.toggleInst=toggleInst;
 function startClock(){ const t=()=>{ const c=$("clock"); if(c) c.textContent=new Date().toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }; t(); setInterval(t,1000); }
 
 async function submit(){
@@ -352,7 +390,7 @@ async function submit(){
       handover:{out:$("sig-out").value||null,in:$("sig-in").value||null,eng:$("sig-eng").value||null},
       total_instruments:n, online_instruments:on, down_instruments:dn,
       alert_count:INST.filter(d=>tarpLv(d.type,d.val)>=2).length,
-      coverage_pct:n?Math.round(on/n*100):0 };
+      coverage_pct:n?Math.round(on/n*100):0, map_view:captureView() };
     const ins=await sb.from("shift_reports").insert(head).select("id").single();
     if(ins.error) throw ins.error;
     const rid=ins.data.id;
@@ -364,10 +402,55 @@ async function submit(){
       const ri=await sb.from("shift_report_instruments").insert(payload);
       if(ri.error) throw ri.error;
     }
-    $("app").innerHTML=`<div class="panel" style="max-width:520px;margin:30px auto"><div class="banner ok" style="margin-bottom:0">&#10003; Shift Report tersimpan.<br><span style="font-size:11px;opacity:.8">${esc(reportId)} · TARP ${RISK[lv].lab}</span></div>
-      <button class="btn primary block" style="margin-top:14px" onclick="location.reload()">Laporan Baru</button>
-      <a class="btn block" style="margin-top:8px;text-decoration:none" href="index.html" target="_top">Kembali ke Menu</a></div>`;
+    $("msg").innerHTML='<div class="banner ok" style="margin-top:10px">&#10003; Shift Report tersimpan ('+esc(reportId)+' · TARP '+RISK[lv].lab+'). Unduh PDF laporan dari menu <b>Database</b>.</div>';
+    btn.textContent="Tersimpan \u2713"; btn.disabled=true;
   }catch(err){ msg.innerHTML='<div class="banner err">Gagal menyimpan: '+esc(err.message||err)+'</div>'; btn.disabled=false; btn.textContent="Submit & Simpan Laporan"; }
+}
+
+let map=null, mapBuilt=false, baseLayers={}, curBase='esri', riskGroup=null, instGroup=null;
+function toggleMapPanel(){ const p=$("mappanel"); if(p) p.classList.toggle("show"); }
+function setBase(name){ if(!map)return; Object.keys(baseLayers).forEach(k=>{ if(map.hasLayer(baseLayers[k])) map.removeLayer(baseLayers[k]); }); baseLayers[name].addTo(map); baseLayers[name].bringToBack(); curBase=name; }
+function toggleRisk(on){ if(!map||!riskGroup)return; on?riskGroup.addTo(map):map.removeLayer(riskGroup); }
+function toggleInst(on){ if(!map||!instGroup)return; on?instGroup.addTo(map):map.removeLayer(instGroup); }
+
+async function buildMap(){
+  if(mapBuilt) return; const el=$("map"); if(!el||typeof L==="undefined") return;
+  map=L.map("map",{scrollWheelZoom:true});
+  baseLayers.esri=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});
+  baseLayers.aerial=L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:14,maxNativeZoom:19,maxZoom:19,tms:false,attribution:"PTVI"});
+  baseLayers.osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OSM"});
+  baseLayers.esri.addTo(map); curBase='esri';
+  riskGroup=L.layerGroup(); instGroup=L.layerGroup();
+  const all=[];
+  try{
+    const rp=await sb.from("v_inspection_risk_areas").select("polygon_geojson,risk_color,risk_level,location_name").limit(300);
+    ((rp&&!rp.error&&rp.data)?rp.data:[]).forEach(a=>{ if(!a.polygon_geojson)return;
+      try{ const gj=(typeof a.polygon_geojson==="string")?JSON.parse(a.polygon_geojson):a.polygon_geojson; const col=a.risk_color||"#dc2626";
+        const lyr=L.geoJSON(gj,{style:{color:col,weight:2,fillColor:col,fillOpacity:.22}}); lyr.bindPopup("<b>"+esc(a.location_name||"Area")+"</b><br>Risk "+esc(a.risk_level||"")); lyr.addTo(riskGroup);
+        const b=lyr.getBounds(); if(b.isValid()){ all.push([b.getNorth(),b.getEast()],[b.getSouth(),b.getWest()]); }
+      }catch(e){}
+    });
+  }catch(e){}
+  try{
+    const rs=await sb.from("v_instrument_sensors").select("external_device_id,sensor_name,kind,lat,lng,manual_state,latest_ts").eq("kind","extensometer");
+    const seen={};
+    ((rs&&!rs.error&&rs.data)?rs.data:[]).forEach(s=>{ if(s.lat==null||s.lng==null)return; const key=s.external_device_id||s.sensor_name; if(seen[key])return; seen[key]=1;
+      const off=(s.manual_state==="offline")||!s.latest_ts||((Date.now()-new Date(s.latest_ts).getTime())/3600000>3); const col=off?"#dc2626":"#16a34a";
+      L.marker([+s.lat,+s.lng],{icon:L.divIcon({className:"",html:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid '+col+';filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))"></div>',iconSize:[14,13],iconAnchor:[7,13]})})
+        .bindTooltip(String(key),{permanent:true,direction:"right",className:"lbltip",offset:[8,-6]}).addTo(instGroup);
+      all.push([+s.lat,+s.lng]);
+    });
+  }catch(e){}
+  riskGroup.addTo(map); instGroup.addTo(map);
+  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25)); }catch(e){ map.setView([-2.74,122.01],13);} } else map.setView([-2.74,122.01],12);
+  mapBuilt=true;
+  setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },250);
+}
+function captureView(){
+  if(!map) return null;
+  const c=map.getCenter();
+  return { center:[+c.lat.toFixed(6),+c.lng.toFixed(6)], zoom:map.getZoom(), base:curBase,
+           risk:($("fRisk")?$("fRisk").checked:true), inst:($("fInst")?$("fInst").checked:true) };
 }
 
 async function init(){
