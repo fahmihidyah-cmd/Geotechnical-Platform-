@@ -201,8 +201,8 @@ function ensureRiskMap(){
   riskBase = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
   riskSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
   riskAerial = L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:0,maxZoom:22,minNativeZoom:14,maxNativeZoom:19,tms:false,attribution:"Aerial &copy; PT Vale"});
-  riskSat.addTo(riskMap);
-  L.control.layers({"Satelit (Esri)":riskSat,"Aerial PT Vale":riskAerial,"Peta (OSM)":riskBase},null,{position:"topright"}).addTo(riskMap);
+  riskSat.addTo(riskMap); riskAerial.addTo(riskMap);
+  L.control.layers({"Satelit (Esri)":riskSat,"Peta (OSM)":riskBase},{"Aerial PT Vale 2026":riskAerial},{position:"topright",collapsed:true}).addTo(riskMap);
   riskMarkers = L.layerGroup().addTo(riskMap);
   riskPolygon = L.polygon([],{
     color:"#2563eb",
