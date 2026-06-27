@@ -1495,9 +1495,27 @@
     }
 
     // ===================== VWP TAB =====================
-    function toKpa(value){
-      return Math.abs(value)<10 ? value*1000 : value;
-    }
+    // P = G × (R₀ − Rᵢ) [MPa] → × 1000 = kPa
+    // G = gauge factor, R₀ = initial reading (diluar air), Rᵢ = freqSqInDigit current
+    const VWP_CALIB = {
+      '181348': {1:{G:0.00028487,R0:8633.812572225},2:{G:0.00031447,R0:8790.359241316}},
+      '181361': {1:{G:0.00031458,R0:8607.6344904}},
+      '181404': {1:{G:0.00031999,R0:8567.065572025}},
+      '181456': {1:{G:0.00032190,R0:8534.215710244}},
+      '181461': {1:{G:0.00029662,R0:8454.102685836},2:{G:0.00029528,R0:8361.321644025},3:{G:0.00029595,R0:8567.065572025}},
+    };
+
+    // Koordinat instalasi VWP (mE, mN, depth m) — untuk peta nanti
+    const VWP_COORDS = {
+      '181456': {hole:'VWP-WOC-01',mE:388487,mN:9696227,depth:30},
+      '181404': {hole:'VWP-WOC-02',mE:388875,mN:9696150,depth:30},
+      '181461_1': {hole:'VWP-WDN2-01',mE:389525,mN:9696585,depth:6},
+      '181461_2': {hole:'VWP-WDN2-02',mE:389525,mN:9696585,depth:6},
+      '181461_3': {hole:'VWP-WDN2-03',mE:389192,mN:9696656,depth:10},
+      '181348_1': {hole:'OPJ-VWP-01',mE:389751,mN:9698099,depth:15},
+      '181348_2': {hole:'OPJ-VWP-02',mE:389781,mN:9698074,depth:20},
+      '181361': {hole:'OPN-VWP-01',mE:390956,mN:9698210,depth:20},
+    };
 
     function vwpChLabel(devId,chName){
       const node=VWP_NODES.find(n=>n.id===devId);
@@ -1513,15 +1531,23 @@
       const out={};
       for(const devId of Object.keys(byDev)){
         const all=byDev[devId];
-        const pRows=all.filter(r=>r.sensor_name.startsWith('p-'));
+        const digitRows=all.filter(r=>r.sensor_name.startsWith('freqSqInDigit-'));
         const tRows=all.filter(r=>r.sensor_name.startsWith('tInCelsius-'));
         const channels={};
-        pRows.forEach(r=>{
-          const row={...r, value:toKpa(r.value)};
-          (channels[r.sensor_name]=channels[r.sensor_name]||[]).push(row);
+        const calib=VWP_CALIB[devId];
+        digitRows.forEach(r=>{
+          const m=r.sensor_name.match(/Ch(\d+)/);
+          if(!m||!calib) return;
+          const chNum=parseInt(m[1]);
+          const cal=calib[chNum];
+          if(!cal) return;
+          const pKpa=cal.G*(cal.R0-r.value)*1000;
+          const chKey='p-'+devId+'-Ch'+chNum;
+          const row={...r, sensor_name:chKey, value:pKpa};
+          (channels[chKey]=channels[chKey]||[]).push(row);
         });
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        out[devId]={channels,latestTemp,pRows};
+        out[devId]={channels,latestTemp,pRows:Object.values(channels).flat()};
       }
       return out;
     }
@@ -1531,7 +1557,7 @@
       const nodeOpts=VWP_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">VWP — Pore Pressure (kPa) vs Time</div>
+          <div class="t">VWP — Pore Pressure (kPa) vs Time · P = G(R₀−Rᵢ)</div>
           <div>${lsRangeToggle('vwp',STATE.vwpRange)}</div></div>
 
         <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pore Pressure (kPa) vs Time</div></div>
