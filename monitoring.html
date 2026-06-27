@@ -708,7 +708,7 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
+      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
@@ -1650,7 +1650,7 @@
         const toTs=new Date(to+'T23:59:59').toISOString();
         const diffD=Math.max(1,Math.round((new Date(toTs)-new Date(fromTs))/86400000));
         const ev=diffD<=7?'1 hour':diffD<=14?'3 hours':'6 hours';
-        const {data,error}=await sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:fromTs,p_to:toTs,p_every:ev});
+        const {data,error}=await sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:fromTs,p_to:toTs,p_every:ev});
         if(error) throw error;
         DATA.incData=data||[];
         drawIncTab();
