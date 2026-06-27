@@ -531,7 +531,7 @@
     const EWS_COLORS = { HIJAU:'#22c55e', KUNING:'#eab308', JINGGA:'#f97316', MERAH:'#ef4444' };
     const EWS_LABELS = { HIJAU:'AMAN', KUNING:'WASPADA', JINGGA:'SIAGA', MERAH:'DARURAT' };
 
-    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null };
+    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null, incFrom:null, incTo:null };
     let DATA = {};
     let map = null;
     let overlays = null;
@@ -708,7 +708,7 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const f=new Date(Date.now()-7*24*3600*1000).toISOString(); activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:f,p_to:nowIso,p_every:'3 hours'}); }
+      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=3?'1 hour':iDiff<=10?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
@@ -1640,6 +1640,7 @@
       const to=document.getElementById('inc_to').value;
       const res=document.getElementById('incStatus');
       if(!from||!to){if(res) res.textContent='Pilih tanggal.';return;}
+      STATE.incFrom=from; STATE.incTo=to;
       if(res) res.innerHTML='<span class="spin" style="width:14px;height:14px;display:inline-block"></span>';
       try{
         const fromTs=new Date(from+'T00:00:00').toISOString();
@@ -1679,9 +1680,9 @@
       return `
         <div style="display:flex;align-items:center;gap:10px;padding:0 2px 8px;flex-wrap:wrap">
           <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
-          <input type="date" id="inc_from" class="flt" value="${dStr(-7)}" style="font-size:12px">
+          <input type="date" id="inc_from" class="flt" value="${STATE.incFrom||dStr(-7)}" style="font-size:12px">
           <span style="color:#9fb3cf;font-size:12px">—</span>
-          <input type="date" id="inc_to" class="flt" value="${dStr(0)}" style="font-size:12px">
+          <input type="date" id="inc_to" class="flt" value="${STATE.incTo||dStr(0)}" style="font-size:12px">
           <button class="btn-ghost" onclick="loadIncByDate()" style="font-weight:700;padding:6px 16px">SHOW</button>
           <span id="incStatus" style="font-size:11px;color:#9fb3cf"></span>
           <span id="incTemp" style="font-size:11px;color:#9fb3cf;margin-left:auto"></span>
