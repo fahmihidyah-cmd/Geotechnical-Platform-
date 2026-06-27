@@ -503,7 +503,7 @@
 
     const GAUGE_LEN = 3000;
     const INC_NODES = [{id:'108052',label:'WOC-02 INC'},{id:'108102',label:'WDN-2 INC-01'},{id:'108164',label:'WDN-2 INC-02'},{id:'108403',label:'WOC-01 INC'}];
-    const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3,chMap:{1:'03',2:'01',3:'02'}}];
+    const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
 
     function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
     function num(x){ const n = parseFloat(x); return isNaN(n) ? null : n; }
@@ -1502,8 +1502,7 @@
       '181361': {1:{G:0.00031458,R0:8607.6344904}},
       '181404': {1:{G:0.00031999,R0:8567.065572025}},
       '181456': {1:{G:0.00032190,R0:8534.215710244}},
-      // WDN-2: physical wiring Ch1→sensor03, Ch2→sensor01, Ch3→sensor02
-      '181461': {1:{G:0.00029528,R0:8567.065572025},2:{G:0.00029662,R0:8454.102685836},3:{G:0.00029528,R0:8361.321644025}},
+      '181461': {1:{G:0.00029662,R0:8454.102685836},2:{G:0.00029528,R0:8361.321644025},3:{G:0.00029528,R0:8567.065572025}},
     };
 
     // Koordinat instalasi VWP (mE, mN, depth m) — untuk peta nanti
@@ -1522,10 +1521,7 @@
       const node=VWP_NODES.find(n=>n.id===devId);
       if(!node) return chName;
       const m=chName.match(/Ch(\d+)/);
-      if(m && (node.channels||0)>1){
-        const mapped=node.chMap?node.chMap[parseInt(m[1])]:String(m[1]).padStart(2,'0');
-        return node.label+' '+mapped;
-      }
+      if(m && (node.channels||0)>1) return node.label+' '+String(m[1]).padStart(2,'0');
       return node.label;
     }
 
