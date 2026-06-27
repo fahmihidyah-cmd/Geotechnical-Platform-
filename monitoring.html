@@ -641,7 +641,7 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const d=STATE.incRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.incRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.incRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:f,p_to:nowIso,p_every:ev}); }
+      else if(STATE.view==='inclinometer'){ const f=new Date(Date.now()-7*24*3600*1000).toISOString(); activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:f,p_to:nowIso,p_every:'3 hours'}); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
@@ -1404,7 +1404,7 @@
     function setIncRange(r){ STATE.incRange=r; if(needsRealtime()) subscribeRealtime(); else if(!needsRealtime()) unsubscribeRealtime(); loadAll(); }
     function setVwpRange(r){ STATE.vwpRange=r; if(needsRealtime()) subscribeRealtime(); else if(!needsRealtime()) unsubscribeRealtime(); loadAll(); }
     window.setIncRange=setIncRange; window.setVwpRange=setVwpRange;
-    function selectIncNode(id){ STATE.incNode=id; render(); }
+    function selectIncNode(id){ STATE.incNode=id; drawIncTab(); }
     function selectVwpNode(id){ STATE.vwpNode=id; render(); }
     window.selectIncNode=selectIncNode; window.selectVwpNode=selectVwpNode;
 
@@ -1450,32 +1450,69 @@
           }
           profiles[ts]={depths,aCum,bCum};
         }
+        const topIdx=allNums.length-1;
+        const topSeries=timestamps.map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        out[devId]={nums:allNums,maxN,timestamps,profiles,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3)};
+        out[devId]={nums:allNums,maxN,timestamps,profiles,topSeries,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3)};
       }
       return out;
     }
 
-    function drawProfileMulti(canvasId,nd,axis,title){
+    function drawProfileChart(canvasId,nd,axis,title,tsArr){
       const cv=document.getElementById(canvasId); if(!cv||!window.Chart||!nd) return;
       const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899','#06b6d4','#f43f5e'];
-      const pick=pickProfileDates(nd.timestamps,7);
+      const pick=tsArr||pickProfileDates(nd.timestamps,7);
       const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
+      let xMax=10;
       pick.forEach((ts,i)=>{
         const p=nd.profiles[ts]; if(!p) return;
         const vals=axis==='a'?p.aCum:p.bCum;
+        vals.forEach(v=>{if(Math.abs(v)>xMax) xMax=Math.ceil(Math.abs(v)/5)*5;});
         const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
-        const lbl=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+        const lbl=new Date(ts).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
         datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
       charts[canvasId]=new Chart(cv,{type:'scatter',
         data:{datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:false,
-          plugins:{legend:{position:'top',align:'start',labels:{color:'#cbd5e1',font:{size:10},boxWidth:12,padding:8,usePointStyle:true,pointStyle:'line'}},title:{display:true,text:title,color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
+          plugins:{legend:{position:'top',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:10,usePointStyle:true,pointStyle:'line'}},title:{display:true,text:title,color:'#e5e7eb',font:{size:14,weight:'bold'},padding:{bottom:6}}},
           scales:{
-            x:{title:{display:true,text:'Profile Change (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.08)'}},
-            y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}
+            x:{min:-xMax,max:xMax,title:{display:true,text:'Profile Change (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:xMax<=10?2:5},grid:{color:'rgba(148,163,184,.08)'}},
+            y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:1},grid:{color:'rgba(148,163,184,.08)'}}
           }}});
+    }
+
+    function drawCombinedIncChart(incData){
+      const cv=document.getElementById('incCombined'); if(!cv||!window.Chart) return;
+      const pal=['#ef4444','#3b82f6','#22c55e','#f97316','#a78bfa','#ec4899','#06b6d4','#fbbf24'];
+      const datasets=[];
+      let yMax=50;
+      let idx=0;
+      for(const node of INC_NODES){
+        const nd=incData[node.id]; if(!nd||!nd.topSeries.length) continue;
+        const aData=nd.topSeries.map(p=>({x:p.ts,y:p.a}));
+        const bData=nd.topSeries.map(p=>({x:p.ts,y:p.b}));
+        aData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
+        bData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
+        datasets.push({label:node.label+' A',data:aData,borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:2,pointRadius:0,tension:0.3,fill:false});
+        idx++;
+        datasets.push({label:node.label+' B',data:aData.map((_,i)=>({x:nd.topSeries[i].ts,y:nd.topSeries[i].b})),borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:2,pointRadius:0,borderDash:[5,3],tension:0.3,fill:false});
+        idx++;
+      }
+      const allLabels=[...new Set(Object.values(incData).flatMap(nd=>nd.timestamps))].sort();
+      const labels=allLabels.map(t=>new Date(t).toLocaleDateString('id-ID',{day:'numeric',month:'short'}));
+      const dsFixed=datasets.map(ds=>({...ds,data:allLabels.map(t=>{const p=ds.data.find(d=>d.x===t);return p?p.y:null;})}));
+      charts['incCombined']=new Chart(cv,{type:'line',
+        data:{labels,datasets:dsFixed},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+          plugins:{legend:{position:'bottom',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:12,usePointStyle:true,pointStyle:'line'}},
+            title:{display:true,text:'All Inclinometers — Top Displacement vs Time',color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
+          scales:{
+            x:{ticks:{maxTicksLimit:10,color:'#9fb3cf',font:{size:9}},grid:{display:false}},
+            y:{min:-yMax,max:yMax,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.08)'}}
+          },
+          spanGaps:true
+        }});
     }
 
     function pickProfileDates(timestamps,max){
@@ -1487,28 +1524,77 @@
       return out;
     }
 
+    async function loadIncByDate(){
+      const from=document.getElementById('inc_from').value;
+      const to=document.getElementById('inc_to').value;
+      const res=document.getElementById('incStatus');
+      if(!from||!to){if(res) res.textContent='Pilih tanggal.';return;}
+      if(res) res.innerHTML='<span class="spin" style="width:14px;height:14px;display:inline-block"></span>';
+      try{
+        const fromTs=new Date(from+'T00:00:00').toISOString();
+        const toTs=new Date(to+'T23:59:59').toISOString();
+        const diffD=Math.max(1,Math.round((new Date(toTs)-new Date(fromTs))/86400000));
+        const ev=diffD<=3?'1 hour':diffD<=10?'3 hours':'6 hours';
+        const {data,error}=await sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:fromTs,p_to:toTs,p_every:ev});
+        if(error) throw error;
+        DATA.incData=data||[];
+        drawIncTab();
+        if(res) res.textContent='';
+      }catch(e){if(res) res.textContent='Error: '+(e.message||e);}
+    }
+    window.loadIncByDate=loadIncByDate;
+
+    async function renderIncRaw(){
+      const dev=document.getElementById('inc_rawNode').value;
+      const from=document.getElementById('inc_from').value, to=document.getElementById('inc_to').value;
+      const res=document.getElementById('inc_result');
+      if(!from||!to){res.textContent='Pilih tanggal.';return;}
+      res.innerHTML='<div class="spin"></div>';
+      try{
+        const fromTs=new Date(from+'T00:00:00').toISOString(), toTs=new Date(to+'T23:59:59').toISOString();
+        const {data,error}=await sb.from('v_instrument_readings').select('ts,sensor_name,value').eq('kind','inclinometer').eq('external_device_id',dev).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(3000);
+        if(error) throw error;
+        const rows=(data||[]).filter(r=>r.sensor_name.includes('-Axis-sin')).map(r=>({bucket_label:new Date(r.ts).toLocaleString('en-GB'),sensor_name:r.sensor_name,val:(r.value*GAUGE_LEN).toFixed(3)}));
+        res.innerHTML=`<div style="margin-bottom:6px;font-size:11px;color:#9fb3cf">${esc(INC_NODES.find(n=>n.id===dev)?.label||dev)} · RAW sin×${GAUGE_LEN} mm · ${[...new Set(rows.map(r=>r.bucket_label))].length} timestamps</div>
+          <div style="max-height:260px;overflow:auto">${rows.length?pivotTable(rows):'No data.'}</div>`;
+      }catch(e){res.textContent='Error: '+(e.message||e);}
+    }
+    window.renderIncRaw=renderIncRaw;
+
     function inclinometerView(){
       const nodeId=STATE.incNode||INC_NODES[0].id;
       const nodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
-      const isLive = STATE.incRange==='live';
-      const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> LIVE</span>` : '';
+      const rawNodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 2px 6px;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
-            ${liveInfo}
-            <span id="incLastUpdate" style="font-size:11px;color:#9fb3cf"></span>
-            <span id="incTemp" style="font-size:11px;color:#9fb3cf"></span>
-          </div>
-          <div>${lsRangeToggle('inc',STATE.incRange)}</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:0 2px 8px;flex-wrap:wrap">
+          <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
+          <input type="date" id="inc_from" class="flt" value="${dStr(-7)}" style="font-size:12px">
+          <span style="color:#9fb3cf;font-size:12px">—</span>
+          <input type="date" id="inc_to" class="flt" value="${dStr(0)}" style="font-size:12px">
+          <button class="btn-ghost" onclick="loadIncByDate()" style="font-weight:700;padding:6px 16px">SHOW</button>
+          <span id="incStatus" style="font-size:11px;color:#9fb3cf"></span>
+          <span id="incTemp" style="font-size:11px;color:#9fb3cf;margin-left:auto"></span>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;height:calc(100vh - 130px)">
-          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%"><canvas id="incProfA"></canvas></div></div>
-          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%"><canvas id="incProfB"></canvas></div></div>
-        </div>`;
-    }
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:calc(100vh - 290px)">
+          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfA"></canvas></div></div>
+          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfB"></canvas></div></div>
+        </div>
 
+        <div class="card" style="margin-top:8px;overflow:hidden"><div class="card-bd" style="height:160px;padding:6px"><canvas id="incCombined"></canvas></div></div>
+
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;color:#9fb3cf;font-size:12px;font-weight:700;padding:4px 0">RAW DATA</summary>
+          <div class="card" style="margin-top:4px"><div class="card-bd">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="inc_rawNode" class="flt">${rawNodeOpts}</select>
+              <button class="btn-ghost" onclick="renderIncRaw()">Render</button>
+              <button class="btn-ghost" onclick="exportTable('inc_result','inclinometer')">Excel</button>
+            </div>
+            <div id="inc_result" style="margin-top:8px;color:#9fb3cf;font-size:12px">Pilih node, lalu Render.</div>
+          </div></div>
+        </details>`;
+    }
 
     function drawIncTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
@@ -1518,14 +1604,10 @@
       if(!nd) return;
       const tempEl=document.getElementById('incTemp');
       if(tempEl) tempEl.textContent=nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'';
-      const updEl=document.getElementById('incLastUpdate');
-      if(updEl && nd.timestamps.length){
-        const last=nd.timestamps[nd.timestamps.length-1];
-        updEl.innerHTML='<b>'+new Date(last).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> · '+ago(last);
-      }
       const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
-      drawProfileMulti('incProfA',nd,'a',lbl+' — A-Axis');
-      drawProfileMulti('incProfB',nd,'b',lbl+' — B-Axis');
+      drawProfileChart('incProfA',nd,'a',lbl+' — A-Axis');
+      drawProfileChart('incProfB',nd,'b',lbl+' — B-Axis');
+      drawCombinedIncChart(incData);
     }
 
     // ===================== VWP TAB =====================
