@@ -708,7 +708,7 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=3?'1 hour':iDiff<=10?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
+      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
@@ -1580,7 +1580,7 @@
         const vals=axis==='a'?p.aCum:p.bCum;
         vals.forEach(v=>{if(Math.abs(v)>xMax) xMax=Math.ceil(Math.abs(v)/5)*5;});
         const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
-        const lbl=new Date(ts).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+        const lbl=new Date(ts).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
         datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
       charts[canvasId]=new Chart(cv,{type:'scatter',
@@ -1611,7 +1611,7 @@
         idx++;
       }
       const allLabels=[...new Set(Object.values(incData).flatMap(nd=>nd.timestamps))].sort();
-      const labels=allLabels.map(t=>new Date(t).toLocaleDateString('id-ID',{day:'numeric',month:'short'}));
+      const labels=allLabels.map(t=>new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
       const dsFixed=datasets.map(ds=>({...ds,data:allLabels.map(t=>{const p=ds.data.find(d=>d.x===t);return p?p.y:null;})}));
       charts['incCombined']=new Chart(cv,{type:'line',
         data:{labels,datasets:dsFixed},
@@ -1619,7 +1619,7 @@
           plugins:{legend:{position:'bottom',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:12,usePointStyle:true,pointStyle:'line'}},
             title:{display:true,text:'All Inclinometers — Top Displacement vs Time',color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
           scales:{
-            x:{ticks:{maxTicksLimit:10,color:'#9fb3cf',font:{size:9}},grid:{display:false}},
+            x:{ticks:{maxTicksLimit:18,maxRotation:45,minRotation:25,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
             y:{min:-yMax,max:yMax,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.08)'}}
           },
           spanGaps:true
@@ -1646,7 +1646,7 @@
         const fromTs=new Date(from+'T00:00:00').toISOString();
         const toTs=new Date(to+'T23:59:59').toISOString();
         const diffD=Math.max(1,Math.round((new Date(toTs)-new Date(fromTs))/86400000));
-        const ev=diffD<=3?'1 hour':diffD<=10?'3 hours':'6 hours';
+        const ev=diffD<=7?'1 hour':diffD<=14?'3 hours':'6 hours';
         const {data,error}=await sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:fromTs,p_to:toTs,p_every:ev});
         if(error) throw error;
         DATA.incData=data||[];
@@ -1693,7 +1693,7 @@
           <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfB"></canvas></div></div>
         </div>
 
-        <div class="card" style="margin-top:8px;overflow:hidden"><div class="card-bd" style="height:160px;padding:6px"><canvas id="incCombined"></canvas></div></div>
+        <div class="card" style="margin-top:8px;overflow:hidden"><div class="card-bd" style="height:260px;padding:6px"><canvas id="incCombined"></canvas></div></div>
 
         <details style="margin-top:8px">
           <summary style="cursor:pointer;color:#9fb3cf;font-size:12px;font-weight:700;padding:4px 0">RAW DATA</summary>
