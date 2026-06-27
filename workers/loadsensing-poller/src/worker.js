@@ -25,11 +25,12 @@ const NODES = [
   { id: '181461', kind: 'piezometer',   endpoint: 'vw',             label: 'VWP-181461' },
 ];
 
-function readingsPath(node) {
+function readingsPath(node, month) {
+  const suffix = month ? `${month}.csv` : 'current.csv';
   if (node.endpoint === 'generic-modbus')
-    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/generic-modbus/${node.id}-6-readings-current.csv`;
+    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/generic-modbus/${node.id}-6-readings-${suffix}`;
   if (node.endpoint === 'vw')
-    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/vw/${node.id}-readings-current.csv`;
+    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/vw/${node.id}-readings-${suffix}`;
   throw new Error('unknown endpoint: ' + node.endpoint);
 }
 
@@ -145,8 +146,8 @@ async function callSupabaseRpc(env, body) {
   catch { return { ok: true, result: text }; }
 }
 
-async function processNode(node, auth, mode, env) {
-  const path = readingsPath(node);
+async function processNode(node, auth, mode, env, month) {
+  const path = readingsPath(node, month);
   const { ok, status, text } = await fetchCsv(path, auth);
   if (!ok) return { node: node.id, label: node.label, kind: node.kind, ok: false, status };
   const parsed = parseCsv(text);
@@ -182,15 +183,15 @@ async function processNode(node, auth, mode, env) {
   return out;
 }
 
-async function runAll(env, mode) {
+async function runAll(env, mode, month) {
   const auth = 'Basic ' + btoa(`${env.LS_USER}:${env.LS_PASS}`);
   const t0 = Date.now();
   const results = [];
   for (const node of NODES) {
-    try { results.push(await processNode(node, auth, mode, env)); }
+    try { results.push(await processNode(node, auth, mode, env, month)); }
     catch (e) { results.push({ node: node.id, label: node.label, ok: false, error: e.message }); }
   }
-  return { took_ms: Date.now() - t0, count: results.length, results };
+  return { took_ms: Date.now() - t0, month: month || 'current', count: results.length, results };
 }
 
 function json(body, status = 200) {
@@ -226,6 +227,8 @@ export default {
           'GET /raw/{nodeId}': 'return raw CSV',
           'GET /ingest': 'fetch every node AND push to Supabase (idempotent)',
           'GET /ingest/{nodeId}': 'ingest one node only',
+          'GET /backfill?month=YYYY-MM': 'one-time backfill historical month for all nodes',
+          'GET /backfill/{nodeId}?month=YYYY-MM': 'one-time backfill historical month for one node',
         },
         nodes: NODES.map(n => n.id),
         configured: { supabase: !!(env.SUPABASE_URL && env.SUPABASE_SR_KEY) },
@@ -234,6 +237,22 @@ export default {
 
     if (path === '/run')    return json(await runAll(env, 'summary'));
     if (path === '/ingest') return json(await runAll(env, 'ingest'));
+
+    const month = url.searchParams.get('month');
+
+    if (path === '/backfill') {
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) return json({ error: 'month parameter required, format: YYYY-MM' }, 400);
+      return json(await runAll(env, 'ingest', month));
+    }
+
+    const bf = path.match(/^\/backfill\/(\d+)$/);
+    if (bf) {
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) return json({ error: 'month parameter required, format: YYYY-MM' }, 400);
+      const node = NODES.find(n => n.id === bf[1]);
+      if (!node) return json({ error: 'unknown node id' }, 404);
+      const auth = 'Basic ' + btoa(`${env.LS_USER}:${env.LS_PASS}`);
+      return json(await processNode(node, auth, 'ingest', env, month));
+    }
 
     const prev = path.match(/^\/preview\/(\d+)$/);
     if (prev) {
@@ -256,7 +275,7 @@ export default {
       const node = NODES.find(n => n.id === raw[1]);
       if (!node) return new Response('unknown node id', { status: 404 });
       const auth = 'Basic ' + btoa(`${env.LS_USER}:${env.LS_PASS}`);
-      const r = await fetchCsv(readingsPath(node), auth);
+      const r = await fetchCsv(readingsPath(node, month || undefined), auth);
       if (!r.ok) return new Response('upstream ' + r.status, { status: 502 });
       return new Response(r.text, { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
     }

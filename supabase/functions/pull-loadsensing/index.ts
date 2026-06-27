@@ -52,10 +52,11 @@ function jsonResponse(status: number, body: unknown) {
   });
 }
 
-function readingsPath(node: NodeDef): string {
+function readingsPath(node: NodeDef, month?: string): string {
+  const suffix = month ? `${month}.csv` : "current.csv";
   if (node.endpoint === "generic-modbus")
-    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/generic-modbus/${node.id}-6-readings-current.csv`;
-  return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/vw/${node.id}-readings-current.csv`;
+    return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/generic-modbus/${node.id}-6-readings-${suffix}`;
+  return `/${GATEWAY_ID}/dataserver/current/reading/${node.id}/vw/${node.id}-readings-${suffix}`;
 }
 
 async function fetchCsv(path: string, authHeader: string) {
@@ -171,6 +172,7 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const onlyNodeId = url.searchParams.get("node");
   const dryRun = url.searchParams.get("dryRun") === "1";
+  const month = url.searchParams.get("month") || undefined; // e.g. "2026-05"
   const authHeader = "Basic " + btoa(`${LS_USER}:${LS_PASS}`);
 
   const targets = onlyNodeId ? NODES.filter((n) => n.id === onlyNodeId) : NODES;
@@ -180,7 +182,7 @@ Deno.serve(async (req: Request) => {
 
   async function processNode(node: NodeDef) {
     try {
-      const fetched = await fetchCsv(readingsPath(node), authHeader);
+      const fetched = await fetchCsv(readingsPath(node, month), authHeader);
       if (!fetched.ok || !fetched.text) {
         return { node: node.id, label: node.label, ok: false, status: fetched.status };
       }
@@ -229,5 +231,5 @@ Deno.serve(async (req: Request) => {
     results.push(...settled.map((s) => s.status === "fulfilled" ? s.value : { ok: false, error: String(s.reason) }));
   }
 
-  return jsonResponse(200, { error: false, took_ms: Date.now() - t0, dryRun, count: results.length, results });
+  return jsonResponse(200, { error: false, took_ms: Date.now() - t0, dryRun, month: month ?? "current", count: results.length, results });
 });
