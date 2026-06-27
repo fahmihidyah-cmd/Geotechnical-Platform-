@@ -58,7 +58,10 @@ function readingsPath(node: NodeDef): string {
 }
 
 async function fetchCsv(path: string, authHeader: string) {
-  const r = await fetch(LS_BASE + path, { headers: { Authorization: authHeader } });
+  const r = await fetch(LS_BASE + path, {
+    headers: { Authorization: authHeader },
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!r.ok) return { ok: false, status: r.status, text: null as string | null };
   return { ok: true, status: 200, text: await r.text() };
 }
@@ -173,26 +176,23 @@ Deno.serve(async (req: Request) => {
   if (!targets.length) return jsonResponse(400, { error: true, message: `Unknown node id: ${onlyNodeId}` });
 
   const t0 = Date.now();
-  const results: unknown[] = [];
 
-  for (const node of targets) {
+  async function processNode(node: NodeDef) {
     try {
       const fetched = await fetchCsv(readingsPath(node), authHeader);
       if (!fetched.ok || !fetched.text) {
-        results.push({ node: node.id, label: node.label, ok: false, status: fetched.status });
-        continue;
+        return { node: node.id, label: node.label, ok: false, status: fetched.status };
       }
 
       const parsed = parseCsv(fetched.text);
       if ("error" in parsed) {
-        results.push({ node: node.id, label: node.label, ok: false, error: parsed.error });
-        continue;
+        return { node: node.id, label: node.label, ok: false, error: parsed.error };
       }
 
       const uniqueChannels = new Set(parsed.readings.map((r) => r.channel));
 
       if (dryRun) {
-        results.push({
+        return {
           node: node.id, label: node.label, ok: true, dryRun: true,
           csvBytes: fetched.text.length,
           dataRows: parsed.dataRowCount, skippedRows: parsed.skippedRows,
@@ -200,8 +200,7 @@ Deno.serve(async (req: Request) => {
           uniqueChannels: uniqueChannels.size,
           channelNames: Array.from(uniqueChannels).slice(0, 30),
           sample: parsed.readings.slice(0, 5),
-        });
-        continue;
+        };
       }
 
       const payload = {
@@ -210,15 +209,23 @@ Deno.serve(async (req: Request) => {
         channels: groupByChannel(parsed.readings),
       };
       const { data, error } = await supabase.rpc("ingest_loadsensing_payload", { p_payload: payload });
-      if (error) results.push({ node: node.id, label: node.label, ok: false, rpc_error: error.message });
-      else results.push({
+      if (error) return { node: node.id, label: node.label, ok: false, rpc_error: error.message };
+      return {
         node: node.id, label: node.label, ok: true,
         dataRows: parsed.dataRowCount, readingsParsed: parsed.readings.length,
         uniqueChannels: uniqueChannels.size, rpc: data,
-      });
+      };
     } catch (e) {
-      results.push({ node: node.id, label: node.label, ok: false, error: e instanceof Error ? e.message : String(e) });
+      return { node: node.id, label: node.label, ok: false, error: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  const results: unknown[] = [];
+  const BATCH = 3;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    const batch = targets.slice(i, i + BATCH);
+    const settled = await Promise.allSettled(batch.map(processNode));
+    results.push(...settled.map((s) => s.status === "fulfilled" ? s.value : { ok: false, error: String(s.reason) }));
   }
 
   return jsonResponse(200, { error: false, took_ms: Date.now() - t0, dryRun, count: results.length, results });

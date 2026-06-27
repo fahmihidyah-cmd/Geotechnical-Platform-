@@ -502,8 +502,8 @@
     let charts = {};
 
     const GAUGE_LEN = 3000;
-    const INC_NODES = [{id:'108052',label:'INC-108052'},{id:'108102',label:'INC-108102'},{id:'108164',label:'INC-108164'},{id:'108403',label:'INC-108403'}];
-    const VWP_NODES = [{id:'181348',label:'VWP-181348'},{id:'181361',label:'VWP-181361'},{id:'181404',label:'VWP-181404'},{id:'181456',label:'VWP-181456'},{id:'181461',label:'VWP-181461'}];
+    const INC_NODES = [{id:'108052',label:'WOC-02 INC'},{id:'108102',label:'WDN-2 INC-01'},{id:'108164',label:'WDN-2 INC-02'},{id:'108403',label:'WOC-01 INC'}];
+    const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
 
     function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
     function num(x){ const n = parseFloat(x); return isNaN(n) ? null : n; }
@@ -1495,6 +1495,18 @@
     }
 
     // ===================== VWP TAB =====================
+    function toKpa(value){
+      return Math.abs(value)<10 ? value*1000 : value;
+    }
+
+    function vwpChLabel(devId,chName){
+      const node=VWP_NODES.find(n=>n.id===devId);
+      if(!node) return chName;
+      const m=chName.match(/Ch(\d+)/);
+      if(m && (node.channels||0)>1) return node.label+' '+String(m[1]).padStart(2,'0');
+      return node.label;
+    }
+
     function processVwp(rows){
       const byDev={};
       (rows||[]).forEach(r=>{(byDev[r.external_device_id]=byDev[r.external_device_id]||[]).push(r);});
@@ -1504,7 +1516,10 @@
         const pRows=all.filter(r=>r.sensor_name.startsWith('p-'));
         const tRows=all.filter(r=>r.sensor_name.startsWith('tInCelsius-'));
         const channels={};
-        pRows.forEach(r=>{(channels[r.sensor_name]=channels[r.sensor_name]||[]).push(r);});
+        pRows.forEach(r=>{
+          const row={...r, value:toKpa(r.value)};
+          (channels[r.sensor_name]=channels[r.sensor_name]||[]).push(row);
+        });
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
         out[devId]={channels,latestTemp,pRows};
       }
@@ -1577,16 +1592,19 @@
     function drawVwpTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
       const vwpData=processVwp(DATA.vwpData||[]);
-      const pal=['#22d3ee','#a78bfa','#f97316','#22c55e','#ef4444'];
+      const pal=['#22d3ee','#a78bfa','#f97316','#22c55e','#ef4444','#ec4899','#84cc16','#f59e0b'];
 
       const combSeries=[];
-      VWP_NODES.forEach((n,i)=>{
+      let ci=0;
+      VWP_NODES.forEach(n=>{
         const d=vwpData[n.id]; if(!d) return;
         const chKeys=Object.keys(d.channels).sort();
-        if(!chKeys.length) return;
-        const rows=d.channels[chKeys[0]].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
-        if(!rows.length) return;
-        combSeries.push({name:n.label+(chKeys.length>1?' (Ch1)':''),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]});
+        chKeys.forEach(ch=>{
+          const rows=d.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
+          if(!rows.length) return;
+          combSeries.push({name:vwpChLabel(n.id,ch),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[ci%pal.length]});
+          ci++;
+        });
       });
       if(combSeries.length){ const ms=multiSeries(combSeries); tsChart('vwpCombined',ms,'kPa'); }
 
@@ -1598,8 +1616,7 @@
         const chKeys=Object.keys(nd.channels).sort();
         const detailSeries=chKeys.map((ch,i)=>{
           const rows=nd.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
-          const shortName=ch.replace(/^p-\d+-/,'');
-          return {name:shortName,rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]};
+          return {name:vwpChLabel(nodeId,ch),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]};
         });
         if(detailSeries.length){ const ms=multiSeries(detailSeries); tsChart('vwpDetail',ms,'kPa'); }
       }
