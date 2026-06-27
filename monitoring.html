@@ -198,6 +198,38 @@
     }
     .card-bd{padding:10px 12px 12px;min-height:0}
 
+    /* EWS Banner */
+    .ews-banner{
+      border:1.5px solid;border-radius:14px;
+      padding:10px 14px;
+      display:flex;align-items:center;justify-content:space-between;gap:14px;
+      flex-wrap:wrap;
+    }
+    .ews-main{display:flex;align-items:center;gap:10px}
+    .ews-dot{width:12px;height:12px;border-radius:50%;flex:0 0 12px;animation:pulse 2s infinite}
+    .ews-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:900;color:var(--mut2)}
+    .ews-status{font-size:18px;font-weight:950;letter-spacing:.04em}
+    .ews-evak{
+      font-size:10px;font-weight:900;letter-spacing:.08em;
+      padding:3px 10px;border-radius:999px;
+      background:rgba(239,68,68,.25);color:#ef4444;border:1px solid rgba(239,68,68,.5);
+      animation:pulse 1.5s infinite;
+    }
+    .ews-sub{font-size:11px;color:var(--mut2);margin-top:2px}
+    .ews-meta{font-size:10px;color:var(--mut);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+    .ews-devices{display:flex;gap:6px;flex-wrap:wrap}
+    .ews-dev{
+      display:flex;align-items:center;gap:4px;
+      padding:4px 8px;border-radius:8px;
+      background:rgba(2,6,23,.3);border:1px solid rgba(148,163,184,.12);
+      font-size:10px;
+    }
+    .ews-dev-dot{width:6px;height:6px;border-radius:50%;flex:0 0 6px}
+    .ews-dev-nm{color:var(--mut2);font-weight:700}
+    .ews-dev-lv{font-weight:900;font-size:9px;letter-spacing:.06em}
+    .ews-dev-v{color:var(--mut);font-size:9px}
+    .ews-dev-vr{color:var(--mut);font-size:9px}
+
     .kpi-grid{
       display:grid;
       grid-template-columns:repeat(6, 1fr);
@@ -496,12 +528,15 @@
 
     const RC = { Low:getCss('--t-low'), Medium:getCss('--t-med'), High:getCss('--t-high'), 'Very High':getCss('--t-vh') };
     const EEWS_C = { LV1:RC.Low, LV2:RC.Medium, LV3:RC.High, LV4:RC['Very High'] };
+    const EWS_COLORS = { HIJAU:'#22c55e', KUNING:'#eab308', JINGGA:'#f97316', MERAH:'#ef4444' };
+    const EWS_LABELS = { HIJAU:'AMAN', KUNING:'WASPADA', JINGGA:'SIAGA', MERAH:'DARURAT' };
 
     const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null };
     let DATA = {};
     let map = null;
     let overlays = null;
     let charts = {};
+    let ewsChannel = null;
 
     // ── Realtime subscription state ──
     let realtimeChannel = null;
@@ -628,6 +663,38 @@
       return (STATE.view==='inclinometer' && STATE.incRange==='live') ||
              (STATE.view==='vwp' && STATE.vwpRange==='live');
     }
+
+    function subscribeEws(){
+      if(ewsChannel) return;
+      ewsChannel = sb.channel('ews-live')
+        .on('postgres_changes',
+          { event:'INSERT', schema:'monitoring', table:'ews_evaluations' },
+          (payload)=>{
+            DATA.ews = payload.new;
+            updateEwsBanner();
+          })
+        .subscribe();
+    }
+    function updateEwsBanner(){
+      const e = DATA.ews;
+      if(!e) return;
+      const el = document.getElementById('ewsBanner');
+      if(!el) return;
+      const c = EWS_COLORS[e.status]||EWS_COLORS.HIJAU;
+      const lbl = EWS_LABELS[e.status]||e.status;
+      el.style.borderColor = c;
+      el.style.background = `linear-gradient(90deg, ${c}18, ${c}08)`;
+      const dot = el.querySelector('.ews-dot');
+      if(dot) dot.style.background = c;
+      const st = el.querySelector('.ews-status');
+      if(st){ st.textContent = lbl; st.style.color = c; }
+      const sub = el.querySelector('.ews-sub');
+      if(sub) sub.textContent = e.alasan || '';
+      const ts = el.querySelector('.ews-ts');
+      if(ts) ts.textContent = e.evaluated_at ? new Date(e.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+      const evak = el.querySelector('.ews-evak');
+      if(evak) evak.style.display = e.evakuasi ? '' : 'none';
+    }
     async function loadAll(){
       const nowMs=Date.now(), nowIso=new Date().toISOString();
       const heavy = (!DATA.ext7) || (nowMs-lastHeavy > 600000); // boot or every 10 min
@@ -655,11 +722,13 @@
         sb.from('v_inspection_risk_areas').select('*'),
       ]) : null;
 
-      const [base, active, heavyR] = await Promise.all([baseP, activeP, heavyP]);
+      const ewsP = sb.rpc('ews_latest');
+      const [base, active, heavyR, ewsR] = await Promise.all([baseP, activeP, heavyP, ewsP]);
       const [sn,rain,rsum,rdaily]=base;
       DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
       DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
       if(active && activeTarget) DATA[activeTarget]=active.data||[];
+      if(ewsR.data) DATA.ews = ewsR.data;
       if(heavyR){
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
@@ -838,8 +907,50 @@
         </div>`;
     }
 
+    function ewsBannerHtml(){
+      const e = DATA.ews;
+      if(!e) return '';
+      const c = EWS_COLORS[e.status]||EWS_COLORS.HIJAU;
+      const lbl = EWS_LABELS[e.status]||e.status;
+      const ts = e.evaluated_at ? new Date(e.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+      const devices = e.per_device || [];
+      const devHtml = devices.map(d=>{
+        const dc = EWS_COLORS[d.trigger_level]||EWS_COLORS.HIJAU;
+        const nm = (d.name||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        return `<div class="ews-dev">
+          <span class="ews-dev-dot" style="background:${dc}"></span>
+          <span class="ews-dev-nm">${esc(nm)}</span>
+          <span class="ews-dev-lv" style="color:${dc}">${d.trigger_level}</span>
+          ${d.velocity_mm_day!=null?`<span class="ews-dev-v">${fmt(d.velocity_mm_day,2)} mm/d</span>`:''}
+          ${d.vr!=null?`<span class="ews-dev-vr">VR ${fmt(d.vr,2)}</span>`:''}
+        </div>`;
+      }).join('');
+      return `<div class="ews-banner" id="ewsBanner" style="border-color:${c};background:linear-gradient(90deg,${c}18,${c}08)">
+        <div class="ews-main">
+          <div class="ews-dot" style="background:${c}"></div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="ews-label">EWS LONGSOR</span>
+              <span class="ews-status" style="color:${c}">${lbl}</span>
+              <span class="ews-evak" style="display:${e.evakuasi?'':'none'}">EVAKUASI</span>
+            </div>
+            <div class="ews-sub">${esc(e.alasan||'')}</div>
+            <div class="ews-meta">
+              <span>Hujan: ${fmt(e.rain_intensity_mm_hr,1)} mm/jam</span>
+              <span>·</span>
+              <span>Akumulasi: ${fmt(e.rain_accumulation_mm_day,1)} mm/hari</span>
+              <span>·</span>
+              <span class="ews-ts">${ts}</span>
+            </div>
+          </div>
+        </div>
+        <div class="ews-devices">${devHtml}</div>
+      </div>`;
+    }
+
     function overviewLayout(){
       return `
+        ${ewsBannerHtml()}
         <div class="kpi-grid">
           <div class="card">
             <div class="card-hd"><div class="t">Overall Status</div><div class="ic">🛡️</div></div>
@@ -2506,6 +2617,7 @@
       const ok = await GMS.guard({ mount:'#root' });
       if(!ok) return;
       await loadAll();
+      subscribeEws();
       // Egress saver: only poll when tab is visible; refresh immediately when user returns.
       // In live mode poll every 30s; otherwise every 2 min.
       setInterval(()=>{
