@@ -1422,50 +1422,59 @@
         const nums=[...new Set(aRows.map(r=>sensorNum(r.sensor_name)))].filter(n=>n>0).sort((a,b)=>a-b);
         if(!nums.length) continue;
         const maxN=Math.max(...nums);
+        const allNums=[];
+        for(let n=1;n<=maxN;n++) allNums.push(n);
         const timestamps=[...new Set(aRows.map(r=>r.ts))].sort();
         if(!timestamps.length) continue;
         const aLk={}, bLk={};
         aRows.forEach(r=>{ aLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
         bRows.forEach(r=>{ bLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
+        const baseTsA={}, baseTsB={};
+        for(const n of allNums){
+          for(const ts of timestamps){
+            if(baseTsA[n]==null && aLk[ts+'|'+n]!=null) baseTsA[n]=aLk[ts+'|'+n];
+            if(baseTsB[n]==null && bLk[ts+'|'+n]!=null) baseTsB[n]=bLk[ts+'|'+n];
+            if(baseTsA[n]!=null && baseTsB[n]!=null) break;
+          }
+        }
         const profiles={};
         for(const ts of timestamps){
           let cumA=0,cumB=0; const depths=[],aCum=[],bCum=[];
-          for(const n of nums){
-            cumA+=(aLk[ts+'|'+n]!=null? aLk[ts+'|'+n]*GAUGE_LEN:0);
-            cumB+=(bLk[ts+'|'+n]!=null? bLk[ts+'|'+n]*GAUGE_LEN:0);
-            depths.push((maxN-n)*3); aCum.push(cumA); bCum.push(cumB);
+          for(const n of allNums){
+            const aVal=aLk[ts+'|'+n], bVal=bLk[ts+'|'+n];
+            const dA=aVal!=null&&baseTsA[n]!=null?(aVal-baseTsA[n])*GAUGE_LEN:0;
+            const dB=bVal!=null&&baseTsB[n]!=null?(bVal-baseTsB[n])*GAUGE_LEN:0;
+            cumA+=dA; cumB+=dB;
+            depths.push((maxN-n+1)*3);
+            aCum.push(cumA); bCum.push(cumB);
           }
           profiles[ts]={depths,aCum,bCum};
         }
-        const base=profiles[timestamps[0]];
-        if(base){ for(const ts of timestamps){ const p=profiles[ts]; p.aCum=p.aCum.map((v,i)=>v-base.aCum[i]); p.bCum=p.bCum.map((v,i)=>v-base.bCum[i]); } }
-        const topIdx=nums.length-1;
-        const topSeries=timestamps.map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        out[devId]={nums,maxN,timestamps,profiles,topSeries,latestTemp,depths:base?base.depths:nums.map(n=>(maxN-n)*3)};
+        out[devId]={nums:allNums,maxN,timestamps,profiles,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3)};
       }
       return out;
     }
 
     function drawProfileMulti(canvasId,nd,axis,title){
       const cv=document.getElementById(canvasId); if(!cv||!window.Chart||!nd) return;
-      const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899'];
-      const pick=pickProfileDates(nd.timestamps,6);
-      const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
+      const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899','#06b6d4','#f43f5e'];
+      const pick=pickProfileDates(nd.timestamps,7);
+      const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
       pick.forEach((ts,i)=>{
         const p=nd.profiles[ts]; if(!p) return;
         const vals=axis==='a'?p.aCum:p.bCum;
         const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
-        const lbl=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-        datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:3,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
+        const lbl=new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+        datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
       charts[canvasId]=new Chart(cv,{type:'scatter',
         data:{datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:false,
-          plugins:{legend:{labels:{color:'#cbd5e1',font:{size:9},boxWidth:10}},title:{display:true,text:title,color:'#cbd5e1',font:{size:11}}},
+          plugins:{legend:{position:'top',align:'start',labels:{color:'#cbd5e1',font:{size:10},boxWidth:12,padding:8,usePointStyle:true,pointStyle:'line'}},title:{display:true,text:title,color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
           scales:{
-            x:{title:{display:true,text:'Profile Change in mm',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'}},
-            y:{reverse:true,title:{display:true,text:'Depth in Meters',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:1},grid:{color:'rgba(148,163,184,.10)'}}
+            x:{title:{display:true,text:'Profile Change (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.08)'}},
+            y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}
           }}});
     }
 
@@ -1482,72 +1491,24 @@
       const nodeId=STATE.incNode||INC_NODES[0].id;
       const nodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       const isLive = STATE.incRange==='live';
-      const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
-      const rangeLabel = isLive?'24 jam terakhir':({'3d':'3 hari','7d':'7 hari','10d':'10 hari','30d':'30 hari'}[STATE.incRange]||'7 hari');
+      const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> LIVE</span>` : '';
       return `
-        <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">INCLINOMETER — cumulative displacement · baseline = first reading = 0 · gauge ${GAUGE_LEN} mm ${liveInfo}</div>
-          <div>${lsRangeToggle('inc',STATE.incRange)}</div></div>
-
-        <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
-          <div class="t" style="color:#9fb3cf">Node</div>
-          <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)">${nodeOpts}</select>
-          <div id="incLastUpdate" style="font-size:11px;color:#9fb3cf;margin-left:8px"></div>
-          <div id="incTemp" style="font-size:12px;color:#9fb3cf;margin-left:auto">🌡️ —</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 2px 6px;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
+            ${liveInfo}
+            <span id="incLastUpdate" style="font-size:11px;color:#9fb3cf"></span>
+            <span id="incTemp" style="font-size:11px;color:#9fb3cf"></span>
+          </div>
+          <div>${lsRangeToggle('inc',STATE.incRange)}</div>
         </div>
 
-        <div class="card" style="margin-bottom:10px">
-          <div class="card-hd"><div class="t">📈 Top Displacement vs Time — ${esc(rangeLabel)}</div></div>
-          <div class="card-bd" style="height:180px"><canvas id="incTimeSeries"></canvas></div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="card"><div class="card-bd" style="height:500px"><canvas id="incProfA"></canvas></div></div>
-          <div class="card"><div class="card-bd" style="height:500px"><canvas id="incProfB"></canvas></div></div>
-        </div>
-
-        ${incRawPanel(nodeId)}
-
-        <div class="sechd">Health & Error Log</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="card"><div class="card-hd"><div class="t">📡 Device Health</div></div>
-            <div class="card-bd" style="color:var(--mut2);font-size:12px">Health monitoring tersedia setelah data health di-pull dari gateway. Endpoint: <code>/health/{nodeId}</code></div></div>
-          <div class="card"><div class="card-hd"><div class="t">📋 Error Log</div></div>
-            <div class="card-bd" style="color:var(--mut2);font-size:12px">Log ingestion tersimpan di <code>monitoring.ingestion_batches</code>.</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;height:calc(100vh - 130px)">
+          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%"><canvas id="incProfA"></canvas></div></div>
+          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%"><canvas id="incProfB"></canvas></div></div>
         </div>`;
     }
 
-    function incRawPanel(nodeId){
-      const sel=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
-      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">RAW DATA & PROCESSING</div></div>
-        <div class="card"><div class="card-bd">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-            <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">Node</div><select id="inc_area" class="flt">${sel}</select></div>
-            <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">From</div><input type="date" id="inc_from" class="flt" value="${dStr(-7)}"></div>
-            <div><div class="t" style="color:#9fb3cf;margin-bottom:3px">To</div><input type="date" id="inc_to" class="flt" value="${dStr(0)}"></div>
-            <button class="btn-ghost" onclick="renderIncRaw()">▶ Render</button>
-            <button class="btn-ghost" onclick="exportTable('inc_result','inclinometer')">⬇ Excel</button>
-          </div>
-          <div id="inc_result" style="margin-top:12px;color:#9fb3cf;font-size:12px">Pick Node · date range, then Render. Values = sin(θ) × ${GAUGE_LEN} mm.</div>
-        </div></div>`;
-    }
-
-    async function renderIncRaw(){
-      const dev=document.getElementById('inc_area').value;
-      const from=document.getElementById('inc_from').value, to=document.getElementById('inc_to').value;
-      const res=document.getElementById('inc_result');
-      if(!from||!to){res.textContent='Select date range.';return;}
-      res.innerHTML='<div class="spin"></div>';
-      try{
-        const fromTs=new Date(from+'T00:00:00').toISOString(), toTs=new Date(to+'T23:59:59').toISOString();
-        const {data,error}=await sb.from('v_instrument_readings').select('ts,sensor_name,value').eq('kind','inclinometer').eq('external_device_id',dev).gte('ts',fromTs).lte('ts',toTs).order('ts',{ascending:false}).limit(3000);
-        if(error) throw error;
-        const rows=(data||[]).filter(r=>r.sensor_name.includes('-Axis-sin')).map(r=>({bucket_label:new Date(r.ts).toLocaleString('en-GB'),sensor_name:r.sensor_name,val:(r.value*GAUGE_LEN).toFixed(3)}));
-        res.innerHTML=`<div style="margin-bottom:8px">${esc(dev)} · RAW displacement (mm) · ${[...new Set(rows.map(r=>r.bucket_label))].length} timestamps</div>
-          <div style="max-height:340px;overflow:auto">${rows.length?pivotTable(rows):'No data in range.'}</div>`;
-      }catch(e){res.textContent='Failed: '+(e.message||e);}
-    }
-    window.renderIncRaw=renderIncRaw;
 
     function drawIncTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
@@ -1556,25 +1517,15 @@
       const nd=incData[nodeId];
       if(!nd) return;
       const tempEl=document.getElementById('incTemp');
-      if(tempEl) tempEl.textContent='🌡️ '+(nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'—');
+      if(tempEl) tempEl.textContent=nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'';
       const updEl=document.getElementById('incLastUpdate');
       if(updEl && nd.timestamps.length){
         const last=nd.timestamps[nd.timestamps.length-1];
-        updEl.innerHTML='Last data: <b>'+new Date(last).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> ('+ago(last)+')';
+        updEl.innerHTML='<b>'+new Date(last).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> · '+ago(last);
       }
       const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
-      // Time-series: top displacement A & B over time
-      if(nd.topSeries.length){
-        const pal=['#ef4444','#3b82f6'];
-        const ms=multiSeries([
-          {name:lbl+' A-Axis',rows:nd.topSeries.map(p=>({ts:p.ts,value:p.a})),color:pal[0]},
-          {name:lbl+' B-Axis',rows:nd.topSeries.map(p=>({ts:p.ts,value:p.b})),color:pal[1]}
-        ]);
-        addTrend(ms,'#fbbf24');
-        tsChart('incTimeSeries',ms,'mm');
-      }
-      drawProfileMulti('incProfA',nd,'a',lbl+' A');
-      drawProfileMulti('incProfB',nd,'b',lbl+' B');
+      drawProfileMulti('incProfA',nd,'a',lbl+' — A-Axis');
+      drawProfileMulti('incProfB',nd,'b',lbl+' — B-Axis');
     }
 
     // ===================== VWP TAB =====================
