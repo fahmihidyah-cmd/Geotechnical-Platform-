@@ -407,6 +407,8 @@
     .mini{ border:0; border-radius:6px; padding:4px 8px; font-size:10.5px; cursor:pointer; color:#fff; }
     .mini.close{ background:#16a34a; } .mini.reopen{ background:#64748b; } .mini.prog{ background:#ca8a04; }
     .dchip{ background:rgba(148,163,184,.18); color:#9fb3cf; font-size:9px; padding:1px 5px; border-radius:6px; }
+    @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+    .live-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#22c55e;font-weight:900;letter-spacing:.05em}
 
     /* Hamburger toggle — hidden on desktop */
     .ham{display:none;border:none;background:transparent;color:#e5e7eb;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1}
@@ -501,6 +503,10 @@
     let overlays = null;
     let charts = {};
 
+    // ── Realtime subscription state ──
+    let realtimeChannel = null;
+    let lastRealtimeTs = null;
+
     const GAUGE_LEN = 3000;
     const INC_NODES = [{id:'108052',label:'WOC-02 INC'},{id:'108102',label:'WDN-2 INC-01'},{id:'108164',label:'WDN-2 INC-02'},{id:'108403',label:'WOC-01 INC'}];
     const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
@@ -569,6 +575,59 @@
       if(range==='24h')  return {from:parseRange('24h'), to:nowIso, every:'15 minutes'};
       return {from:parseRange('7d'), to:nowIso, every:'2 hours'};
     }
+
+    // ── Realtime: subscribe to new instrument readings ──
+    function subscribeRealtime(){
+      if(realtimeChannel) return;
+      realtimeChannel = sb.channel('monitoring-live')
+        .on('postgres_changes',
+          { event:'INSERT', schema:'monitoring', table:'readings' },
+          (payload)=>{
+            lastRealtimeTs = new Date().toISOString();
+            updateLiveIndicator(true);
+            // readings table has sensor_id; resolve kind via DATA.sensors
+            const sid = payload.new?.sensor_id;
+            const sensor = (DATA.sensors||[]).find(s=>s.sensor_id===sid);
+            const kind = sensor?.kind;
+            if(STATE.view==='inclinometer' && STATE.incRange==='live' && kind==='inclinometer'){
+              debouncedLiveRefresh('inc');
+            } else if(STATE.view==='vwp' && STATE.vwpRange==='live' && kind==='piezometer'){
+              debouncedLiveRefresh('vwp');
+            }
+          })
+        .subscribe((status)=>{
+          updateLiveIndicator(status==='SUBSCRIBED');
+        });
+    }
+    function unsubscribeRealtime(){
+      if(realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel=null; }
+      updateLiveIndicator(false);
+    }
+    function updateLiveIndicator(connected){
+      const el=document.querySelector('.chip .dot');
+      if(el){
+        el.style.setProperty('--c', connected?'#22c55e':'#94a3b8');
+        el.style.animation = connected?'pulse 2s infinite':'none';
+      }
+      const lbl=document.querySelector('.chip b');
+      if(!lbl) return;
+      const parent=lbl.closest('.chip');
+      if(parent && parent.textContent.includes('LIVE')){
+        parent.innerHTML = `<span class="dot" style="--c:${connected?'#22c55e':'#94a3b8'};animation:${connected?'pulse 2s infinite':'none'}"></span> LIVE${connected?' · RT':' · 2m'}`;
+      }
+    }
+    let _liveRefreshTimer = {};
+    function debouncedLiveRefresh(scope){
+      if(_liveRefreshTimer[scope]) return;
+      _liveRefreshTimer[scope] = setTimeout(()=>{
+        _liveRefreshTimer[scope] = null;
+        loadAll();
+      }, 3000);
+    }
+    function needsRealtime(){
+      return (STATE.view==='inclinometer' && STATE.incRange==='live') ||
+             (STATE.view==='vwp' && STATE.vwpRange==='live');
+    }
     async function loadAll(){
       const nowMs=Date.now(), nowIso=new Date().toISOString();
       const heavy = (!DATA.ext7) || (nowMs-lastHeavy > 600000); // boot or every 10 min
@@ -582,8 +641,8 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const d={'3d':3,'7d':7,'10d':10,'30d':30}[STATE.incRange]||7; const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=d<=3?'1 hour':d<=10?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:f,p_to:nowIso,p_every:ev}); }
-      else if(STATE.view==='vwp'){ const d={'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7; const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=d<=3?'1 hour':d<=10?'3 hours':'6 hours'; activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
+      else if(STATE.view==='inclinometer'){ const d=STATE.incRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.incRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.incRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='incData'; activeP=sb.rpc('instrument_series',{p_kind:'inclinometer',p_from:f,p_to:nowIso,p_every:ev}); }
+      else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
@@ -767,7 +826,7 @@
               <h1>EXECUTIVE MONITORING</h1>
               <div class="sub" id="modeLbl">Decision view</div>
               <div class="spacer"></div>
-              <span class="chip"><span class="dot" style="--c:#22c55e;animation:none"></span> LIVE · 2m</span>
+              <span class="chip" id="liveChip"><span class="dot" style="--c:#22c55e;animation:${needsRealtime()?'pulse 2s infinite':'none'}"></span> LIVE · ${needsRealtime()?'RT':'2m'}</span>
               <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
               <button class="btn-ghost" onclick="location.href='index.html'">← Menu</button>
@@ -1338,12 +1397,12 @@
 
     // ===================== INCLINOMETER TAB =====================
     function lsRangeToggle(scope,cur){
-      const opts=[['3d','3D'],['7d','7D'],['10d','10D'],['30d','30D']];
+      const opts=[['live','Live'],['3d','3D'],['7d','7D'],['10d','10D'],['30d','30D']];
       const fn=scope==='inc'?'setIncRange':'setVwpRange';
-      return opts.map(([v,l])=>`<button class="btn-ghost xs ${cur===v?'on':''}" onclick="${fn}('${v}')">${l}</button>`).join('');
+      return opts.map(([v,l])=>`<button class="btn-ghost xs ${cur===v?'on':''}" onclick="${fn}('${v}')">${v==='live'?'<span class="dot" style="--c:#22c55e;width:6px;height:6px;vertical-align:middle;margin-right:3px;animation:pulse 2s infinite"></span>':''} ${l}</button>`).join('');
     }
-    function setIncRange(r){ STATE.incRange=r; loadAll(); }
-    function setVwpRange(r){ STATE.vwpRange=r; loadAll(); }
+    function setIncRange(r){ STATE.incRange=r; if(needsRealtime()) subscribeRealtime(); else if(!needsRealtime()) unsubscribeRealtime(); loadAll(); }
+    function setVwpRange(r){ STATE.vwpRange=r; if(needsRealtime()) subscribeRealtime(); else if(!needsRealtime()) unsubscribeRealtime(); loadAll(); }
     window.setIncRange=setIncRange; window.setVwpRange=setVwpRange;
     function selectIncNode(id){ STATE.incNode=id; render(); }
     function selectVwpNode(id){ STATE.vwpNode=id; render(); }
@@ -1422,9 +1481,10 @@
     function inclinometerView(){
       const nodeId=STATE.incNode||INC_NODES[0].id;
       const nodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
+      const liveInfo = STATE.incRange==='live' ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">INCLINOMETER — cumulative displacement · baseline = first reading = 0 · gauge ${GAUGE_LEN} mm</div>
+          <div class="t">INCLINOMETER — cumulative displacement · baseline = first reading = 0 · gauge ${GAUGE_LEN} mm ${liveInfo}</div>
           <div>${lsRangeToggle('inc',STATE.incRange)}</div></div>
 
         <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
@@ -1555,9 +1615,10 @@
     function vwpView(){
       const nodeId=STATE.vwpNode||VWP_NODES[0].id;
       const nodeOpts=VWP_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
+      const liveInfo = STATE.vwpRange==='live' ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="t">VWP — Pore Pressure (kPa) vs Time · P = G(R₀−Rᵢ)</div>
+          <div class="t">VWP — Pore Pressure (kPa) vs Time · P = G(R₀−Rᵢ) ${liveInfo}</div>
           <div>${lsRangeToggle('vwp',STATE.vwpRange)}</div></div>
 
         <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pore Pressure (kPa) vs Time</div></div>
@@ -2358,7 +2419,7 @@
       window.print();
     }
 
-    function setView(v){ STATE.view=v; closeSidebar(); if(v==='instrument'||v==='aws'||v==='inclinometer'||v==='vwp'){ loadAll(); } else { render(); } }
+    function setView(v){ STATE.view=v; closeSidebar(); if(needsRealtime()) subscribeRealtime(); else unsubscribeRealtime(); if(v==='instrument'||v==='aws'||v==='inclinometer'||v==='vwp'){ loadAll(); } else { render(); } }
     function toggleSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.toggle('open'); }
     function closeSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.remove('open'); }
     window.setView=setView;
@@ -2375,7 +2436,15 @@
       if(!ok) return;
       await loadAll();
       // Egress saver: only poll when tab is visible; refresh immediately when user returns.
-      setInterval(()=>{ if(GMS.isOnline() && !document.hidden) loadAll().catch(()=>{}); }, 120000);
+      // In live mode poll every 30s; otherwise every 2 min.
+      setInterval(()=>{
+        if(!GMS.isOnline() || document.hidden) return;
+        if(needsRealtime()) loadAll().catch(()=>{});
+      }, 30000);
+      setInterval(()=>{
+        if(!GMS.isOnline() || document.hidden) return;
+        if(!needsRealtime()) loadAll().catch(()=>{});
+      }, 120000);
       document.addEventListener('visibilitychange',()=>{ if(!document.hidden && GMS.isOnline()) loadAll().catch(()=>{}); });
     })();
   </script>

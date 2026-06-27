@@ -6,8 +6,9 @@
 // monitoring.devices, monitoring.sensors, and only inserts readings whose
 // (sensor_id, ts) doesn't already exist.
 //
-// Scheduling: pg_cron job 'pull-loadsensing-30min' invokes this every 30
-// minutes via net.http_post (see migrations).
+// Scheduling: pg_cron job 'pull-loadsensing-hourly' invokes this every 1
+// hour via net.http_post (see migrations). New readings trigger Supabase
+// Realtime events so the monitoring dashboard updates live.
 //
 // Auth: Loadsensing basic auth credentials are embedded — they are HTTP
 // basic for the on-prem gateway and live only inside this private
