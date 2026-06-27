@@ -1481,7 +1481,9 @@
     function inclinometerView(){
       const nodeId=STATE.incNode||INC_NODES[0].id;
       const nodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
-      const liveInfo = STATE.incRange==='live' ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
+      const isLive = STATE.incRange==='live';
+      const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
+      const rangeLabel = isLive?'24 jam terakhir':({'3d':'3 hari','7d':'7 hari','10d':'10 hari','30d':'30 hari'}[STATE.incRange]||'7 hari');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t">INCLINOMETER — cumulative displacement · baseline = first reading = 0 · gauge ${GAUGE_LEN} mm ${liveInfo}</div>
@@ -1490,7 +1492,13 @@
         <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
           <div class="t" style="color:#9fb3cf">Node</div>
           <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)">${nodeOpts}</select>
+          <div id="incLastUpdate" style="font-size:11px;color:#9fb3cf;margin-left:8px"></div>
           <div id="incTemp" style="font-size:12px;color:#9fb3cf;margin-left:auto">🌡️ —</div>
+        </div>
+
+        <div class="card" style="margin-bottom:10px">
+          <div class="card-hd"><div class="t">📈 Top Displacement vs Time — ${esc(rangeLabel)}</div></div>
+          <div class="card-bd" style="height:180px"><canvas id="incTimeSeries"></canvas></div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1549,7 +1557,22 @@
       if(!nd) return;
       const tempEl=document.getElementById('incTemp');
       if(tempEl) tempEl.textContent='🌡️ '+(nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'—');
+      const updEl=document.getElementById('incLastUpdate');
+      if(updEl && nd.timestamps.length){
+        const last=nd.timestamps[nd.timestamps.length-1];
+        updEl.innerHTML='Last data: <b>'+new Date(last).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> ('+ago(last)+')';
+      }
       const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
+      // Time-series: top displacement A & B over time
+      if(nd.topSeries.length){
+        const pal=['#ef4444','#3b82f6'];
+        const ms=multiSeries([
+          {name:lbl+' A-Axis',rows:nd.topSeries.map(p=>({ts:p.ts,value:p.a})),color:pal[0]},
+          {name:lbl+' B-Axis',rows:nd.topSeries.map(p=>({ts:p.ts,value:p.b})),color:pal[1]}
+        ]);
+        addTrend(ms,'#fbbf24');
+        tsChart('incTimeSeries',ms,'mm');
+      }
       drawProfileMulti('incProfA',nd,'a',lbl+' A');
       drawProfileMulti('incProfB',nd,'b',lbl+' B');
     }
@@ -1615,18 +1638,21 @@
     function vwpView(){
       const nodeId=STATE.vwpNode||VWP_NODES[0].id;
       const nodeOpts=VWP_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
-      const liveInfo = STATE.vwpRange==='live' ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
+      const isLive = STATE.vwpRange==='live';
+      const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
+      const rangeLabel = isLive?'24 jam terakhir':({'3d':'3 hari','7d':'7 hari','10d':'10 hari','30d':'30 hari'}[STATE.vwpRange]||'7 hari');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t">VWP — Pore Pressure (kPa) vs Time · P = G(R₀−Rᵢ) ${liveInfo}</div>
           <div>${lsRangeToggle('vwp',STATE.vwpRange)}</div></div>
 
-        <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pore Pressure (kPa) vs Time</div></div>
+        <div class="card"><div class="card-hd"><div class="t">◎ All VWP — Pore Pressure (kPa) vs Time — ${esc(rangeLabel)}</div></div>
           <div class="card-bd" style="height:200px"><canvas id="vwpCombined"></canvas></div></div>
 
         <div style="display:flex;gap:8px;align-items:center;margin:8px 2px">
           <div class="t" style="color:#9fb3cf">Node</div>
           <select id="vwpNodeSel" class="flt" onchange="selectVwpNode(this.value)">${nodeOpts}</select>
+          <div id="vwpLastUpdate" style="font-size:11px;color:#9fb3cf;margin-left:8px"></div>
           <div id="vwpTemp" style="font-size:12px;color:#9fb3cf;margin-left:auto">🌡️ —</div>
         </div>
 
@@ -1683,17 +1709,25 @@
 
       const combSeries=[];
       let ci=0;
+      let latestTs=null;
       VWP_NODES.forEach(n=>{
         const d=vwpData[n.id]; if(!d) return;
         const chKeys=Object.keys(d.channels).sort();
         chKeys.forEach(ch=>{
           const rows=d.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
           if(!rows.length) return;
+          if(!latestTs || rows[rows.length-1].ts>latestTs) latestTs=rows[rows.length-1].ts;
           combSeries.push({name:vwpChLabel(n.id,ch),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[ci%pal.length]});
           ci++;
         });
       });
-      if(combSeries.length){ const ms=multiSeries(combSeries); tsChart('vwpCombined',ms,'kPa'); }
+      if(combSeries.length){
+        const ms=multiSeries(combSeries);
+        if(STATE.vwpRange==='live') addTrend(ms,'#fbbf24');
+        tsChart('vwpCombined',ms,'kPa');
+      }
+      const updEl=document.getElementById('vwpLastUpdate');
+      if(updEl && latestTs) updEl.innerHTML='Last data: <b>'+new Date(latestTs).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> ('+ago(latestTs)+')';
 
       const nodeId=STATE.vwpNode||VWP_NODES[0].id;
       const nd=vwpData[nodeId];
@@ -1705,7 +1739,11 @@
           const rows=nd.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
           return {name:vwpChLabel(nodeId,ch),rows:rows.map(r=>({ts:r.ts,value:r.value})),color:pal[i%pal.length]};
         });
-        if(detailSeries.length){ const ms=multiSeries(detailSeries); tsChart('vwpDetail',ms,'kPa'); }
+        if(detailSeries.length){
+          const ms=multiSeries(detailSeries);
+          if(STATE.vwpRange==='live') addTrend(ms,'#fbbf24');
+          tsChart('vwpDetail',ms,'kPa');
+        }
       }
     }
 
