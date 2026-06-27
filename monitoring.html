@@ -1564,24 +1564,27 @@
         const topIdx=allNums.length-1;
         const topSeries=timestamps.map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        out[devId]={nums:allNums,maxN,timestamps,profiles,topSeries,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3)};
+        const dailyGroups={};
+        for(const ts of timestamps){ const dk=new Date(ts).toLocaleDateString('id-ID',{day:'numeric',month:'short'}); (dailyGroups[dk]=dailyGroups[dk]||[]).push(ts); }
+        const dailyDates=Object.keys(dailyGroups);
+        const dailyProfiles={};
+        for(const dk of dailyDates){ const tsList=dailyGroups[dk]; const cnt=tsList.length; const aCum=allNums.map((_,j)=>tsList.reduce((s,ts)=>s+(profiles[ts]?.aCum[j]||0),0)/cnt); const bCum=allNums.map((_,j)=>tsList.reduce((s,ts)=>s+(profiles[ts]?.bCum[j]||0),0)/cnt); dailyProfiles[dk]={depths:allNums.map(nn=>(maxN-nn+1)*3),aCum,bCum}; }
+        out[devId]={nums:allNums,maxN,timestamps,profiles,topSeries,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3),dailyDates,dailyProfiles};
       }
       return out;
     }
 
-    function drawProfileChart(canvasId,nd,axis,title,tsArr){
+    function drawProfileChart(canvasId,nd,axis,title){
       const cv=document.getElementById(canvasId); if(!cv||!window.Chart||!nd) return;
       const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899','#06b6d4','#f43f5e'];
-      const pick=tsArr||pickProfileDates(nd.timestamps,7);
       const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
       let xMax=10;
-      pick.forEach((ts,i)=>{
-        const p=nd.profiles[ts]; if(!p) return;
+      (nd.dailyDates||[]).forEach((dk,i)=>{
+        const p=nd.dailyProfiles[dk]; if(!p) return;
         const vals=axis==='a'?p.aCum:p.bCum;
         vals.forEach(v=>{if(Math.abs(v)>xMax) xMax=Math.ceil(Math.abs(v)/5)*5;});
         const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
-        const lbl=new Date(ts).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-        datasets.push({label:lbl,data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
+        datasets.push({label:dk+' (avg)',data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
       charts[canvasId]=new Chart(cv,{type:'scatter',
         data:{datasets},
@@ -1605,21 +1608,21 @@
         const bData=nd.topSeries.map(p=>({x:p.ts,y:p.b}));
         aData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
         bData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
-        datasets.push({label:node.label+' A',data:aData,borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:2,pointRadius:0,tension:0.3,fill:false});
+        datasets.push({label:node.label+' A',data:aData,borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:1.5,pointRadius:2,pointBackgroundColor:pal[idx%pal.length],tension:0,fill:false});
         idx++;
-        datasets.push({label:node.label+' B',data:aData.map((_,i)=>({x:nd.topSeries[i].ts,y:nd.topSeries[i].b})),borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:2,pointRadius:0,borderDash:[5,3],tension:0.3,fill:false});
+        datasets.push({label:node.label+' B',data:aData.map((_,i)=>({x:nd.topSeries[i].ts,y:nd.topSeries[i].b})),borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:1.5,pointRadius:2,pointBackgroundColor:pal[idx%pal.length],borderDash:[5,3],tension:0,fill:false});
         idx++;
       }
       const allLabels=[...new Set(Object.values(incData).flatMap(nd=>nd.timestamps))].sort();
-      const labels=allLabels.map(t=>new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
+      const labels=allLabels.map(t=>{const d=new Date(t);return d.toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});});
       const dsFixed=datasets.map(ds=>({...ds,data:allLabels.map(t=>{const p=ds.data.find(d=>d.x===t);return p?p.y:null;})}));
       charts['incCombined']=new Chart(cv,{type:'line',
         data:{labels,datasets:dsFixed},
         options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
-          plugins:{legend:{position:'bottom',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:12,usePointStyle:true,pointStyle:'line'}},
-            title:{display:true,text:'All Inclinometers — Top Displacement vs Time',color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
+          plugins:{legend:{position:'bottom',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:12,usePointStyle:true,pointStyle:'circle'}},
+            title:{display:true,text:'All Inclinometers — Realtime Top Displacement',color:'#e5e7eb',font:{size:13,weight:'bold'},padding:{bottom:4}}},
           scales:{
-            x:{ticks:{maxTicksLimit:18,maxRotation:45,minRotation:25,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+            x:{ticks:{maxTicksLimit:24,maxRotation:45,minRotation:25,color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.04)'}},
             y:{min:-yMax,max:yMax,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.08)'}}
           },
           spanGaps:true
