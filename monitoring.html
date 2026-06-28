@@ -1127,7 +1127,7 @@
               <div class="card-bd" style="min-height:0">
                 <table class="tbl">
                   <thead>
-                    <tr><th>Parameter</th><th>Lokasi Terdampak</th><th>Risiko Tertinggi</th><th>Trend</th></tr>
+                    <tr><th>Lokasi</th><th>Risiko</th><th>Skor</th><th>Trend</th></tr>
                   </thead>
                   <tbody id="inspTbl">
                     <!-- diisi via JS (semi-template, menyerupai referensi) -->
@@ -2263,29 +2263,26 @@
           <b>${r[1]} (${totalLoc?Math.round((r[1]/totalLoc)*100):0}%)</b>
         </div>`).join('');
 
-      // Tabel inspeksi (konten menyerupai referensi; angka diaproksimasi dari distribusi)
-      const high = (m.inspByRisk['Very High']||0) + (m.inspByRisk['High']||0);
-      const med = (m.inspByRisk['Medium']||0);
-      const low = (m.inspByRisk['Low']||0);
-      const approx = (v)=>Math.max(0, Math.round(v));
-      const inspTpl = [
-        {p:'Retakan / Deformasi Lereng', n: approx(high*1.1 + med*0.4), rk:'Tinggi', tr:'up'},
-        {p:'Pergerakan Lereng', n: approx(high*0.8 + med*0.3), rk:'Tinggi', tr:'up'},
-        {p:'Erosi (Surface)', n: approx(med*0.7 + low*0.2), rk:'Sedang', tr:'st'},
-        {p:'Longsoran / Lereng', n: approx(high*0.6), rk:'Sedang', tr:'st'},
-        {p:'Retakan Batu (Rockfall)', n: approx(med*0.4 + low*0.2), rk:'Sedang', tr:'st'},
-        {p:'Kondisi Jalan Haul', n: approx(med*0.35 + low*0.2), rk:'Rendah', tr:'dn'},
-        {p:'Drainase', n: approx(low*0.4), rk:'Rendah', tr:'dn'},
-      ];
-      const rkColor = (rk)=> rk==='Tinggi'?RC.High : rk==='Sedang'?RC.Medium : RC.Low;
-      const trEl = (tr)=> tr==='up'?`<span class="trend-up">↑</span>`: tr==='dn'?`<span class="trend-dn">↓</span>`:`<span class="trend-st">→</span>`;
-      document.getElementById('inspTbl').innerHTML = inspTpl.map(x=>`
-        <tr>
-          <td>${esc(x.p)}</td>
-          <td>${x.n}</td>
-          <td><span style="color:${rkColor(x.rk)};font-weight:950">${esc(x.rk)}</span></td>
-          <td style="text-align:right">${trEl(x.tr)}</td>
-        </tr>`).join('');
+      // Tabel inspeksi — DATA REAL per lokasi (poin 2): inspeksi terbaru tiap
+      // lokasi (risk_final + skor) + trend vs inspeksi sebelumnya di lokasi itu.
+      const locName = {}; (DATA.locs||[]).forEach(l=>{ locName[l.id] = l.name || l.area_code || ('Lokasi '+l.id); });
+      const riskRank = {'Very High':4,'High':3,'Medium':2,'Low':1,'Very Low':0};
+      const riskColor = (r)=> r==='Very High'?RC['Very High'] : r==='High'?RC.High : r==='Medium'?RC.Medium : RC.Low;
+      const byLoc = {}; (DATA.insp||[]).forEach(d=>{ (byLoc[d.location_id]=byLoc[d.location_id]||[]).push(d); });
+      const trEl = (tr)=> tr>0?`<span class="trend-up">↑</span>` : tr<0?`<span class="trend-dn">↓</span>` : `<span class="trend-st">→</span>`;
+      const inspRows = (m.insRows||[]).slice()
+        .sort((a,b)=>(riskRank[b.risk_final]||0)-(riskRank[a.risk_final]||0)).slice(0,8);
+      document.getElementById('inspTbl').innerHTML = inspRows.length ? inspRows.map(r=>{
+        const list = byLoc[r.location_id]||[];      // ordered date desc
+        const prev = list[1];
+        const tr = prev ? ((riskRank[r.risk_final]||0) - (riskRank[prev.risk_final]||0)) : 0;
+        return `<tr>
+          <td>${esc(locName[r.location_id]||('Lokasi '+r.location_id))}</td>
+          <td><span style="color:${riskColor(r.risk_final)};font-weight:900">${esc(r.risk_final||'—')}</span></td>
+          <td>${r.total_score!=null?r.total_score:'—'}</td>
+          <td style="text-align:right">${trEl(tr)}</td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="4" style="color:#94a3b8">Belum ada data inspeksi</td></tr>`;
 
       // Instrument health (poin 7): per-type connect/down via reading staleness.
       // A device is "online" if any of its sensors reported within the type's
