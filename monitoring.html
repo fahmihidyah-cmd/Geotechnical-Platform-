@@ -267,6 +267,20 @@
       min-height:0;
     }
 
+    /* Executive dashboard layout (matches reference mockup) */
+    .exec-body{display:grid;grid-template-columns:1fr 1.9fr 1fr;gap:10px;min-height:0;height:calc(100vh - 300px)}
+    .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    .exec-bottom{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}
+    .inst-card .ic-metric{font-size:10px;color:var(--mut)}
+    .inst-card .ic-val{font-size:23px;font-weight:900;line-height:1.1;margin:1px 0}
+    .inst-card .ic-spark{height:40px;margin-top:2px}
+    .inst-card .ic-delta{font-size:11px;margin-top:3px;font-weight:700}
+    .inst-card .spike{margin-top:3px}
+    @media(max-width:1100px){
+      .exec-body{grid-template-columns:1fr;height:auto}
+      .exec-bottom{grid-template-columns:repeat(2,1fr)}
+    }
+
     /* Map */
     #map{flex:1;height:100%;min-height:260px;border-radius:14px;overflow:hidden}
     .map-wrap{height:100%;min-height:260px}
@@ -1004,7 +1018,6 @@
 
     function overviewLayout(){
       return `
-        ${ewsBannerHtml()}
         <div class="kpi-grid">
           <div class="card">
             <div class="card-hd"><div class="t">Overall Status</div><div class="ic">🛡️</div></div>
@@ -1043,7 +1056,7 @@
 
           <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
             <span class="more-arrow">→</span>
-            <div class="card-hd"><div class="t">Total Alerts</div><div class="ic">⚠</div></div>
+            <div class="card-hd"><div class="t">Active Alerts</div><div class="ic">⚠</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kAlerts">—</div>
               <div class="kpi-tag">
@@ -1058,7 +1071,7 @@
 
           <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
             <span class="more-arrow">→</span>
-            <div class="card-hd"><div class="t">Active Instruments</div><div class="ic">📡</div></div>
+            <div class="card-hd"><div class="t">Sensors Online</div><div class="ic">📡</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kActive">—</div>
               <div class="kpi-sub" id="kActiveSub">—</div>
@@ -1087,143 +1100,82 @@
           </div>
         </div>
 
-        <div class="dash">
-          <div class="upper">
-            <div class="card mapcard" style="position:relative;min-height:0">
-              <div class="card-hd"><div class="t">Peta Risiko Geoteknik</div><div class="ic">🗺️</div></div>
-              <div class="card-bd map-wrap">
-                <div id="map"></div>
-                <div class="legend" id="mapLegend">
-                  <div class="lg" onclick="document.getElementById('mapLegend').classList.toggle('collapsed')">
-                    <span>Legenda</span><span class="tg">▾</span>
-                  </div>
-                  <div class="body">
-                    <div class="it"><span class="sw" style="--c:${RC['Very High']}"></span> Sangat Tinggi</div>
-                    <div class="it"><span class="sw" style="--c:${RC.High}"></span> Tinggi</div>
-                    <div class="it"><span class="sw" style="--c:${RC.Medium}"></span> Sedang</div>
-                    <div class="it"><span class="sw" style="--c:${RC.Low}"></span> Rendah</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card clickable" style="min-height:0" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
+        <div class="exec-body">
+          <div class="exec-col">
+            <div class="card clickable" onclick="setView('aws')">
               <span class="more-arrow">→</span>
-              <div class="card-hd"><div class="t">Ringkasan Risiko Geoteknik</div><div class="ic">◑</div></div>
-              <div class="card-bd" style="min-height:0">
-                <div class="split">
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:92px;height:92px"><canvas id="riskSummaryDonut"></canvas></div>
-                    <div>
-                      <div class="kpi-val" id="kLocTotal">—</div>
-                      <div class="kpi-sub">Total lokasi</div>
-                    </div>
-                  </div>
-                  <div class="mini-list" id="riskSummaryList"></div>
-                </div>
-                <div style="margin-top:10px">
-                  <div class="card-hd" style="padding:0">
-                    <div class="t">Risk Matrix (Likelihood × Consequence)</div>
-                    <div class="ic">▦</div>
-                  </div>
-                  <div style="margin-top:6px">${riskMatrixHtml()}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card clickable" style="min-height:0" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
-              <span class="more-arrow">→</span>
-              <div class="card-hd"><div class="t">Status Monitoring Inspeksi</div><div class="ic">☑</div></div>
-              <div class="card-bd" style="min-height:0">
-                <table class="tbl">
-                  <thead>
-                    <tr><th>Lokasi</th><th>Risiko</th><th>Skor</th><th>Trend</th></tr>
-                  </thead>
-                  <tbody id="inspTbl">
-                    <!-- diisi via JS (semi-template, menyerupai referensi) -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="lower">
-            <div class="two-stack">
-              <div class="card clickable" style="min-height:0" onclick="setView('aws')" title="Detail di AWS / Weather">
-                <span class="more-arrow">→</span>
-                <div class="card-hd"><div class="t">Rainfall (24H)</div><div class="ic">🌧️</div></div>
-                <div class="card-bd" style="min-height:0">
-                  <div style="display:flex;align-items:baseline;gap:8px">
-                    <div class="kpi-val" id="rain24Total" style="font-size:24px">—</div>
-                    <div class="kpi-tag"><b id="rain24Lbl" style="color:#38bdf8">—</b></div>
-                  </div>
-                  <div style="height:110px;margin-top:6px"><canvas id="rain24Chart"></canvas></div>
-                </div>
-              </div>
-
-              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
-                <span class="more-arrow">→</span>
-                <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
-                <div class="card-bd">
-                  <div class="instruments" id="instHealth"></div>
-                </div>
-              </div>
-
-              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
-                <span class="more-arrow">→</span>
-                <div class="card-hd"><div class="t">Parameter Monitoring (Latest)</div><div class="ic">≋</div></div>
-                <div class="card-bd" style="min-height:0">
-                  <table class="tbl">
-                    <thead><tr><th>Parameter</th><th>Latest Value</th><th>Status</th><th>Trend vs 7d</th></tr></thead>
-                    <tbody id="paramTbl"></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
-              <span class="more-arrow">→</span>
-              <div class="card-hd"><div class="t">Trend Parameter (7 days)</div><div class="ic">📈</div></div>
+              <div class="card-hd"><div class="t">Rainfall (24H)</div><div class="ic">🌧️</div></div>
               <div class="card-bd">
-                <div class="sparks">
-                  <div class="spark">
-                    <div class="k">Displacement (Ext)</div>
-                    <div class="v" id="sparkExtVal">—</div>
-                    <div class="spike" id="spikeExt"></div>
-                    <div class="cv"><canvas id="sparkExt"></canvas></div>
-                  </div>
-                  <div class="spark">
-                    <div class="k">Displacement (Inc)</div>
-                    <div class="v" id="sparkIpVal">—</div>
-                    <div class="spike" id="spikeInc"></div>
-                    <div class="cv"><canvas id="sparkIp"></canvas></div>
-                  </div>
-                  <div class="spark">
-                    <div class="k">Pore Pressure (VWP)</div>
-                    <div class="v" id="sparkVwpVal">—</div>
-                    <div class="spike" id="spikeVwp"></div>
-                    <div class="cv"><canvas id="sparkVwp"></canvas></div>
-                  </div>
-                  <div class="spark">
-                    <div class="k">Rainfall (AWS)</div>
-                    <div class="v" id="sparkRainVal">—</div>
-                    <div class="spike" id="spikeRain"></div>
-                    <div class="cv"><canvas id="sparkRain"></canvas></div>
-                  </div>
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <div class="kpi-val" id="rain24Total" style="font-size:22px">—</div>
+                  <div class="kpi-tag"><b id="rain24Lbl" style="color:#38bdf8">—</b></div>
                 </div>
+                <div style="height:84px;margin-top:6px"><canvas id="rain24Chart"></canvas></div>
               </div>
             </div>
 
-            <div class="alerts-stack">
-              <div class="card" style="min-height:0">
-                <div class="card-hd"><div class="t">Active Alerts — EWS</div><div class="ic">🚨</div></div>
-                <div class="card-bd" style="min-height:0">
-                  <div class="alert-list" id="latestAlerts"></div>
+            <div class="card clickable" onclick="setView('inspection')">
+              <span class="more-arrow">→</span>
+              <div class="card-hd"><div class="t">Risk Summary</div><div class="ic">◑</div></div>
+              <div class="card-bd">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:60px;height:60px;flex:none"><canvas id="riskSummaryDonut"></canvas></div>
+                  <div style="flex:none"><div class="kpi-val" id="kLocTotal">—</div><div class="kpi-sub">Total lokasi</div></div>
+                  <div class="mini-list" id="riskSummaryList" style="flex:1"></div>
+                </div>
+                <div style="margin-top:8px">${riskMatrixHtml()}</div>
+              </div>
+            </div>
+
+            <div class="card clickable" onclick="setView('trends')">
+              <span class="more-arrow">→</span>
+              <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
+              <div class="card-bd"><div class="instruments" id="instHealth"></div></div>
+            </div>
+          </div>
+
+          <div class="card mapcard" style="position:relative;min-height:0">
+            <div class="card-hd"><div class="t">Peta Risiko Geoteknik</div><div class="ic">🗺️</div></div>
+            <div class="card-bd map-wrap">
+              <div id="map"></div>
+              <div class="legend" id="mapLegend">
+                <div class="lg" onclick="document.getElementById('mapLegend').classList.toggle('collapsed')"><span>Legenda</span><span class="tg">▾</span></div>
+                <div class="body">
+                  <div class="it"><span class="sw" style="--c:${RC['Very High']}"></span> Sangat Tinggi</div>
+                  <div class="it"><span class="sw" style="--c:${RC.High}"></span> Tinggi</div>
+                  <div class="it"><span class="sw" style="--c:${RC.Medium}"></span> Sedang</div>
+                  <div class="it"><span class="sw" style="--c:${RC.Low}"></span> Rendah</div>
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="card" style="min-height:0">
+            <div class="card-hd"><div class="t">Active Alerts — EWS</div><div class="ic">🚨</div></div>
+            <div class="card-bd" style="min-height:0"><div class="alert-list" id="latestAlerts"></div></div>
+          </div>
+        </div>
+
+        <div class="exec-bottom">
+          ${instCardHtml('EXTENSOMETER','📏','Displacement','sparkExt','bExtVal','bExtDelta','spikeExt')}
+          ${instCardHtml('INCLINOMETER','∠','Top Displacement','sparkIp','bIncVal','bIncDelta','spikeInc')}
+          ${instCardHtml('VWP / PIEZOMETER','◎','Pore Pressure','sparkVwp','bVwpVal','bVwpDelta','')}
+          ${instCardHtml('RAINFALL','🌧️','Intensity','sparkRain','bRainVal','bRainDelta','')}
+          ${instCardHtml('TEMPERATURE','🌡️','AWS','sparkTemp','bTempVal','bTempDelta','')}
         </div>`;
+    }
+
+    function instCardHtml(title, ic, metric, sparkId, valId, deltaId, spikeId){
+      return `<div class="card inst-card">
+        <div class="card-hd"><div class="t">${title}</div><div class="ic">${ic}</div></div>
+        <div class="card-bd">
+          <div class="ic-metric">${metric}</div>
+          <div class="ic-val" id="${valId}">—</div>
+          <div class="ic-spark"><canvas id="${sparkId}"></canvas></div>
+          <div class="ic-delta" id="${deltaId}">—</div>
+          ${spikeId?`<div class="spike" id="${spikeId}"></div>`:''}
+        </div>
+      </div>`;
     }
 
     // ====== Time-series + trendline (tab instrumen) ======
@@ -2174,7 +2126,7 @@
       document.getElementById('siteStat').textContent = st.t;
 
       const page = document.getElementById('page');
-      page.classList.toggle('scroll', STATE.view!=='overview');
+      page.classList.add('scroll');
       document.getElementById('modeLbl').textContent = (STATE.view==='overview') ? 'Decision view' : 'Analysis view';
 
       if(STATE.view==='overview'){
@@ -2304,7 +2256,8 @@
       const trEl = (tr)=> tr>0?`<span class="trend-up">↑</span>` : tr<0?`<span class="trend-dn">↓</span>` : `<span class="trend-st">→</span>`;
       const inspRows = (m.insRows||[]).slice()
         .sort((a,b)=>(riskRank[b.risk_final]||0)-(riskRank[a.risk_final]||0)).slice(0,8);
-      document.getElementById('inspTbl').innerHTML = inspRows.length ? inspRows.map(r=>{
+      const inspTblEl = document.getElementById('inspTbl');
+      if(inspTblEl) inspTblEl.innerHTML = inspRows.length ? inspRows.map(r=>{
         const list = byLoc[r.location_id]||[];      // ordered date desc
         const prev = list[1];
         const tr = prev ? ((riskRank[r.risk_final]||0) - (riskRank[prev.risk_final]||0)) : 0;
@@ -2387,7 +2340,8 @@
         {p:'Rainfall (AWS)', v: rainVal, st: (DATA.rain && DATA.rain.is_raining)?'Hujan':'Normal', c: (DATA.rain && DATA.rain.is_raining)?RC.High:RC.Low, tr: rainTrend},
         {p:'Temperature (AWS)', v: tempAny?`${fmt(tempAny.latest_value,1)} ${tempAny.unit||'°C'}`:'—', st:'Normal', c:RC.Low, tr:'<span class="trend-st">→</span>'},
       ];
-      document.getElementById('paramTbl').innerHTML = rowsParam.map(r=>`
+      const paramTblEl = document.getElementById('paramTbl');
+      if(paramTblEl) paramTblEl.innerHTML = rowsParam.map(r=>`
         <tr>
           <td>${esc(r.p)}</td>
           <td>${esc(r.v)}</td>
@@ -2664,9 +2618,31 @@
       // Pass raw rows — sparkLine() will buildSpark() internally. Wrapping
       // it here in buildSpark() returned {ts,vals} and then crashed inside
       // sparkLine when it tried to .filter() on that object.
+      // Bottom instrument cards: sparkline + latest value + delta vs ~yesterday
+      const fillInstCard = (canvasId, rows, color, valId, deltaId, unit, isRain)=>{
+        sparkLine(canvasId, rows, color, ()=>{}, isRain);
+        const s = buildSpark(rows||[]);
+        const latest = s.vals.length ? s.vals[s.vals.length-1] : null;
+        const vEl = document.getElementById(valId);
+        if(vEl) vEl.textContent = latest==null ? '—' : `${fmt(latest,2)} ${unit}`;
+        let delta = null;
+        if(s.ts.length){
+          const lastT = new Date(s.ts[s.ts.length-1]).getTime();
+          for(let i=s.ts.length-1;i>=0;i--){
+            if(lastT - new Date(s.ts[i]).getTime() >= 20*3600*1000){ delta = latest - s.vals[i]; break; }
+          }
+        }
+        const dEl = document.getElementById(deltaId);
+        if(dEl){
+          dEl.innerHTML = (delta==null)
+            ? `<span style="color:#94a3b8">— vs kemarin</span>`
+            : `<span style="color:${delta>=0?RC.High:RC.Low}">${delta>=0?'▲':'▼'} ${fmt(Math.abs(delta),2)} ${unit}</span> <span style="color:#94a3b8">vs kemarin</span>`;
+        }
+      };
+
       const extRows = (DATA.ext7||[]).filter(r=>r && r.external_device_id && r.sensor_name);
-      sparkLine('sparkExt', extRows, '#a78bfa', (v)=>document.getElementById('sparkExtVal').textContent = v==='—'?'—':v+' mm');
-      // Inclinometer: top-displacement series of the most-active device (real data)
+      fillInstCard('sparkExt', extRows, '#a78bfa', 'bExtVal', 'bExtDelta', 'mm', false);
+
       let incRows = [];
       try{
         const incProc = processInc(DATA.inc7||[]); let best=null, bestAbs=-1;
@@ -2677,8 +2653,8 @@
         }
         if(best) incRows = best.map(p=>({ts:p.ts, value:p.a}));
       }catch(e){}
-      sparkLine('sparkIp', incRows, '#f59e0b', (v)=>document.getElementById('sparkIpVal').textContent = v==='—'?'—':v+' mm');
-      // VWP: a representative channel pore-pressure series (real data)
+      fillInstCard('sparkIp', incRows, '#f59e0b', 'bIncVal', 'bIncDelta', 'mm', false);
+
       let vwpRows = [];
       try{
         const vwpProc = processVwp(DATA.vwp7||[]);
@@ -2687,10 +2663,13 @@
           if(vwpRows.length) break;
         }
       }catch(e){}
-      sparkLine('sparkVwp', vwpRows, '#22c55e', (v)=>document.getElementById('sparkVwpVal').textContent = v==='—'?'—':v+' kPa');
-      // Rain spark from weather rainfall minute
+      fillInstCard('sparkVwp', vwpRows, '#22c55e', 'bVwpVal', 'bVwpDelta', 'kPa', false);
+
       const rain = (DATA.wx7||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
-      sparkLine('sparkRain', rain, '#38bdf8', (v)=>document.getElementById('sparkRainVal').textContent = v, true);
+      fillInstCard('sparkRain', rain, '#38bdf8', 'bRainVal', 'bRainDelta', 'mm', true);
+
+      const temp = byName(DATA.wx7, 'temperature');
+      fillInstCard('sparkTemp', temp, '#ef4444', 'bTempVal', 'bTempDelta', '°C', false);
 
       // Spiking-instrument badges (point 3): top-moving device per category from EWS
       const fillSpike = (elId, cat)=>{
