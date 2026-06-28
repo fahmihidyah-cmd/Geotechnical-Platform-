@@ -391,17 +391,17 @@
     .trend-dn{color:var(--red);font-weight:900}
     .trend-st{color:#cbd5e1;font-weight:900}
 
-    .instruments{display:flex;flex-direction:column;gap:8px}
+    .instruments{display:flex;flex-direction:column;gap:5px}
     .inst{
-      padding:9px 11px;border-radius:12px;
+      padding:6px 10px;border-radius:10px;
       background:rgba(2,6,23,.18);
       border:1px solid rgba(148,163,184,.12);
-      display:flex;align-items:center;gap:11px;min-width:0;
+      display:flex;align-items:center;gap:10px;min-width:0;
     }
-    .inst .inst-ico{font-size:16px;width:22px;text-align:center;flex:none}
-    .inst .nm{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#cbd5e1;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .inst .v{font-size:15px;font-weight:950;flex:none}
-    .inst .s{font-size:10px;flex:none;min-width:62px;text-align:right}
+    .inst .inst-ico{font-size:15px;width:20px;text-align:center;flex:none}
+    .inst .nm{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#cbd5e1;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .inst .v{font-size:14px;font-weight:950;flex:none}
+    .inst .s{font-size:9.5px;flex:none;min-width:74px;text-align:right;white-space:nowrap}
 
     .two-stack{display:flex;flex-direction:column;gap:10px;min-height:0}
     .alerts-stack{display:grid;grid-template-rows: 0.46fr 0.54fr;gap:10px;min-height:0}
@@ -434,8 +434,11 @@
       min-width:0;
     }
     .alert .a1{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .alert .ttl{font-weight:950}
+    .alert .ttl{font-weight:950;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .alert .sev{font-size:11px;font-weight:950;color:var(--c)}
+    .alert .risk-pill{flex:none;font-size:10px;font-weight:900;color:var(--rc);
+      border:1px solid var(--rc);background:color-mix(in srgb, var(--rc) 16%, transparent);
+      padding:1px 8px;border-radius:999px;white-space:nowrap;line-height:1.5}
     .alert .a2{margin-top:6px;font-size:11px;color:var(--mut2);line-height:1.25}
     .alert .tm{margin-top:7px;font-size:10.5px;color:#9fb3cf}
 
@@ -858,6 +861,24 @@
       const offlineSensors = totalSensors - onlineSensors;
       const newest = sensors.reduce((mx,s)=>s.latest_ts && (!mx||s.latest_ts>mx) ? s.latest_ts : mx, null);
 
+      // Per-INSTRUMENT (device) health. Each inclinometer/VWP exposes dozens of
+      // sensor channels, so counting raw channels is misleading — we count
+      // devices. Freshness windows differ by type: AWS/extensometer stream
+      // continuously (minutes); inclinometer/VWP are batch-ingested sub-daily,
+      // so a device that reported within ~36h still counts as online (just lagging).
+      const FRESH = { weather:120, extensometer:240, inclinometer:2160, piezometer:2160 };
+      const devHealth = {}; // kind -> {total:Set, online:Set, newest}
+      sensors.forEach(s=>{
+        const k=s.kind, id=String(s.external_device_id||'');
+        if(!FRESH[k] || !id) return;
+        const h = devHealth[k] = devHealth[k] || {total:new Set(), online:new Set(), newest:null};
+        h.total.add(id);
+        if(!stale(s.latest_ts, FRESH[k])) h.online.add(id);
+        if(s.latest_ts && (!h.newest || s.latest_ts>h.newest)) h.newest = s.latest_ts;
+      });
+      let instTotal=0, instOnline=0;
+      Object.values(devHealth).forEach(h=>{ instTotal+=h.total.size; instOnline+=h.online.size; });
+
       // inspections latest by location
       const latestIns = {};
       (DATA.insp||[]).forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
@@ -913,6 +934,7 @@
 
       return {
         totalSensors, onlineSensors, offlineSensors, newest,
+        devHealth, instTotal, instOnline,
         insRows, inspByRisk,
         totalAlerts, extTriggered, inspTriggered,
         riskIndex, riskLabel,
@@ -1107,7 +1129,7 @@
 
           <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
             <span class="more-arrow">→</span>
-            <div class="card-hd"><div class="t">Sensors Online</div><div class="ic">📡</div></div>
+            <div class="card-hd"><div class="t">Instruments Online</div><div class="ic">📡</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kActive">—</div>
               <div class="kpi-sub" id="kActiveSub">—</div>
@@ -1195,6 +1217,7 @@
                   <div class="tg" style="margin:5px 0 2px;border-top:1px solid rgba(148,163,184,.18);padding-top:4px">Instrument (shape)</div>
                   <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">➤</span> Inclinometer</div>
                   <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">◆</span> Extensometer</div>
+                  <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">⬣</span> VWP / Piezometer</div>
                   <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">▲</span> Prism</div>
                   <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">★</span> RTS</div>
                 </div>
@@ -1211,7 +1234,7 @@
             ${instCardHtml('EXTENSOMETER','📏','Displacement','sparkExt','bExtVal','bExtDelta','spikeExt')}
             ${instCardHtml('INCLINOMETER','∠','Top Displacement','sparkIp','bIncVal','bIncDelta','spikeInc')}
             ${instCardHtml('VWP / PIEZOMETER','◎','Pore Pressure','sparkVwp','bVwpVal','bVwpDelta','')}
-            ${instCardHtml('RAINFALL','🌧️','Intensity','sparkRain','bRainVal','bRainDelta','')}
+            ${instCardHtml('RAINFALL','🌧️','Rate (now)','sparkRain','bRainVal','bRainDelta','')}
           </div>
         </div>`;
     }
@@ -2299,8 +2322,8 @@
       setTxt('kWarnN', cJingga);
       setTxt('kWatchN', cKuning);
 
-      document.getElementById('kActive').textContent = `${m.onlineSensors} / ${m.totalSensors}`;
-      document.getElementById('kActiveSub').textContent = (m.totalSensors?`${Math.round((m.onlineSensors/m.totalSensors)*100)}% Online`:'—');
+      document.getElementById('kActive').textContent = `${m.instOnline} / ${m.instTotal}`;
+      document.getElementById('kActiveSub').textContent = (m.instTotal?`${Math.round((m.instOnline/m.instTotal)*100)}% of instruments reporting`:'—');
 
       const rh = DATA.rainHours||{};
       document.getElementById('rh1').textContent  = (rh.hours_today!=null?rh.hours_today:'—')+' h';
@@ -2339,30 +2362,23 @@
         </tr>`;
       }).join('') : `<tr><td colspan="4" style="color:#94a3b8">Belum ada data inspeksi</td></tr>`;
 
-      // Instrument health (poin 7): per-type connect/down via reading staleness.
-      // A device is "online" if any of its sensors reported within the type's
-      // expected cadence; otherwise it is counted as down.
+      // Instrument health (per DEVICE, shared windows from compute()). Status
+      // reflects whether each device reported within its type's freshness window;
+      // the data age is shown so a lagging batch instrument isn't read as broken.
       const sensors = DATA.sensors||[];
       const HEALTH_TYPES = [
-        {k:'AWS / Rainfall', kind:'weather',       stale:90,  ic:'☁'},
-        {k:'Extensometer',   kind:'extensometer',  stale:180, ic:'📏'},
-        {k:'Inclinometer',   kind:'inclinometer',  stale:180, ic:'∠'},
-        {k:'VWP / Piezometer',kind:'piezometer',   stale:180, ic:'◎'},
+        {k:'AWS / Rainfall',  kind:'weather',      ic:'☁'},
+        {k:'Extensometer',    kind:'extensometer', ic:'📏'},
+        {k:'Inclinometer',    kind:'inclinometer', ic:'∠'},
+        {k:'VWP / Piezometer',kind:'piezometer',   ic:'◎'},
       ];
+      const dh = m.devHealth || {};
       const health = HEALTH_TYPES.map(t=>{
-        const byDev = {};
-        sensors.filter(s=>s.kind===t.kind).forEach(s=>{
-          const id = String(s.external_device_id||''); if(!id) return;
-          if(byDev[id]===undefined) byDev[id] = false;
-          if(!stale(s.latest_ts, t.stale)) byDev[id] = true;
-        });
-        const ids = Object.keys(byDev);
-        const total = ids.length;
-        const online = ids.filter(id=>byDev[id]).length;
-        const down = total - online;
-        const status = total===0 ? 'No data' : down===0 ? 'Active' : online===0 ? 'Down' : 'Degraded';
-        const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC['Very High'] : RC.High;
-        return {k:t.k, ic:t.ic, online, total, down, status, col};
+        const h = dh[t.kind] || {total:new Set(), online:new Set(), newest:null};
+        const total = h.total.size, online = h.online.size, down = total - online;
+        const status = total===0 ? 'No data' : down===0 ? 'Active' : online===0 ? 'No recent data' : 'Partial';
+        const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC.High : RC.Medium;
+        return {k:t.k, ic:t.ic, online, total, down, status, col, age: h.newest?ago(h.newest):'—'};
       });
       const instHealthEl = document.getElementById('instHealth');
       if(instHealthEl) instHealthEl.innerHTML = health.map(h=>`
@@ -2370,7 +2386,7 @@
           <span class="inst-ico">${h.ic}</span>
           <div class="nm">${esc(h.k)}</div>
           <div class="v">${h.online}/${h.total}</div>
-          <div class="s" style="color:${h.col}">● ${esc(h.status)}${h.down>0?` (${h.down} down)`:''}</div>
+          <div class="s" style="color:${h.col}" title="Last data ${esc(h.age)}">● ${esc(h.status)} · ${esc(h.age)}</div>
         </div>`).join('');
 
       // Parameter monitoring latest (ambil yang tersedia; lainnya placeholder)
@@ -2433,8 +2449,8 @@
         const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/day` : '';
         const vr = a.velocity_ratio!=null ? ` · VR ${fmt(a.velocity_ratio,2)}` : '';
         latestAlerts.push({
-          ttl: `${nm} ${up?'up':'down'} → ${toLbl}`,
-          sev: up ? 'Up' : 'Down',
+          ttl: `${nm} ${up?'▲ up':'▼ down'}`,
+          lvl: toLbl, lvlC: c,
           c: c,
           msg: `${fromLbl} → ${toLbl} · ${vd}${vr}`,
           tm: a.evaluated_at ? new Date(a.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'
@@ -2445,29 +2461,29 @@
         const c = RC[lvl] || RC.Low;
         latestAlerts.push({
           ttl: `${s.sensor_name||'Extensometer'} (${s.external_device_id||''})`,
-          sev: lvl==='Very High'?'Critical':(lvl==='High'?'Warning':'Watch'),
-          c: (lvl==='Very High')?RC['Very High']:(lvl==='High'?RC.High:RC.Medium),
-          msg: `Nilai ${fmt(s.latest_value,2)} ${s.unit||'mm'} · melewati threshold`,
+          lvl: lvl, lvlC: c,
+          c: c,
+          msg: `Value ${fmt(s.latest_value,2)} ${s.unit||'mm'} · threshold exceeded`,
           tm: s.latest_ts ? new Date(s.latest_ts).toLocaleString('id-ID') : '—'
         });
       });
       m.inspTriggered.slice(0,4).forEach(r=>{
         latestAlerts.push({
-          ttl: `Inspection — location ${r.location_id}`,
-          sev: (r.risk_final==='Very High')?'Critical':'Warning',
+          ttl: `Inspection — ${(DATA.locs||[]).find(l=>l.id===r.location_id)?.name || ('location '+r.location_id)}`,
+          lvl: r.risk_final||'—', lvlC: riskColor(r.risk_final),
           c: (r.risk_final==='Very High')?RC['Very High']:RC.High,
-          msg: `Risk ${r.risk_final||''} · score ${r.total_score||0}`,
+          msg: `Inspection risk · score ${r.total_score||0}`,
           tm: r.inspection_date ? new Date(r.inspection_date).toLocaleString('id-ID') : '—'
         });
       });
       const listEl = document.getElementById('latestAlerts');
       listEl.innerHTML = (latestAlerts.length?latestAlerts:([{
-        ttl:'No active alerts', sev:'—', c:'#94a3b8', msg:'Semua parameter dalam batas aman', tm:'—'
+        ttl:'No active alerts', lvl:'Low', lvlC:RC.Low, c:'#94a3b8', msg:'All parameters within safe limits', tm:'—'
       }])).slice(0,8).map(a=>`
         <div class="alert" style="--c:${a.c}">
           <div class="a1">
             <div class="ttl">${esc(a.ttl)}</div>
-            <div class="sev">${esc(a.sev)}</div>
+            <span class="risk-pill" style="--rc:${a.lvlC||'#94a3b8'}">● ${esc(a.lvl||'—')}</span>
           </div>
           <div class="a2">${esc(a.msg)}</div>
           <div class="tm">${esc(a.tm)}</div>
@@ -2571,12 +2587,14 @@
         // Risk: extensometer via its device EWS; inclinometer via worst inclinometer
         // EWS level; survey-only instruments (prism/rts) have no automated EWS.
         let lvl=null;
+        const ext = p.device_external_id;
         if(cat==='extensometer'){
           const ms = pdev.filter(d=>d.category==='extensometer' && String(d.name||'').toLowerCase().includes(String(p.remark||'').toLowerCase()));
           lvl = ms.length ? worstOf(ms) : 'Low';
-        } else if(cat==='inclinometer'){
-          const ms = pdev.filter(d=>d.category==='inclinometer');
-          lvl = ms.length ? worstOf(ms) : 'Low';
+        } else if(ext){
+          // inclinometer (and any device-linked instrument): risk from its own EWS device
+          const ms = pdev.filter(d=>String(d.name||'').includes(String(ext)));
+          if(ms.length) lvl = worstOf(ms);
         }
         const hasRisk = lvl!=null;
         const col = hasRisk ? (RC[lvl]||RC.Low) : '#94a3b8';
@@ -2728,9 +2746,20 @@
         }
         const dEl = document.getElementById(deltaId);
         if(dEl){
-          dEl.innerHTML = (delta==null)
-            ? `<span style="color:#94a3b8">— vs yesterday</span>`
-            : `<span style="color:${delta>=0?RC.High:RC.Low}">${delta>=0?'▲':'▼'} ${fmt(Math.abs(delta),2)} ${unit}</span> <span style="color:#94a3b8">vs yesterday</span>`;
+          if(isRain){
+            // Rain has no meaningful "vs yesterday" level — the latest reading is
+            // an instantaneous per-minute rate. Show the 24h accumulation instead
+            // so this card ties to the Rainfall (24H) chart above.
+            const r24 = ((DATA.rain24)||[]).filter(r=>(r.sensor_name||'').includes('RainFall Hourly'));
+            const tot = r24.reduce((s,r)=>s+(+r.value||0),0);
+            dEl.innerHTML = `<span style="color:#9fb3cf">24h total: <b style="color:#38bdf8">${fmt(tot,1)} mm</b></span>`;
+          } else if(delta==null){
+            dEl.innerHTML = `<span style="color:#94a3b8">— vs yesterday</span>`;
+          } else if(Math.abs(delta)<0.005){
+            dEl.innerHTML = `<span style="color:#94a3b8">→ no change vs yesterday</span>`;
+          } else {
+            dEl.innerHTML = `<span style="color:${delta>0?RC.High:RC.Low}">${delta>0?'▲':'▼'} ${fmt(Math.abs(delta),2)} ${unit}</span> <span style="color:#94a3b8">vs yesterday</span>`;
+          }
         }
       };
 
@@ -2760,7 +2789,7 @@
       fillInstCard('sparkVwp', vwpRows, '#22c55e', 'bVwpVal', 'bVwpDelta', 'kPa', false);
 
       const rain = (DATA.wx7||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
-      fillInstCard('sparkRain', rain, '#38bdf8', 'bRainVal', 'bRainDelta', 'mm', true);
+      fillInstCard('sparkRain', rain, '#38bdf8', 'bRainVal', 'bRainDelta', 'mm/min', true);
 
 
       // Spiking-instrument badge: fastest-moving device per category from EWS.
@@ -2769,7 +2798,20 @@
         const el = document.getElementById(elId); if(!el) return;
         const devs = ((DATA.ews&&DATA.ews.per_device)||[]).filter(d=>d.category===cat);
         if(!devs.length){ el.innerHTML=''; return; }
-        const t = devs.reduce((a,b)=>(Math.abs(b.velocity_mm_day||0)>Math.abs(a.velocity_mm_day||0))?b:a);
+        // Only VALID devices have a trustworthy velocity. If every device is
+        // ABSTAIN (readings older than the QC window) velocity is forced to 0 —
+        // show that honestly instead of a misleading "stable 0.00".
+        const valid = devs.filter(d=>d.qc==='VALID');
+        if(!valid.length){
+          el.innerHTML = `<span style="font-size:10px;color:#94a3b8" title="Latest readings are older than the EWS QC window, so velocity can't be computed yet (data lagging).">⏳ awaiting fresh data</span>`;
+          return;
+        }
+        const rank = {MERAH:4,JINGGA:3,KUNING:2,HIJAU:1};
+        const t = valid.reduce((a,b)=>{
+          const ra=rank[a.trigger_level||'HIJAU'], rb=rank[b.trigger_level||'HIJAU'];
+          if(rb!==ra) return rb>ra?b:a;
+          return (Math.abs(b.velocity_mm_day||0)>Math.abs(a.velocity_mm_day||0))?b:a;
+        });
         const lv = t.trigger_level||'HIJAU';
         const c = EWS_COLORS[lv]||'#94a3b8';
         const nm = instLocLabel(t.name);
@@ -2777,7 +2819,7 @@
         const dir = v>0.05 ? {a:'▲',w:'rising'} : v<-0.05 ? {a:'▼',w:'falling'} : {a:'→',w:'stable'};
         const rate = fmt(Math.abs(v),2)+' mm/day';
         const lvlTxt = EWS_LABELS[lv]||lv;
-        const tip = `Fastest-moving ${cat}: ${nm} — ${dir.w} ${rate} (${lvlTxt})`;
+        const tip = `Most-active ${cat}: ${nm} — ${dir.w} ${rate} (${lvlTxt})`;
         el.innerHTML = (lv==='HIJAU')
           ? `<span style="font-size:10px;color:#94a3b8" title="${esc(tip)}">${dir.a} ${esc(nm)} · ${dir.w} ${esc(rate)}</span>`
           : `<span style="font-size:10px;font-weight:700;color:${c}" title="${esc(tip)}">⚠ ${esc(nm)} · ${esc(lvlTxt)} · ${dir.a} ${dir.w} ${esc(rate)}</span>`;
