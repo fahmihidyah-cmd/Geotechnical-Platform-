@@ -424,6 +424,10 @@
     select.flt,input.flt{font-size:12px;padding:6px 8px;border-radius:9px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.30);color:#e5e7eb}
     .btn-ghost.xs{padding:4px 8px;font-size:10px;margin-left:3px}
     .btn-ghost.on{background:rgba(59,130,246,.38);border-color:rgba(59,130,246,.55);color:#fff}
+    .carousel{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid rgba(148,163,184,.25);border-radius:8px;background:rgba(15,23,42,.4)}
+    .cdots{display:inline-flex;gap:4px;align-items:center}
+    .cdot{width:7px;height:7px;border-radius:50%;background:rgba(148,163,184,.4);cursor:pointer;transition:.2s}
+    .cdot.on{background:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.25)}
     .tabbtn{ background:#16202e; color:#9fb3cf; border:1px solid rgba(148,163,184,.2); border-radius:8px; padding:6px 11px; font-size:12px; cursor:pointer; }
     .tabbtn.act{ background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
     .sechd{ font-size:12px; letter-spacing:.5px; color:#9fb3cf; text-transform:uppercase; margin:14px 2px 8px; border-left:3px solid #1d4ed8; padding-left:8px; }
@@ -531,7 +535,7 @@
     const EWS_COLORS = { HIJAU:'#22c55e', KUNING:'#eab308', JINGGA:'#f97316', MERAH:'#ef4444' };
     const EWS_LABELS = { HIJAU:'AMAN', KUNING:'WASPADA', JINGGA:'SIAGA', MERAH:'DARURAT' };
 
-    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null, incFrom:null, incTo:null };
+    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null, incFrom:null, incTo:null, carouselOn:false };
     let DATA = {};
     let map = null;
     let overlays = null;
@@ -871,12 +875,13 @@
 
     function tpl(){
       const nav = [
-        ['overview','Overview'],
+        ['overview','Executive Dashboard'],
+        ['trends','Instrument Dashboard'],
+        ['inspection','Inspection Dashboard'],
         ['instrument','Extensometer'],
         ['inclinometer','Inclinometer'],
         ['vwp','VWP'],
         ['aws','AWS / Weather'],
-        ['inspection','Inspection Data'],
       ];
 
       return `
@@ -893,7 +898,7 @@
             <div class="nav">
               ${nav.map(([k,n])=>`
                 <button class="${STATE.view===k?'act':''}" onclick="setView('${k}')">
-                  <span class="ico">${k==='overview'?'▣':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':'⚙'}</span>
+                  <span class="ico">${k==='overview'?'▣':k==='trends'?'◫':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':'⚙'}</span>
                   <span>${esc(n)}</span>
                 </button>`).join('')}
             </div>
@@ -915,6 +920,13 @@
               <span class="chip" id="liveChip"><span class="dot" style="--c:#22c55e;animation:${needsRealtime()?'pulse 2s infinite':'none'}"></span> LIVE · ${needsRealtime()?'RT':'2m'}</span>
               <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
+              <span class="carousel" title="Putar otomatis antar dashboard (20s)">
+                <button class="btn-ghost xs" onclick="carouselGo(-1)">‹</button>
+                <b id="carName" style="font-size:11px;min-width:84px;text-align:center;display:inline-block"></b>
+                <span id="carDots" class="cdots"></span>
+                <button class="btn-ghost xs" id="carToggle" onclick="carouselToggle()" title="Play/Pause auto-rotate">⏸</button>
+                <button class="btn-ghost xs" onclick="carouselGo(1)">›</button>
+              </span>
               <button class="btn-ghost" onclick="location.href='index.html'">← Menu</button>
               <button class="btn-ghost" onclick="location.href='risk_report.html'">📄 Risk Report</button>
               <button class="btn-ghost" onclick="loadAll()">⟳ Refresh</button>
@@ -2188,6 +2200,7 @@
         page.innerHTML = inspectionDataView();
         drawInspectionData();
       }
+      updateCarouselUI();
     }
 
     let _ssiChart = null;
@@ -2778,6 +2791,36 @@
     }
 
     function setView(v){ STATE.view=v; closeSidebar(); if(needsRealtime()) subscribeRealtime(); else unsubscribeRealtime(); if(v==='instrument'||v==='aws'||v==='inclinometer'||v==='vwp'){ loadAll(); } else { render(); } }
+
+    // ── Dashboard carousel (auto 20s + manual) ──
+    const DASHBOARDS = [
+      {view:'overview', name:'Executive'},
+      {view:'trends',   name:'Instrument'},
+      {view:'inspection', name:'Inspection'},
+    ];
+    let _carouselTimer = null;
+    function carouselIdx(){ const i = DASHBOARDS.findIndex(d=>d.view===STATE.view); return i<0?0:i; }
+    function carouselGo(delta){ const i=(carouselIdx()+delta+DASHBOARDS.length)%DASHBOARDS.length; carouselTouch(); setView(DASHBOARDS[i].view); }
+    function carouselTouch(){ /* manual nav resets the 20s timer so it doesn't jump right after */ if(STATE.carouselOn) carouselArm(); }
+    function carouselToggle(){ STATE.carouselOn = !STATE.carouselOn; carouselArm(); updateCarouselUI(); }
+    function carouselArm(){
+      if(_carouselTimer){ clearInterval(_carouselTimer); _carouselTimer=null; }
+      if(STATE.carouselOn){
+        _carouselTimer = setInterval(()=>{
+          if(document.hidden) return;
+          if(DASHBOARDS.some(d=>d.view===STATE.view)) carouselGo(1);
+        }, 20000);
+      }
+    }
+    function updateCarouselUI(){
+      const idx = carouselIdx();
+      const dots = document.getElementById('carDots');
+      if(dots) dots.innerHTML = DASHBOARDS.map((d,i)=>`<span class="cdot${i===idx?' on':''}" title="${esc(d.name)}" onclick="setView('${d.view}')"></span>`).join('');
+      const btn = document.getElementById('carToggle'); if(btn) btn.textContent = STATE.carouselOn?'⏸':'▶';
+      const nm = document.getElementById('carName'); if(nm) nm.textContent = (DASHBOARDS[idx]||{}).name||'';
+    }
+    window.carouselGo=carouselGo; window.carouselToggle=carouselToggle;
+
     function toggleSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.toggle('open'); }
     function closeSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.remove('open'); }
     window.setView=setView;
