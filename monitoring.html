@@ -835,6 +835,18 @@
       const critical = sensors.filter(s=>s.kind==='extensometer' && extStatus(s)==='Very High').length;
       const watch = Math.max(0, totalAlerts - warn - critical);
 
+      // Slope Stability Index (composite, higher = safer / FoS-like 0–3).
+      // hazard = max(EWS level, normalized inspection risk) + rain penalty.
+      const ewsLvMap = {HIJAU:0, KUNING:1, JINGGA:2, MERAH:3};
+      const ewsLv = ewsLvMap[(DATA.ews && DATA.ews.status) || 'HIJAU'] || 0;
+      const inspNorm = (riskIndex/100)*3;
+      const rainPen = (DATA.ews && DATA.ews.rain_modifier_active) ? 0.5 : 0;
+      const hazard = Math.min(3, Math.max(ewsLv, inspNorm) + rainPen);
+      const ssi = Math.max(0, Math.min(3, 3 - hazard));
+      const ssiLabel = ssi>=1.5 ? {t:'Normal', c:RC.Low}
+                     : ssi>=1.0 ? {t:'Caution', c:RC.High}
+                     : {t:'Critical', c:RC['Very High']};
+
       return {
         totalSensors, onlineSensors, offlineSensors, newest,
         insRows, inspByRisk,
@@ -842,6 +854,7 @@
         riskIndex, riskLabel,
         lastInsp, nextInspDate,
         activeInstruments, watch, warn, critical,
+        ssi, ssiLabel,
       };
     }
 
@@ -957,6 +970,20 @@
             <div class="card-bd">
               <div class="kpi-val" id="kOverall">—</div>
               <div class="kpi-sub" id="kOverallSub">—</div>
+            </div>
+          </div>
+
+          <div class="card" title="Slope Stability Index — composite EWS + inspeksi + hujan">
+            <div class="card-hd"><div class="t">Slope Stability Index</div><div class="ic">◴</div></div>
+            <div class="card-bd" style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="position:relative;width:120px;height:66px">
+                <canvas id="ssiGauge"></canvas>
+                <div style="position:absolute;left:0;right:0;bottom:0;text-align:center">
+                  <div class="kpi-val" id="kSsi" style="font-size:22px;line-height:1">—</div>
+                  <div class="kpi-tag" style="justify-content:center"><b id="kSsiLbl">—</b></div>
+                </div>
+              </div>
+              <div class="kpi-sub">Based on last 24h data</div>
             </div>
           </div>
 
@@ -2116,12 +2143,37 @@
       }
     }
 
+    let _ssiChart = null;
+    function drawSsiGauge(ssi, color){
+      const cv = document.getElementById('ssiGauge');
+      if(!cv || !window.Chart) return;
+      if(_ssiChart){ try{_ssiChart.destroy()}catch(e){} _ssiChart=null; }
+      const frac = Math.max(0, Math.min(1, ssi/3));
+      _ssiChart = new Chart(cv, {
+        type:'doughnut',
+        data:{ datasets:[{
+          data:[frac, 1-frac],
+          backgroundColor:[color, 'rgba(148,163,184,.15)'],
+          borderWidth:0, circumference:180, rotation:-90
+        }]},
+        options:{ responsive:true, maintainAspectRatio:false, cutout:'72%',
+          plugins:{legend:{display:false}, tooltip:{enabled:false}}, animation:false }
+      });
+    }
+
     function fillOverview(m, st){
       // KPI
       const overallEl = document.getElementById('kOverall');
       overallEl.textContent = st.t;
       overallEl.style.color = st.c;
       document.getElementById('kOverallSub').textContent = st.sub;
+
+      // Slope Stability Index gauge
+      const ssiEl = document.getElementById('kSsi');
+      if(ssiEl){ ssiEl.textContent = m.ssi.toFixed(2); ssiEl.style.color = m.ssiLabel.c; }
+      const ssiLblEl = document.getElementById('kSsiLbl');
+      if(ssiLblEl){ ssiLblEl.textContent = m.ssiLabel.t; ssiLblEl.style.color = m.ssiLabel.c; }
+      drawSsiGauge(m.ssi, m.ssiLabel.c);
 
       document.getElementById('kRiskIdx').textContent = m.riskIndex;
       document.getElementById('kRiskLbl').textContent = m.riskLabel.t;
