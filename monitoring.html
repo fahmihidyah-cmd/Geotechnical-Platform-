@@ -595,6 +595,11 @@
 
     const GAUGE_LEN = 3000;
     const INC_NODES = [{id:'108052',label:'WOC-02 INC'},{id:'108102',label:'WDN-2 INC-01'},{id:'108164',label:'WDN-2 INC-02'},{id:'108403',label:'WOC-01 INC'}];
+    // Unified data-freshness thresholds (minutes). One source of truth: an instrument
+    // past its window is BOTH counted offline in "Instruments Online" AND raised as a
+    // data-outage alert — the two can never disagree.
+    const INST_FRESH = { weather:30, extensometer:30, inclinometer:180, piezometer:180 };
+    const INST_FRESH_LBL = { weather:'AWS / Rainfall', extensometer:'Extensometer', inclinometer:'Inclinometer', piezometer:'VWP / Piezometer' };
     const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
 
     // Resolve an instrument's friendly LOCATION label from its EWS device name.
@@ -878,7 +883,7 @@
       // devices. Freshness windows differ by type: AWS/extensometer stream
       // continuously (minutes); inclinometer/VWP are batch-ingested sub-daily,
       // so a device that reported within ~36h still counts as online (just lagging).
-      const FRESH = { weather:120, extensometer:240, inclinometer:2160, piezometer:2160 };
+      const FRESH = INST_FRESH;
       const devHealth = {}; // kind -> {total:Set, online:Set, newest}
       sensors.forEach(s=>{
         const k=s.kind, id=String(s.external_device_id||'');
@@ -1341,15 +1346,19 @@
         eqList.forEach(q=>{ const px=xs.getPixelForValue(q.x); if(px<a.left||px>a.right) return;
           const ctx=chart.ctx; ctx.save(); ctx.strokeStyle='rgba(248,113,113,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
           ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke(); ctx.restore(); }); } };
-      const monChart = (id, datasets, unit, type)=>{
+      const monChart = (id, datasets, unit, type, yhint)=>{
         const cv=document.getElementById(id); if(!cv) return;
+        const yScale={ticks:{color:'#9fb3cf',font:{size:9}}, grid:{color:'rgba(148,163,184,.10)'}, title:{display:!!unit,text:unit,color:'#9fb3cf',font:{size:9}}, beginAtZero:type==='bar'};
+        // Default display range; Chart.js only EXTENDS past suggested bounds, never clips,
+        // so the axis auto-adjusts upward when displacement grows beyond the hint.
+        if(yhint){ yScale.suggestedMin=yhint[0]; yScale.suggestedMax=yhint[1]; }
         charts[id]=new Chart(cv,{ type:type||'line', data:{datasets},
           options:{responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
             interaction:{mode:'index',intersect:false},
             plugins:{ legend:{display:datasets.length>1, position:'top', labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8,usePointStyle:true}},
               tooltip:{callbacks:{title:(it)=> it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}},
             scales:{ x:{type:'linear', min, max, ticks:{color:'#9fb3cf',font:{size:8},maxTicksLimit:8,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}, grid:{color:'rgba(148,163,184,.07)'}},
-              y:{ticks:{color:'#9fb3cf',font:{size:9}}, grid:{color:'rgba(148,163,184,.10)'}, title:{display:!!unit,text:unit,color:'#9fb3cf',font:{size:9}}, beginAtZero:type==='bar'} } },
+              y:yScale } },
           plugins:[eqPlugin] });
       };
       const line = (label,rows,color)=>({label, data:XY(rows), borderColor:color, backgroundColor:color, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
@@ -1357,21 +1366,27 @@
       // 1) Rainfall (bars)
       monChart('monRain', [{label:'Rainfall', data:XY(byName(DATA.wx7,'rainfall hour')), backgroundColor:'#38bdf8', borderColor:'#38bdf8', barThickness:3, maxBarThickness:6}], 'mm', 'bar');
 
-      // 2) Extensometer — one representative (largest-range) sensor per device
-      const extByDev={}; (DATA.ext7||[]).forEach(r=>{ const d=r.external_device_id; (extByDev[d]=extByDev[d]||{}); (extByDev[d][r.sensor_name]=extByDev[d][r.sensor_name]||[]).push(r); });
-      const extCols={'373':'#a78bfa','372':'#22d3ee'};
-      const extDs=[]; Object.keys(extByDev).forEach(d=>{ let best=null,br=-1;
-        Object.values(extByDev[d]).forEach(rs=>{ const vs=rs.map(x=>+x.value||0); const rng=Math.max(...vs)-Math.min(...vs); if(rng>br){br=rng;best=rs;} });
-        if(best) extDs.push(line(areaLabel(d), best, extCols[d]||'#a78bfa')); });
-      monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm');
+      // 2) Extensometer — EVERY displacement channel per device (D1..D5), each
+      // baseline-zeroed so the line shows that sensor's movement (displacement).
+      const extBy={}; (DATA.ext7||[]).forEach(r=>{ const s=r.sensor_name||''; if(!/^D\d/i.test(s)) return;
+        const d=r.external_device_id; (extBy[d]=extBy[d]||{}); (extBy[d][s]=extBy[d][s]||[]).push(r); });
+      const extShades={'373':['#c4b5fd','#a78bfa','#8b5cf6','#7c3aed','#6d28d9'],'372':['#67e8f9','#22d3ee','#06b6d4','#0891b2']};
+      const extDs=[];
+      Object.keys(extBy).sort().forEach(d=>{ const pal=extShades[d]||['#a78bfa'];
+        Object.keys(extBy[d]).sort().forEach((s,i)=>{
+          const rows=extBy[d][s].slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+          const f=rows.find(r=>r.value!=null); const b0=f?+f.value:0;
+          extDs.push(line(`${areaLabel(d)} ${s}`, rows.map(r=>({ts:r.ts,value:(+r.value||0)-b0})), pal[i%pal.length]));
+        }); });
+      monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [0,10]);
 
-      // 3) Inclinometer — top displacement per node
+      // 3) Inclinometer — cumulative top displacement per node (A-axis)
       const incDs=[]; const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
       try{ const proc=processInc(DATA.inc7||[]); let ci=0;
         for(const id of Object.keys(proc)){ const ts=proc[id].topSeries; if(!ts||!ts.length) continue;
           const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id);
           incDs.push(line(lbl, ts, incPal[ci%incPal.length])); ci++; } }catch(e){}
-      monChart('monInc', incDs.length?incDs:[line('—',[],'#f59e0b')], 'mm');
+      monChart('monInc', incDs.length?incDs:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
 
       // 4) VWP — pore pressure per channel
       const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
@@ -2446,20 +2461,17 @@
         </tr>`).join('');
 
       const latestAlerts = [];
-      // Data-outage alerts: flag instruments that stopped reporting. Continuous
-      // instruments (AWS/extensometer) alert after 20 min; batch instruments
-      // (inclinometer/VWP, pulled every 15 min) after 3 h — a strong signal the
-      // device or its network link is down.
-      const OUTAGE = { weather:{lbl:'AWS / Rainfall', max:20}, extensometer:{lbl:'Extensometer', max:20},
-                       inclinometer:{lbl:'Inclinometer', max:180}, piezometer:{lbl:'VWP / Piezometer', max:180} };
-      Object.entries(OUTAGE).forEach(([kind,cfg])=>{
+      // Data-outage alerts use the SAME thresholds as the online/health count, so
+      // an instrument that trips the alert is also shown offline (and vice-versa).
+      Object.entries(INST_FRESH).forEach(([kind,max])=>{
         const h = (m.devHealth||{})[kind]; if(!h || !h.newest) return;
         const mins = (Date.now()-new Date(h.newest).getTime())/60000;
-        if(mins > cfg.max){
+        if(mins > max){
+          const severe = mins > max*6;
           latestAlerts.push({
-            ttl: `⚠ ${cfg.lbl} — no data`,
-            lvl: mins>cfg.max*6?'High':'Medium', lvlC: mins>cfg.max*6?RC.High:RC.Medium,
-            c: mins>cfg.max*6?RC.High:RC.Medium,
+            ttl: `⚠ ${INST_FRESH_LBL[kind]} — no data`,
+            lvl: severe?'High':'Medium', lvlC: severe?RC.High:RC.Medium,
+            c: severe?RC.High:RC.Medium,
             msg: `No reading for ${agoEn(h.newest).replace(' ago','')} — possible device/network outage`,
             tm: new Date(h.newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
           });
