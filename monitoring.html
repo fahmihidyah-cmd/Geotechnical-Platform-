@@ -723,12 +723,14 @@
       ]) : null;
 
       const ewsP = sb.rpc('ews_latest');
-      const [base, active, heavyR, ewsR] = await Promise.all([baseP, activeP, heavyP, ewsP]);
+      const ewsAlP = sb.rpc('ews_alerts_recent',{p_limit:20});
+      const [base, active, heavyR, ewsR, ewsAlR] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP]);
       const [sn,rain,rsum,rdaily]=base;
       DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
       DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
       if(active && activeTarget) DATA[activeTarget]=active.data||[];
       if(ewsR.data) DATA.ews = ewsR.data;
+      if(ewsAlR && ewsAlR.data) DATA.ewsAlerts = ewsAlR.data;
       if(heavyR){
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
@@ -2301,6 +2303,23 @@
         </div>`).join('');
 
       const latestAlerts = [];
+      // EWS trigger crossings (point 5): every UP/DOWN crossing per instrument
+      (DATA.ewsAlerts||[]).forEach(a=>{
+        const up = a.direction==='UP';
+        const c = EWS_COLORS[a.to_level] || RC.Low;
+        const lvLbl = EWS_LABELS[a.to_level] || a.to_level;
+        const nm = (a.device_name||a.external_device_id||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/hari` : '';
+        const vr = a.velocity_ratio!=null ? ` · VR ${fmt(a.velocity_ratio,2)}` : '';
+        latestAlerts.push({
+          ttl: `${nm} ${up?'naik':'turun'} → ${a.to_level}`,
+          sev: up ? (a.to_level==='MERAH'?'Critical':a.to_level==='JINGGA'?'Siaga':'Waspada')
+                  : `Turun (${lvLbl})`,
+          c: c,
+          msg: `${a.from_level} → ${a.to_level} · ${vd}${vr}`,
+          tm: a.evaluated_at ? new Date(a.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'
+        });
+      });
       m.extTriggered.slice(0,6).forEach(s=>{
         const lvl = extStatus(s);
         const c = RC[lvl] || RC.Low;
