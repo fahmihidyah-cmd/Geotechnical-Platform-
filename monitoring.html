@@ -366,7 +366,7 @@
     .inst .v{font-size:14px;font-weight:950}
     .inst .s{font-size:11px;color:var(--mut2)}
 
-    .two-stack{display:grid;grid-template-rows: 0.52fr 0.48fr;gap:10px;min-height:0}
+    .two-stack{display:flex;flex-direction:column;gap:10px;min-height:0}
     .alerts-stack{display:grid;grid-template-rows: 0.46fr 0.54fr;gap:10px;min-height:0}
 
     .sparks{
@@ -724,13 +724,15 @@
 
       const ewsP = sb.rpc('ews_latest');
       const ewsAlP = sb.rpc('ews_alerts_recent',{p_limit:20});
-      const [base, active, heavyR, ewsR, ewsAlR] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP]);
+      const rain24P = sb.rpc('instrument_series_json',{p_kind:'weather',p_from:new Date(nowMs-24*3600*1000).toISOString(),p_to:nowIso,p_every:'1 hour'});
+      const [base, active, heavyR, ewsR, ewsAlR, rain24R] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP, rain24P]);
       const [sn,rain,rsum,rdaily]=base;
       DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
       DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
       if(active && activeTarget) DATA[activeTarget]=active.data||[];
       if(ewsR.data) DATA.ews = ewsR.data;
       if(ewsAlR && ewsAlR.data) DATA.ewsAlerts = ewsAlR.data;
+      if(rain24R && rain24R.data) DATA.rain24 = rain24R.data;
       if(heavyR){
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
@@ -1137,6 +1139,18 @@
 
           <div class="lower">
             <div class="two-stack">
+              <div class="card clickable" style="min-height:0" onclick="setView('aws')" title="Detail di AWS / Weather">
+                <span class="more-arrow">→</span>
+                <div class="card-hd"><div class="t">Rainfall (24H)</div><div class="ic">🌧️</div></div>
+                <div class="card-bd" style="min-height:0">
+                  <div style="display:flex;align-items:baseline;gap:8px">
+                    <div class="kpi-val" id="rain24Total" style="font-size:24px">—</div>
+                    <div class="kpi-tag"><b id="rain24Lbl" style="color:#38bdf8">—</b></div>
+                  </div>
+                  <div style="height:110px;margin-top:6px"><canvas id="rain24Chart"></canvas></div>
+                </div>
+              </div>
+
               <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
                 <span class="more-arrow">→</span>
                 <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
@@ -2177,6 +2191,7 @@
     }
 
     let _ssiChart = null;
+    let _rain24Chart = null;
     function drawSsiGauge(ssi, color){
       const cv = document.getElementById('ssiGauge');
       if(!cv || !window.Chart) return;
@@ -2683,6 +2698,30 @@
       };
       fillSpike('spikeExt','extensometer');
       fillSpike('spikeInc','inclinometer');
+
+      // Rainfall (24H) bar chart (point 6)
+      (function(){
+        const cv = document.getElementById('rain24Chart'); if(!cv || !window.Chart) return;
+        const rows = ((DATA.rain24)||[]).filter(r=>(r.sensor_name||'').includes('RainFall Hourly'))
+                       .sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
+        const labels = rows.map(r=>new Date(r.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}));
+        const vals = rows.map(r=>+r.value||0);
+        const total = vals.reduce((s,v)=>s+v,0);
+        const mx = vals.reduce((m,v)=>Math.max(m,v),0);
+        const lab = mx>50?{t:'Extreme',c:RC['Very High']} : mx>30?{t:'Heavy',c:RC.High}
+                  : mx>10?{t:'Moderate',c:RC.Medium} : mx>0?{t:'Light',c:'#38bdf8'} : {t:'Dry',c:'#94a3b8'};
+        const tEl=document.getElementById('rain24Total'); if(tEl) tEl.textContent = total.toFixed(1)+' mm';
+        const lEl=document.getElementById('rain24Lbl'); if(lEl){ lEl.textContent = lab.t; lEl.style.color = lab.c; }
+        if(_rain24Chart){ try{_rain24Chart.destroy()}catch(e){} _rain24Chart=null; }
+        _rain24Chart = new Chart(cv, {
+          type:'bar',
+          data:{ labels, datasets:[{ data:vals, backgroundColor:'#38bdf8', borderRadius:2, barPercentage:0.95, categoryPercentage:0.96 }] },
+          options:{ responsive:true, maintainAspectRatio:false, animation:false,
+            plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>' '+c.parsed.y.toFixed(1)+' mm'}} },
+            scales:{ x:{ticks:{maxTicksLimit:8,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
+                     y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.08)'}} } }
+        });
+      })();
     }
 
     function buildSpark(rows, predicate){
