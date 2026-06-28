@@ -227,7 +227,7 @@
 
     .kpi-grid{
       display:grid;
-      grid-template-columns:repeat(7, 1fr);
+      grid-template-columns: 1fr 1fr 1.55fr 1.35fr 1.1fr 1fr 1fr;
       gap:8px;
     }
     @media(max-width:1280px){
@@ -269,16 +269,28 @@
     }
 
     /* Executive dashboard layout (matches reference mockup) */
-    .exec-body{display:grid;grid-template-columns:1fr 1.9fr 1fr;gap:10px;min-height:0;height:calc(100vh - 300px)}
-    .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    .exec-body{display:grid;grid-template-columns:1fr 1.95fr 1.05fr;gap:10px;min-height:0;height:calc(100vh - 268px)}
+    .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+    .exec-body > .card{display:flex;flex-direction:column;min-height:0}
+    .exec-body > .card > .card-bd{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+    .exec-body .alert-list{flex:1;min-height:0;overflow-y:auto;padding-right:5px}
     .exec-bottom{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}
-    .inst-card .ic-metric{font-size:10px;color:var(--mut)}
-    .inst-card .ic-val{font-size:23px;font-weight:900;line-height:1.1;margin:1px 0}
-    .inst-card .ic-spark{height:40px;margin-top:2px}
-    .inst-card .ic-delta{font-size:11px;margin-top:3px;font-weight:700}
-    .inst-card .spike{margin-top:3px}
+    .inst-card .card-hd{padding:7px 10px 0}
+    .inst-card .card-bd{padding:5px 10px 8px}
+    .inst-card .ic-metric{font-size:9px;color:var(--mut)}
+    .inst-card .ic-val{font-size:18px;font-weight:900;line-height:1.05;margin:1px 0}
+    .inst-card .ic-spark{height:28px;margin-top:1px}
+    .inst-card .ic-delta{font-size:10px;margin-top:2px;font-weight:700}
+    .inst-card .spike{margin-top:2px;font-size:9px}
+    /* Dark scrollbars matching the background */
+    *::-webkit-scrollbar{width:9px;height:9px}
+    *::-webkit-scrollbar-track{background:rgba(2,8,20,.30);border-radius:9px}
+    *::-webkit-scrollbar-thumb{background:rgba(59,130,246,.32);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+    *::-webkit-scrollbar-thumb:hover{background:rgba(59,130,246,.55);background-clip:padding-box}
+    *{scrollbar-width:thin;scrollbar-color:rgba(59,130,246,.38) rgba(2,8,20,.30)}
     @media(max-width:1100px){
       .exec-body{grid-template-columns:1fr;height:auto}
+      .exec-col{overflow:visible}
       .exec-bottom{grid-template-columns:repeat(2,1fr)}
     }
 
@@ -1048,13 +1060,15 @@
           <div class="card clickable" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Total Risk Level</div><div class="ic">◔</div></div>
-            <div class="card-bd" style="display:flex;gap:8px;align-items:center">
-              <div style="width:50px;height:50px;flex:none"><canvas id="riskDonut"></canvas></div>
-              <div style="min-width:0">
-                <div class="kpi-val"><span id="kRiskIdx">—</span></div>
-                <div class="kpi-tag"><span class="dot" id="kRiskDot" style="--c:${RC.High}"></span><b id="kRiskLbl">—</b></div>
-                <div class="kpi-sub" id="kRiskSub">—</div>
+            <div class="card-bd" style="display:flex;gap:10px;align-items:center">
+              <div style="position:relative;width:60px;height:60px;flex:none">
+                <canvas id="riskDonut"></canvas>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <div id="kRiskTotal" style="font-size:17px;font-weight:900;line-height:1">—</div>
+                  <div style="font-size:6.5px;color:var(--mut);letter-spacing:.03em">Total Lokasi</div>
+                </div>
               </div>
+              <div class="mini-list" id="kRiskBreakdown" style="flex:1"></div>
             </div>
           </div>
 
@@ -1084,11 +1098,14 @@
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Rain Hours</div><div class="ic">🌧️</div></div>
             <div class="card-bd">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px">
-                <div><div class="kpi-val" id="rh1" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">Today</div></div>
-                <div><div class="kpi-val" id="rh7" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">7d</div></div>
-                <div><div class="kpi-val" id="rh30" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">30d</div></div>
-                <div><div class="kpi-val" id="rhM" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">Month</div></div>
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <div class="kpi-val" id="rhM" style="font-size:23px">—</div>
+                <div class="kpi-sub" style="font-size:10px">This month</div>
+              </div>
+              <div style="display:flex;gap:14px;margin-top:6px">
+                <div><div class="kpi-val" id="rh1" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">Today</div></div>
+                <div><div class="kpi-val" id="rh7" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">7 days</div></div>
+                <div><div class="kpi-val" id="rh30" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">30 days</div></div>
               </div>
             </div>
           </div>
@@ -1127,12 +1144,6 @@
                 </div>
                 <div style="margin-top:8px">${riskMatrixHtml()}</div>
               </div>
-            </div>
-
-            <div class="card clickable" onclick="setView('trends')">
-              <span class="more-arrow">→</span>
-              <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
-              <div class="card-bd"><div class="instruments" id="instHealth"></div></div>
             </div>
           </div>
 
@@ -2168,12 +2179,27 @@
       _ssiChart = new Chart(cv, {
         type:'doughnut',
         data:{ datasets:[{
-          data:[frac, 1-frac],
-          backgroundColor:[color, 'rgba(148,163,184,.15)'],
+          data:[1,1,1,1],
+          backgroundColor:[RC['Very High'], RC.High, RC.Medium, RC.Low],  // left=low SSI(red) → right=high SSI(green)
           borderWidth:0, circumference:180, rotation:-90
         }]},
-        options:{ responsive:true, maintainAspectRatio:false, cutout:'72%',
-          plugins:{legend:{display:false}, tooltip:{enabled:false}}, animation:false }
+        options:{ responsive:true, maintainAspectRatio:false, cutout:'68%',
+          plugins:{legend:{display:false}, tooltip:{enabled:false}}, animation:false },
+        plugins:[{
+          id:'ssiNeedle',
+          afterDatasetsDraw(chart){
+            const a=chart.chartArea; if(!a) return;
+            const cx=(a.left+a.right)/2, cy=a.bottom, R=(a.right-a.left)/2*0.96;
+            const ang=Math.PI*(1-frac);
+            const ctx=chart.ctx;
+            ctx.save();
+            ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=2.5; ctx.lineCap='round';
+            ctx.beginPath(); ctx.moveTo(cx,cy);
+            ctx.lineTo(cx+R*Math.cos(ang), cy-R*Math.sin(ang)); ctx.stroke();
+            ctx.fillStyle='#e5e7eb'; ctx.beginPath(); ctx.arc(cx,cy,3.5,0,Math.PI*2); ctx.fill();
+            ctx.restore();
+          }
+        }]
       });
     }
 
@@ -2198,11 +2224,19 @@
       if(ssiLblEl){ ssiLblEl.textContent = m.ssiLabel.t; ssiLblEl.style.color = m.ssiLabel.c; }
       drawSsiGauge(m.ssi, m.ssiLabel.c);
 
-      document.getElementById('kRiskIdx').textContent = m.riskIndex;
-      document.getElementById('kRiskLbl').textContent = m.riskLabel.t;
-      document.getElementById('kRiskDot').style.setProperty('--c', m.riskLabel.c);
-      const kRiskHi = (m.inspByRisk['Very High']||0) + (m.inspByRisk['High']||0);
-      document.getElementById('kRiskSub').textContent = `${kRiskHi} lokasi risiko tinggi`;
+      // Total Risk Level: total locations + Low/Medium/High/Very High breakdown
+      const trTotal = m.insRows.length;
+      const kRiskTotalEl = document.getElementById('kRiskTotal');
+      if(kRiskTotalEl) kRiskTotalEl.textContent = trTotal || '—';
+      const kRiskBd = document.getElementById('kRiskBreakdown');
+      if(kRiskBd){
+        kRiskBd.innerHTML = [
+          ['Low', m.inspByRisk['Low']||0, RC.Low],
+          ['Medium', m.inspByRisk['Medium']||0, RC.Medium],
+          ['High', m.inspByRisk['High']||0, RC.High],
+          ['Very High', m.inspByRisk['Very High']||0, RC['Very High']],
+        ].map(r=>`<div class="row"><span><span class="dot" style="--c:${r[2]}"></span> ${r[0]}</span><b>${r[1]} (${trTotal?Math.round(r[1]/trTotal*100):0}%)</b></div>`).join('');
+      }
 
       // Alerts KPI from EWS per-device levels (fallback to extensometer-derived)
       const pdev = (ews && ews.per_device) || [];
@@ -2296,7 +2330,8 @@
         const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC['Very High'] : RC.High;
         return {k:t.k, online, total, down, status, col};
       });
-      document.getElementById('instHealth').innerHTML = health.map(h=>`
+      const instHealthEl = document.getElementById('instHealth');
+      if(instHealthEl) instHealthEl.innerHTML = health.map(h=>`
         <div class="inst">
           <div class="nm">${esc(h.k)}</div>
           <div class="v">${h.online} / ${h.total}</div>
@@ -2592,8 +2627,19 @@
       Object.values(charts).forEach(c=>{ try{ c.destroy(); }catch(e){} });
       charts = {};
 
-      // Risk donut (index)
-      charts.risk = donut('riskDonut', m.riskIndex, m.riskLabel.c);
+      // Risk donut: location risk composition (Low/Medium/High/Very High)
+      const rdCv = document.getElementById('riskDonut');
+      if(rdCv && window.Chart){
+        charts.risk = new Chart(rdCv, {
+          type:'doughnut',
+          data:{ datasets:[{
+            data:[ m.inspByRisk['Low']||0, m.inspByRisk['Medium']||0, m.inspByRisk['High']||0, m.inspByRisk['Very High']||0 ],
+            backgroundColor:[RC.Low, RC.Medium, RC.High, RC['Very High']],
+            borderWidth:0, cutout:'72%'
+          }]},
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{enabled:false}}, animation:false }
+        });
+      }
 
       // Risk summary donut (composition)
       const cv1 = document.getElementById('riskSummaryDonut');
