@@ -2272,24 +2272,36 @@
           <td style="text-align:right">${trEl(x.tr)}</td>
         </tr>`).join('');
 
-      // Instrument health (menyerupai referensi)
+      // Instrument health (poin 7): per-type connect/down via reading staleness.
+      // A device is "online" if any of its sensors reported within the type's
+      // expected cadence; otherwise it is counted as down.
       const sensors = DATA.sensors||[];
-      const uniq = (arr)=>[...new Set(arr)];
-      const extDev = uniq(sensors.filter(s=>s.kind==='extensometer').map(s=>String(s.external_device_id||''))).filter(Boolean);
-      const awsDev = uniq(sensors.filter(s=>s.kind==='weather').map(s=>String(s.external_device_id||'372'))).filter(Boolean);
-      // Placeholder untuk RTS/IP/VWP jika belum tersambung
-      const health = [
-        {k:'AWS', v:`${awsDev.length||1} Station`, s:'Active', c:'rgba(34,211,238,.20)'},
-        {k:'Extensometer', v:`${extDev.length||0} Points`, s:'Active', c:'rgba(59,130,246,.20)'},
-        {k:'RTS', v:`0 Points`, s:'Inactive', c:'rgba(167,139,250,.20)'},
-        {k:'IP (Pore Pressure)', v:`0 Points`, s:'Inactive', c:'rgba(251,146,60,.20)'},
-        {k:'VWP (Soil Moisture)', v:`0 Points`, s:'Inactive', c:'rgba(34,197,94,.20)'},
+      const HEALTH_TYPES = [
+        {k:'AWS / Rainfall', kind:'weather',       stale:90},
+        {k:'Extensometer',   kind:'extensometer',  stale:180},
+        {k:'Inclinometer',   kind:'inclinometer',  stale:180},
+        {k:'VWP / Piezometer',kind:'piezometer',   stale:180},
       ];
+      const health = HEALTH_TYPES.map(t=>{
+        const byDev = {};
+        sensors.filter(s=>s.kind===t.kind).forEach(s=>{
+          const id = String(s.external_device_id||''); if(!id) return;
+          if(byDev[id]===undefined) byDev[id] = false;
+          if(!stale(s.latest_ts, t.stale)) byDev[id] = true;
+        });
+        const ids = Object.keys(byDev);
+        const total = ids.length;
+        const online = ids.filter(id=>byDev[id]).length;
+        const down = total - online;
+        const status = total===0 ? 'No data' : down===0 ? 'Active' : online===0 ? 'Down' : 'Degraded';
+        const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC['Very High'] : RC.High;
+        return {k:t.k, online, total, down, status, col};
+      });
       document.getElementById('instHealth').innerHTML = health.map(h=>`
         <div class="inst">
           <div class="nm">${esc(h.k)}</div>
-          <div class="v">${esc(h.v)}</div>
-          <div class="s">${esc(h.s)}</div>
+          <div class="v">${h.online} / ${h.total}</div>
+          <div class="s" style="color:${h.col}">● ${esc(h.status)}${h.down>0?` · ${h.down} down`:''}</div>
         </div>`).join('');
 
       // Parameter monitoring latest (ambil yang tersedia; lainnya placeholder)
