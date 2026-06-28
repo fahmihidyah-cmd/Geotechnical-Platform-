@@ -282,9 +282,11 @@
     .exec-bottom{ grid-column:2 / span 2; grid-row:2; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
     .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
     /* Monitoring dashboard: 4 charts stacked to fill one screen, shared timeline */
-    .mon-stack{display:flex;flex-direction:column;gap:10px;height:calc(100vh - 150px);min-height:600px}
+    .mon-stack{display:flex;flex-direction:column;gap:7px;height:calc(100vh - 142px);min-height:600px}
     .mon-stack>.card{flex:1;min-height:0;display:flex;flex-direction:column}
-    .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:6px 10px 8px}
+    .mon-stack>.card.mon-inc{flex:1.32}            /* split A/B + 2 legends need more room */
+    .mon-stack .card-hd{padding:5px 12px 0}
+    .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:5px 10px 7px}
     .mon-stack canvas{position:absolute;inset:6px 10px 8px}
     /* Side-by-side A/B axis split for the inclinometer card */
     .mon-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:100%;min-height:0}
@@ -1358,7 +1360,7 @@
         <div class="mon-stack">
           <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall (mm)${infoDot(iRain)}</div></div><div class="card-bd"><canvas id="monRain"></canvas></div></div>
           <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — WOC &amp; Water Intake (mm)${infoDot(iExt)}</div></div><div class="card-bd"><canvas id="monExt"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)${infoDot(iInc)}</div></div>
+          <div class="card mon-inc"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)${infoDot(iInc)}</div></div>
             <div class="card-bd"><div class="mon-split">
               <div><div class="mon-sub">Axis A</div><canvas id="monIncA"></canvas></div>
               <div><div class="mon-sub">Axis B</div><canvas id="monIncB"></canvas></div>
@@ -1423,8 +1425,8 @@
         for(const id of Object.keys(proc)){ const ts=proc[id].topSeries; if(!ts||!ts.length) continue;
           const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id); const col=incPal[ci%incPal.length];
           incA.push(incLine(lbl, incXY(ts,'a'), col)); incB.push(incLine(lbl, incXY(ts,'b'), col)); ci++; } }catch(e){}
-      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
-      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
+      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [-50,50]);
+      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [-50,50]);
 
       // 4) VWP — pore pressure per channel
       const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
@@ -2397,7 +2399,7 @@
       setTxt('kWatchN', cKuning);
 
       document.getElementById('kActive').textContent = `${m.instOnline} / ${m.instTotal}`;
-      document.getElementById('kActiveSub').textContent = (m.instTotal?`${Math.round((m.instOnline/m.instTotal)*100)}% reporting · updated ${agoEn(m.newest)}`:'—');
+      document.getElementById('kActiveSub').textContent = (m.instTotal?`updated ${agoEn(m.newest)}`:'—');
 
       const rh = DATA.rainHours||{};
       document.getElementById('rh1').textContent  = (rh.hours_today!=null?rh.hours_today:'—')+' h';
