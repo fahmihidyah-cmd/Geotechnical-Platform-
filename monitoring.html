@@ -1126,13 +1126,6 @@
                   </div>
                   <div style="margin-top:6px">${riskMatrixHtml()}</div>
                 </div>
-                <div style="margin-top:10px">
-                  <div class="card-hd" style="padding:0">
-                    <div class="t">Trend Risiko (6 bulan terakhir)</div>
-                    <div class="ic">▤</div>
-                  </div>
-                  <div style="margin-top:8px;height:120px"><canvas id="riskTrend"></canvas></div>
-                </div>
               </div>
             </div>
 
@@ -1220,26 +1213,8 @@
             </div>
 
             <div class="alerts-stack">
-              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
-                <span class="more-arrow">→</span>
-                <div class="card-hd"><div class="t">Alert Summary</div><div class="ic">◕</div></div>
-                <div class="card-bd">
-                  <div class="split">
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div style="width:92px;height:92px"><canvas id="alertDonut"></canvas></div>
-                      <div>
-                        <div class="kpi-val" id="kAlertTotal">—</div>
-                        <div class="kpi-sub">Total alerts</div>
-                      </div>
-                    </div>
-                    <div class="mini-list" id="alertListMini"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card clickable" style="min-height:0" onclick="setView('instrument')" title="Lihat detail di Extensometer">
-                <span class="more-arrow">→</span>
-                <div class="card-hd"><div class="t">Latest Alerts</div><div class="ic">🧯</div></div>
+              <div class="card" style="min-height:0">
+                <div class="card-hd"><div class="t">Active Alerts — EWS</div><div class="ic">🚨</div></div>
                 <div class="card-bd" style="min-height:0">
                   <div class="alert-list" id="latestAlerts"></div>
                 </div>
@@ -2270,7 +2245,8 @@
       document.getElementById('kRiskIdx').textContent = m.riskIndex;
       document.getElementById('kRiskLbl').textContent = m.riskLabel.t;
       document.getElementById('kRiskDot').style.setProperty('--c', m.riskLabel.c);
-      document.getElementById('kRiskSub').textContent = `↑ ${Math.max(0, Math.round(m.riskIndex*0.06))} from last week`;
+      const kRiskHi = (m.inspByRisk['Very High']||0) + (m.inspByRisk['High']||0);
+      document.getElementById('kRiskSub').textContent = `${kRiskHi} lokasi risiko tinggi`;
 
       // Alerts KPI from EWS per-device levels (fallback to extensometer-derived)
       const pdev = (ews && ews.per_device) || [];
@@ -2382,12 +2358,31 @@
       const rainVal = (DATA.rain && DATA.rain.rain_total_today_mm!=null) ? `${fmt(DATA.rain.rain_total_today_mm,1)} mm/day` : (rainAny?`${fmt(rainAny.latest_value,1)} ${rainAny.unit||''}`:'—');
       const rainTrend = DATA.rain && DATA.rain.is_raining ? '<span class="trend-up">↗</span>' : '<span class="trend-st">→</span>';
 
+      // Inclinometer: max cumulative displacement from EWS per-device
+      const incDevs = ((ews && ews.per_device) || []).filter(d=>d.category==='inclinometer' && d.qc==='VALID');
+      const incTop = incDevs.slice().sort((a,b)=>Math.abs(b.cumulative_mm||0)-Math.abs(a.cumulative_mm||0))[0];
+      const incVal = incTop ? `${fmt(incTop.cumulative_mm,2)} mm` : '—';
+      const incSt  = incTop ? (incTop.trigger_level==='HIJAU'?'Normal':incTop.trigger_level) : '—';
+      const incCol = incTop ? (EWS_COLORS[incTop.trigger_level]||RC.Low) : '#94a3b8';
+
+      // VWP: latest pore pressure (kPa) across channels
+      let vwpVal='—', vwpSt='—', vwpCol='#94a3b8';
+      try{
+        const vwpProc = processVwp(DATA.vwp7||[]); let lp=null, lts='';
+        for(const dev of Object.values(vwpProc)){
+          for(const rows of Object.values(dev.channels||{})){
+            const last = rows[rows.length-1];
+            if(last && String(last.ts)>lts){ lts=String(last.ts); lp=last.value; }
+          }
+        }
+        if(lp!=null){ vwpVal=`${fmt(lp,1)} kPa`; vwpSt='Normal'; vwpCol=RC.Low; }
+      }catch(e){}
+
       const rowsParam = [
         {p:'Displacement (Extensometer)', v: extAny?`${fmt(extAny.latest_value,2)} ${extAny.unit||'mm'}`:'—', st: extAny?extLvl:'—', c: extCol, tr: extTrend},
-        {p:'Displacement (RTS)', v:'—', st:'—', c:'#94a3b8', tr:'<span class="trend-st">→</span>'},
-        {p:'Pore Pressure (IP)', v:'—', st:'—', c:'#94a3b8', tr:'<span class="trend-st">→</span>'},
-        {p:'Volumetric Water Content (VWP)', v:'—', st:'—', c:'#94a3b8', tr:'<span class="trend-st">→</span>'},
-        {p:'Weather (Rainfall)', v: rainVal, st: (DATA.rain && DATA.rain.is_raining)?'Warning':'Normal', c: (DATA.rain && DATA.rain.is_raining)?RC.High:RC.Low, tr: rainTrend},
+        {p:'Displacement (Inklinometer, kum.)', v: incVal, st: incSt, c: incCol, tr:'<span class="trend-st">→</span>'},
+        {p:'Pore Pressure (VWP)', v: vwpVal, st: vwpSt, c: vwpCol, tr:'<span class="trend-st">→</span>'},
+        {p:'Rainfall (AWS)', v: rainVal, st: (DATA.rain && DATA.rain.is_raining)?'Hujan':'Normal', c: (DATA.rain && DATA.rain.is_raining)?RC.High:RC.Low, tr: rainTrend},
         {p:'Temperature (AWS)', v: tempAny?`${fmt(tempAny.latest_value,1)} ${tempAny.unit||'°C'}`:'—', st:'Normal', c:RC.Low, tr:'<span class="trend-st">→</span>'},
       ];
       document.getElementById('paramTbl').innerHTML = rowsParam.map(r=>`
@@ -2397,19 +2392,6 @@
           <td><span style="color:${r.c};font-weight:950">${esc(r.st)}</span></td>
           <td style="text-align:right">${r.tr}</td>
         </tr>`).join('');
-
-      // Alert summary mini list & latest alerts
-      document.getElementById('kAlertTotal').textContent = m.totalAlerts;
-      const mini = document.getElementById('alertListMini');
-      mini.innerHTML = [
-        ['Warning', m.warn, RC.High],
-        ['Watch', m.watch, RC.Medium],
-        ['Critical', m.critical, RC['Very High']],
-      ].map(x=>`
-        <div class="row">
-          <span><span class="dot" style="--c:${x[2]}"></span> ${x[0]}</span>
-          <b>${x[1]}</b>
-        </div>`).join('');
 
       const latestAlerts = [];
       // EWS trigger crossings (point 5): every UP/DOWN crossing per instrument
@@ -2676,66 +2658,34 @@
         });
       }
 
-      // Risk trend (6 months) – bila data inspeksi belum historis per bulan, gunakan template visual
-      const cv2 = document.getElementById('riskTrend');
-      if(cv2 && window.Chart){
-        const months = [];
-        const now = new Date();
-        for(let i=5;i>=0;i--){
-          const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-          months.push(d.toLocaleString('en-US',{month:'short'}));
-        }
-        const base = Math.max(1, Math.round(m.insRows.length/4));
-        const hi = months.map((_,i)=>Math.max(0, Math.round((m.inspByRisk['High']+m.inspByRisk['Very High']) * (0.75 + i*0.05))));
-        const me = months.map((_,i)=>Math.max(0, Math.round((m.inspByRisk['Medium']||0) * (0.85 + i*0.03))));
-        const lo = months.map((_,i)=>Math.max(0, Math.round((m.inspByRisk['Low']||0) * (0.95 - i*0.02))));
-        charts.riskTrend = new Chart(cv2,{
-          type:'bar',
-          data:{
-            labels:months,
-            datasets:[
-              {label:'High', data:hi.length?hi:months.map(()=>base), backgroundColor:RC.High, stack:'s'},
-              {label:'Medium', data:me.length?me:months.map(()=>base), backgroundColor:RC.Medium, stack:'s'},
-              {label:'Low', data:lo.length?lo:months.map(()=>base), backgroundColor:RC.Low, stack:'s'},
-            ]
-          },
-          options:{
-            responsive:true, maintainAspectRatio:false,
-            plugins:{ legend:{display:false} },
-            scales:{
-              x:{ grid:{display:false}, ticks:{ color:'#cbd5e1', font:{size:10} } },
-              y:{ grid:{ color:'rgba(148,163,184,.12)' }, ticks:{ display:false }, beginAtZero:true }
-            }
-          }
-        });
-      }
-
-      // Alert donut
-      const cv3 = document.getElementById('alertDonut');
-      if(cv3 && window.Chart){
-        charts.alert = new Chart(cv3,{
-          type:'doughnut',
-          data:{
-            labels:['Warning','Watch','Critical'],
-            datasets:[{
-              data:[m.warn, m.watch, m.critical],
-              backgroundColor:[RC.High, RC.Medium, RC['Very High']],
-              borderWidth:0, cutout:'68%',
-            }]
-          },
-          options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} } }
-        });
-      }
-
       // Spark charts (7 days)
       // Pass raw rows — sparkLine() will buildSpark() internally. Wrapping
       // it here in buildSpark() returned {ts,vals} and then crashed inside
       // sparkLine when it tried to .filter() on that object.
       const extRows = (DATA.ext7||[]).filter(r=>r && r.external_device_id && r.sensor_name);
-      sparkLine('sparkExt', extRows, '#a78bfa', (v)=>document.getElementById('sparkExtVal').textContent = v);
-      // Placeholder IP, VWP (no data)
-      sparkLine('sparkIp', [], '#f59e0b', (v)=>document.getElementById('sparkIpVal').textContent = '—');
-      sparkLine('sparkVwp', [], '#22c55e', (v)=>document.getElementById('sparkVwpVal').textContent = '—');
+      sparkLine('sparkExt', extRows, '#a78bfa', (v)=>document.getElementById('sparkExtVal').textContent = v==='—'?'—':v+' mm');
+      // Inclinometer: top-displacement series of the most-active device (real data)
+      let incRows = [];
+      try{
+        const incProc = processInc(DATA.inc7||[]); let best=null, bestAbs=-1;
+        for(const id of Object.keys(incProc)){
+          const tsr = incProc[id].topSeries; if(!tsr || !tsr.length) continue;
+          const la = Math.abs(tsr[tsr.length-1].a||0);
+          if(la>bestAbs){ bestAbs=la; best=tsr; }
+        }
+        if(best) incRows = best.map(p=>({ts:p.ts, value:p.a}));
+      }catch(e){}
+      sparkLine('sparkIp', incRows, '#f59e0b', (v)=>document.getElementById('sparkIpVal').textContent = v==='—'?'—':v+' mm');
+      // VWP: a representative channel pore-pressure series (real data)
+      let vwpRows = [];
+      try{
+        const vwpProc = processVwp(DATA.vwp7||[]);
+        for(const dev of Object.values(vwpProc)){
+          for(const rws of Object.values(dev.channels||{})){ if(rws && rws.length){ vwpRows = rws.map(r=>({ts:r.ts, value:r.value})); break; } }
+          if(vwpRows.length) break;
+        }
+      }catch(e){}
+      sparkLine('sparkVwp', vwpRows, '#22c55e', (v)=>document.getElementById('sparkVwpVal').textContent = v==='—'?'—':v+' kPa');
       // Rain spark from weather rainfall minute
       const rain = (DATA.wx7||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
       sparkLine('sparkRain', rain, '#38bdf8', (v)=>document.getElementById('sparkRainVal').textContent = v, true);
