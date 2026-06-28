@@ -287,7 +287,7 @@
     .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:6px 10px 8px}
     .mon-stack canvas{position:absolute;inset:6px 10px 8px}
     /* Side-by-side A/B axis split for the inclinometer card */
-    .mon-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:0}
+    .mon-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:100%;min-height:0}
     .mon-split>div{position:relative;min-height:0}
     .mon-stack .mon-split canvas{position:absolute;inset:16px 2px 2px}
     .mon-sub{position:absolute;top:0;left:4px;font-size:9px;font-weight:800;letter-spacing:.04em;color:#9fb3cf;z-index:1}
@@ -807,6 +807,11 @@
         sb.from('v_inspection_risk_areas').select('*'),
         sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
         sb.rpc('instrument_series_json',{p_kind:'piezometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
+      ]) : null;
+
+      // Static reference data (instrument coords + install baseline) changes almost
+      // never — fetch ONCE at boot, not every heavy cycle, to keep egress low.
+      const staticP = (!DATA.points) ? Promise.all([
         sb.from('v_instrument_points').select('*'),
         sb.rpc('inc_initial_baseline'),
       ]) : null;
@@ -814,7 +819,7 @@
       const ewsP = sb.rpc('ews_latest');
       const ewsAlP = sb.rpc('ews_alerts_recent',{p_limit:20});
       const rain24P = sb.rpc('instrument_series_json',{p_kind:'weather',p_from:new Date(nowMs-24*3600*1000).toISOString(),p_to:nowIso,p_every:'1 hour'});
-      const [base, active, heavyR, ewsR, ewsAlR, rain24R] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP, rain24P]);
+      const [base, active, heavyR, ewsR, ewsAlR, rain24R, staticR] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP, rain24P, staticP]);
       const [sn,rain,rsum,rdaily]=base;
       DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
       DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
@@ -827,15 +832,17 @@
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
         DATA.riskAreas=heavyR[7].data||[];
         DATA.inc7=heavyR[8].data||[]; DATA.vwp7=heavyR[9].data||[];
-        DATA.points=heavyR[10].data||[];
+        lastHeavy=nowMs;
+      }
+      if(staticR){
+        DATA.points=staticR[0].data||[];
         // Install baseline (oldest reading per inclinometer sensor) → {dev:{A:{n:v},B:{n:v}}}
-        const ibRows = (heavyR[11] && heavyR[11].data) || [];
+        const ibRows = (staticR[1] && staticR[1].data) || [];
         const ib = {};
         ibRows.forEach(r=>{ const dev=String(r.external_device_id); const n=sensorNum(r.sensor_name||'');
           const ax = /-A-Axis-sin/.test(r.sensor_name)?'A':(/-B-Axis-sin/.test(r.sensor_name)?'B':null);
           if(!ax || !(n>0)) return; (ib[dev]=ib[dev]||{A:{},B:{}})[ax][n]=r.value; });
         DATA.incBaseline = ib;
-        lastHeavy=nowMs;
       }
       if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
       render();
@@ -1726,7 +1733,16 @@
           profiles[ts]={depths,aCum,bCum};
         }
         const topIdx=allNums.length-1;
-        const topSeries=timestamps.map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
+        // Cumulative is a bottom-up SUM, so a single missing depth sensor at a
+        // timestamp corrupts the top value (false spike). Keep only timestamps whose
+        // reporting-sensor count matches the normal (mode) profile; drop partial reads.
+        const tsCountA={}, cnt={};
+        for(const ts of timestamps){ let c=0; for(const n of allNums){ if(aLk[ts+'|'+n]!=null) c++; } tsCountA[ts]=c; cnt[c]=(cnt[c]||0)+1; }
+        let modeCount=0, modeFreq=-1;
+        for(const k in cnt){ if(cnt[k]>modeFreq){ modeFreq=cnt[k]; modeCount=+k; } }
+        const topSeries=timestamps
+          .filter(ts=> modeCount>0 && tsCountA[ts]>=modeCount)
+          .map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
         const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
         const dailyGroups={};
         for(const ts of timestamps){ const dk=new Date(ts).toLocaleDateString('id-ID',{day:'numeric',month:'short'}); (dailyGroups[dk]=dailyGroups[dk]||[]).push(ts); }
