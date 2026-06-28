@@ -724,6 +724,8 @@
         sb.from('v_aws_stats').select('*'),
         sb.from('v_rain_hours').select('*'),
         sb.from('v_inspection_risk_areas').select('*'),
+        sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
+        sb.rpc('instrument_series_json',{p_kind:'piezometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
       ]) : null;
 
       const ewsP = sb.rpc('ews_latest');
@@ -741,6 +743,7 @@
         DATA.insp=heavyR[0].data||[]; DATA.locs=heavyR[1].data||[]; DATA.eq=heavyR[2].data||[];
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
         DATA.riskAreas=heavyR[7].data||[];
+        DATA.inc7=heavyR[8].data||[]; DATA.vwp7=heavyR[9].data||[];
         lastHeavy=nowMs;
       }
       if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
@@ -1326,7 +1329,11 @@
         <div class="card-hd" style="padding:12px 2px 2px"><div class="t">EXTENSOMETER — TREND 7 HARI · garis putus-putus = trendline (laju mm/hari)</div></div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${extCards}</div>
         <div class="card-hd" style="padding:12px 2px 2px"><div class="t">AWS / CUACA — TREND 7 HARI</div></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>`
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>
+        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">INCLINOMETER — TOP DISPLACEMENT 7 HARI (mm)</div></div>
+        <div class="card" style="overflow:hidden"><div class="card-bd" style="height:240px;padding:6px"><canvas id="incCombined"></canvas></div></div>
+        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">VWP — PORE PRESSURE 7 HARI (kPa)</div></div>
+        <div class="card" style="overflow:hidden"><div class="card-bd" style="height:240px;padding:6px"><canvas id="instVwp"></canvas></div></div>`
         + statsTable();
     }
     function drawInstrumentCharts(){
@@ -1341,6 +1348,23 @@
       tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
       const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
       tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
+      // Inclinometer combined top-displacement (reuse inc-tab renderer)
+      try{ drawCombinedIncChart(processInc(DATA.inc7||[])); }catch(e){}
+      // VWP pore-pressure multi-line
+      try{
+        const cvv=document.getElementById('instVwp');
+        if(cvv && window.Chart){
+          const vwp=processVwp(DATA.vwp7||[]);
+          const pal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
+          const series=[]; let ci=0;
+          for(const devId of Object.keys(vwp)){
+            const ch=vwp[devId].channels||{};
+            for(const k of Object.keys(ch)){ series.push({name:vwpChLabel(devId,k), rows:ch[k], color:pal[ci%pal.length]}); ci++; }
+          }
+          if(series.length) tsChart('instVwp', multiSeries(series), 'kPa');
+        }
+      }catch(e){}
+
       // Akumulasi hujan harian (bar)
       const rd=DATA.rainDaily||[]; const cvd=document.getElementById('rainDaily');
       if(cvd&&window.Chart){
