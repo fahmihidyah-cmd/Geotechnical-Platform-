@@ -358,6 +358,9 @@
       font-size:11px;color:var(--mut2);
     }
     .mini-list .row b{color:var(--txt2)}
+    /* Compact breakdown for the Total Risk Level KPI card */
+    #kRiskBreakdown{gap:3px;justify-content:center}
+    #kRiskBreakdown .row{padding:2px 2px;background:none;border:none;font-size:10px}
 
     .tbl{
       width:100%;border-collapse:collapse;
@@ -1075,13 +1078,10 @@
           <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Active Alerts</div><div class="ic">⚠</div></div>
-            <div class="card-bd">
-              <div class="kpi-val" id="kAlerts">—</div>
-              <div class="kpi-tag" style="flex-direction:column;align-items:flex-start;gap:2px;font-size:10px">
-                <span><span class="dot" style="--c:${RC['Very High']}"></span> <span id="kCritical">0 Critical</span></span>
-                <span><span class="dot" style="--c:${RC.High}"></span> <span id="kWarn">0 Warning</span></span>
-                <span><span class="dot" style="--c:${RC.Medium}"></span> <span id="kWatch">0 Watch</span></span>
-              </div>
+            <div class="card-bd" style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:9px"><b id="kCriticalN" style="font-size:20px;line-height:1;color:${RC['Very High']};min-width:16px;text-align:right">0</b><span style="font-size:11px;color:var(--mut2)">Critical</span></div>
+              <div style="display:flex;align-items:center;gap:9px"><b id="kWarnN" style="font-size:20px;line-height:1;color:${RC.High};min-width:16px;text-align:right">0</b><span style="font-size:11px;color:var(--mut2)">Warning</span></div>
+              <div style="display:flex;align-items:center;gap:9px"><b id="kWatchN" style="font-size:20px;line-height:1;color:${RC.Medium};min-width:16px;text-align:right">0</b><span style="font-size:11px;color:var(--mut2)">Monitoring</span></div>
             </div>
           </div>
 
@@ -1135,29 +1135,39 @@
 
             <div class="card clickable" onclick="setView('inspection')">
               <span class="more-arrow">→</span>
-              <div class="card-hd"><div class="t">Risk Summary</div><div class="ic">◑</div></div>
+              <div class="card-hd"><div class="t">Risk Summary <span style="color:var(--mut);font-weight:600">(Total Locations)</span></div><div class="ic">◑</div></div>
               <div class="card-bd">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:60px;height:60px;flex:none"><canvas id="riskSummaryDonut"></canvas></div>
-                  <div style="flex:none"><div class="kpi-val" id="kLocTotal">—</div><div class="kpi-sub">Total lokasi</div></div>
-                  <div class="mini-list" id="riskSummaryList" style="flex:1"></div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="position:relative;width:62px;height:62px;flex:none">
+                    <canvas id="riskSummaryDonut"></canvas>
+                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                      <div style="font-size:16px;font-weight:900;line-height:1" id="kLocTotal">—</div>
+                      <div style="font-size:6.5px;color:var(--mut)">Locations</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:2px;flex:1">${riskMatrixHtml()}</div>
                 </div>
-                <div style="margin-top:8px">${riskMatrixHtml()}</div>
               </div>
+            </div>
+
+            <div class="card clickable" onclick="setView('trends')">
+              <span class="more-arrow">→</span>
+              <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
+              <div class="card-bd"><div class="instruments" id="instHealth"></div></div>
             </div>
           </div>
 
           <div class="card mapcard" style="position:relative;min-height:0">
-            <div class="card-hd"><div class="t">Peta Risiko Geoteknik</div><div class="ic">🗺️</div></div>
+            <div class="card-hd"><div class="t">Geotechnical Risk Map</div><div class="ic">🗺️</div></div>
             <div class="card-bd map-wrap">
               <div id="map"></div>
               <div class="legend" id="mapLegend">
-                <div class="lg" onclick="document.getElementById('mapLegend').classList.toggle('collapsed')"><span>Legenda</span><span class="tg">▾</span></div>
+                <div class="lg" onclick="document.getElementById('mapLegend').classList.toggle('collapsed')"><span>Legend</span><span class="tg">▾</span></div>
                 <div class="body">
-                  <div class="it"><span class="sw" style="--c:${RC['Very High']}"></span> Sangat Tinggi</div>
-                  <div class="it"><span class="sw" style="--c:${RC.High}"></span> Tinggi</div>
-                  <div class="it"><span class="sw" style="--c:${RC.Medium}"></span> Sedang</div>
-                  <div class="it"><span class="sw" style="--c:${RC.Low}"></span> Rendah</div>
+                  <div class="it"><span class="sw" style="--c:${RC['Very High']}"></span> Very High</div>
+                  <div class="it"><span class="sw" style="--c:${RC.High}"></span> High</div>
+                  <div class="it"><span class="sw" style="--c:${RC.Medium}"></span> Medium</div>
+                  <div class="it"><span class="sw" style="--c:${RC.Low}"></span> Low</div>
                 </div>
               </div>
             </div>
@@ -2180,7 +2190,7 @@
         type:'doughnut',
         data:{ datasets:[{
           data:[1,1,1,1],
-          backgroundColor:[RC['Very High'], RC.High, RC.Medium, RC.Low],  // left=low SSI(red) → right=high SSI(green)
+          backgroundColor:[RC.Low, RC.Medium, RC.High, RC['Very High']],  // green → yellow → orange → red
           borderWidth:0, circumference:180, rotation:-90
         }]},
         options:{ responsive:true, maintainAspectRatio:false, cutout:'68%',
@@ -2190,7 +2200,7 @@
           afterDatasetsDraw(chart){
             const a=chart.chartArea; if(!a) return;
             const cx=(a.left+a.right)/2, cy=a.bottom, R=(a.right-a.left)/2*0.96;
-            const ang=Math.PI*(1-frac);
+            const ang=Math.PI*frac;  // high SSI (safe) → points left (green)
             const ctx=chart.ctx;
             ctx.save();
             ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=2.5; ctx.lineCap='round';
@@ -2207,10 +2217,18 @@
       // KPI — Overall Status driven by EWS (single source of truth) with fallback
       const ews = DATA.ews;
       const overallEl = document.getElementById('kOverall');
+      const ACTION_EN = {
+        HIJAU:'All monitored parameters within normal range',
+        KUNING:'Caution — increase monitoring frequency',
+        JINGGA:'Warning — verify in field, prepare evacuation route',
+        MERAH:'Danger — evacuate immediately, activate emergency procedure'
+      };
       if(ews && ews.status){
         overallEl.textContent = EWS_LABELS[ews.status] || ews.status;
         overallEl.style.color = EWS_COLORS[ews.status] || st.c;
-        document.getElementById('kOverallSub').textContent = ews.tindakan || ews.alasan || st.sub;
+        let sub = ACTION_EN[ews.status] || st.sub;
+        if(ews.monitoring_degraded) sub += ' · Data incomplete, relying on remaining sensors';
+        document.getElementById('kOverallSub').textContent = sub;
       } else {
         overallEl.textContent = st.t;
         overallEl.style.color = st.c;
@@ -2248,10 +2266,10 @@
       } else {
         cMerah = m.critical; cJingga = m.warn; cKuning = m.watch;
       }
-      document.getElementById('kAlerts').textContent = cMerah + cJingga + cKuning;
-      document.getElementById('kWarn').textContent = `${cJingga} Warning`;
-      document.getElementById('kWatch').textContent = `${cKuning} Watch`;
-      document.getElementById('kCritical').textContent = `${cMerah} Critical`;
+      const setTxt=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+      setTxt('kCriticalN', cMerah);
+      setTxt('kWarnN', cJingga);
+      setTxt('kWatchN', cKuning);
 
       document.getElementById('kActive').textContent = `${m.onlineSensors} / ${m.totalSensors}`;
       document.getElementById('kActiveSub').textContent = (m.totalSensors?`${Math.round((m.onlineSensors/m.totalSensors)*100)}% Online`:'—');
@@ -2265,23 +2283,11 @@
       const q0=(DATA.eq||[])[0]; const pgaEl=document.getElementById('kPga'), pgaSub=document.getElementById('kPgaSub');
       const p0=q0?latestPga(q0):null;
       if(p0){ pgaEl.textContent=p0.g.toFixed(3)+' g'; pgaEl.style.color=p0.color;
-        pgaSub.textContent=`${p0.tarp} · ${p0.site} ${p0.epi}km · M${q0.magnitude} · ${shortWil(q0.wilayah)}`;
+        pgaSub.innerHTML=`${esc(p0.tarp)} · ${esc(p0.site)} ${p0.epi}km<br>M${esc(String(q0.magnitude))} · ${esc(shortWil(q0.wilayah))}`;
       } else { pgaEl.textContent='—'; pgaEl.style.color=''; pgaSub.textContent='No earthquake data'; }
 
-      // Ringkasan risiko list (seperti referensi)
-      const totalLoc = m.insRows.length;
-      document.getElementById('kLocTotal').textContent = totalLoc || '—';
-      const list = document.getElementById('riskSummaryList');
-      const rows = [
-        ['Risiko Tinggi', m.inspByRisk['Very High'] + m.inspByRisk['High'], RC.High],
-        ['Risiko Sedang', m.inspByRisk['Medium']||0, RC.Medium],
-        ['Risiko Rendah', m.inspByRisk['Low']||0, RC.Low],
-      ];
-      list.innerHTML = rows.map(r=>`
-        <div class="row">
-          <span><span class="dot" style="--c:${r[2]}"></span> ${esc(r[0])}</span>
-          <b>${r[1]} (${totalLoc?Math.round((r[1]/totalLoc)*100):0}%)</b>
-        </div>`).join('');
+      const kLocEl = document.getElementById('kLocTotal');
+      if(kLocEl) kLocEl.textContent = (m.insRows.length) || '—';
 
       // Tabel inspeksi — DATA REAL per lokasi (poin 2): inspeksi terbaru tiap
       // lokasi (risk_final + skor) + trend vs inspeksi sebelumnya di lokasi itu.
@@ -2395,11 +2401,11 @@
         const nm = (a.device_name||a.external_device_id||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
         const toLbl = EWS_LABELS[a.to_level] || a.to_level;
         const fromLbl = EWS_LABELS[a.from_level] || a.from_level;
-        const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/hari` : '';
+        const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/day` : '';
         const vr = a.velocity_ratio!=null ? ` · VR ${fmt(a.velocity_ratio,2)}` : '';
         latestAlerts.push({
-          ttl: `${nm} ${up?'naik':'turun'} → ${toLbl}`,
-          sev: up ? 'Naik' : 'Turun',
+          ttl: `${nm} ${up?'up':'down'} → ${toLbl}`,
+          sev: up ? 'Up' : 'Down',
           c: c,
           msg: `${fromLbl} → ${toLbl} · ${vd}${vr}`,
           tm: a.evaluated_at ? new Date(a.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'
@@ -2418,10 +2424,10 @@
       });
       m.inspTriggered.slice(0,4).forEach(r=>{
         latestAlerts.push({
-          ttl: `Inspeksi lokasi ${r.location_id}`,
+          ttl: `Inspection — location ${r.location_id}`,
           sev: (r.risk_final==='Very High')?'Critical':'Warning',
           c: (r.risk_final==='Very High')?RC['Very High']:RC.High,
-          msg: `Risiko ${r.risk_final||''} · skor ${r.total_score||0}`,
+          msg: `Risk ${r.risk_final||''} · score ${r.total_score||0}`,
           tm: r.inspection_date ? new Date(r.inspection_date).toLocaleString('id-ID') : '—'
         });
       });
@@ -2684,8 +2690,8 @@
         const dEl = document.getElementById(deltaId);
         if(dEl){
           dEl.innerHTML = (delta==null)
-            ? `<span style="color:#94a3b8">— vs kemarin</span>`
-            : `<span style="color:${delta>=0?RC.High:RC.Low}">${delta>=0?'▲':'▼'} ${fmt(Math.abs(delta),2)} ${unit}</span> <span style="color:#94a3b8">vs kemarin</span>`;
+            ? `<span style="color:#94a3b8">— vs yesterday</span>`
+            : `<span style="color:${delta>=0?RC.High:RC.Low}">${delta>=0?'▲':'▼'} ${fmt(Math.abs(delta),2)} ${unit}</span> <span style="color:#94a3b8">vs yesterday</span>`;
         }
       };
 
