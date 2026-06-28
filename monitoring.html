@@ -286,6 +286,16 @@
     .mon-stack>.card{flex:1;min-height:0;display:flex;flex-direction:column}
     .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:6px 10px 8px}
     .mon-stack canvas{position:absolute;inset:6px 10px 8px}
+    /* Side-by-side A/B axis split for the inclinometer card */
+    .mon-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:0}
+    .mon-split>div{position:relative;min-height:0}
+    .mon-stack .mon-split canvas{position:absolute;inset:16px 2px 2px}
+    .mon-sub{position:absolute;top:0;left:4px;font-size:9px;font-weight:800;letter-spacing:.04em;color:#9fb3cf;z-index:1}
+    /* Hover info bubble (ⓘ) — technical reading guide per chart */
+    .info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid rgba(148,163,184,.55);color:#9fb3cf;font-size:10px;line-height:1;cursor:help;margin-left:7px;font-style:normal;font-weight:700;vertical-align:middle}
+    .info .info-pop{display:none;position:absolute;top:130%;left:0;width:250px;background:#0b1424;border:1px solid rgba(148,163,184,.35);border-radius:9px;padding:9px 11px;font-size:10.5px;line-height:1.45;color:#cbd5e1;z-index:60;box-shadow:0 12px 34px rgba(0,0,0,.55);font-weight:500;text-transform:none;letter-spacing:0;text-align:left;white-space:normal}
+    .info:hover .info-pop,.info:focus .info-pop{display:block}
+    .card-hd .t .info-pop b{color:#e5e7eb}
     .exec-grid > .card{display:flex;flex-direction:column;min-height:0}
     .exec-grid > .card > .card-bd{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
     .exec-grid .alert-list{flex:1;min-height:0;overflow-y:auto;padding-right:5px}
@@ -798,6 +808,7 @@
         sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
         sb.rpc('instrument_series_json',{p_kind:'piezometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
         sb.from('v_instrument_points').select('*'),
+        sb.rpc('inc_initial_baseline'),
       ]) : null;
 
       const ewsP = sb.rpc('ews_latest');
@@ -817,6 +828,13 @@
         DATA.riskAreas=heavyR[7].data||[];
         DATA.inc7=heavyR[8].data||[]; DATA.vwp7=heavyR[9].data||[];
         DATA.points=heavyR[10].data||[];
+        // Install baseline (oldest reading per inclinometer sensor) → {dev:{A:{n:v},B:{n:v}}}
+        const ibRows = (heavyR[11] && heavyR[11].data) || [];
+        const ib = {};
+        ibRows.forEach(r=>{ const dev=String(r.external_device_id); const n=sensorNum(r.sensor_name||'');
+          const ax = /-A-Axis-sin/.test(r.sensor_name)?'A':(/-B-Axis-sin/.test(r.sensor_name)?'B':null);
+          if(!ax || !(n>0)) return; (ib[dev]=ib[dev]||{A:{},B:{}})[ax][n]=r.value; });
+        DATA.incBaseline = ib;
         lastHeavy=nowMs;
       }
       if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
@@ -1322,14 +1340,23 @@
     // ── Monitoring dashboard: stacked charts on ONE shared 7-day timeline so a
     // rainfall burst or earthquake can be visually correlated with instrument
     // spikes. Titles only; no extra commentary. ──
+    function infoDot(text){ return `<span class="info" tabindex="0">&#9432;<span class="info-pop">${text}</span></span>`; }
     function instrumentView(){
+      const iRain = `<b>Rainfall</b> — hourly rain (mm) over 7 days. Tall bars = heavy rain. Watch whether the instrument charts below spike shortly <b>after</b> a rain burst: rain raises pore pressure and can drive movement. <b>Red dashed lines = earthquake events.</b>`;
+      const iExt = `<b>Extensometer</b> — surface crack/displacement per sensor (D1–D5), zeroed to the period start, in mm. A line trending <b>up</b> = the crack is opening (slope creeping). A sudden step aligned with rain or a quake = a trigger to inspect.`;
+      const iInc = `<b>Inclinometer</b> — cumulative lateral displacement at the casing top (mm), integrating <b>all</b> depth sensors from the fixed toe upward. Baseline = each instrument's earliest (install) reading, so values are absolute since install. <b>Axis A</b> and <b>Axis B</b> are two perpendicular directions; total movement = √(A²+B²). A steady rising trend = sub-surface slope movement.`;
+      const iVwp = `<b>VWP / Piezometer</b> — pore-water pressure inside the slope (kPa). A rising line, especially after rain, means water is building up and stability is dropping. Sharp sustained rises are a key early-warning signal.`;
       return `
-        <div style="font-size:10.5px;color:#9fb3cf;margin:0 2px 8px">Shared 7-day timeline · <span style="color:#f87171">┊ red dashed = earthquake</span> · look for instrument spikes aligned with rain or quakes.</div>
+        <div style="font-size:10.5px;color:#9fb3cf;margin:0 2px 8px">Shared 7-day timeline · <span style="color:#f87171">┊ red dashed = earthquake</span> · hover&nbsp;&#9432;&nbsp;on each chart for how to read it.</div>
         <div class="mon-stack">
-          <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall (mm)</div></div><div class="card-bd"><canvas id="monRain"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — WOC &amp; Water Intake (mm)</div></div><div class="card-bd"><canvas id="monExt"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)</div></div><div class="card-bd"><canvas id="monInc"></canvas></div></div>
-          <div class="card"><div class="card-hd"><div class="t">◎ VWP — Pore Pressure (kPa)</div></div><div class="card-bd"><canvas id="monVwp"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall (mm)${infoDot(iRain)}</div></div><div class="card-bd"><canvas id="monRain"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — WOC &amp; Water Intake (mm)${infoDot(iExt)}</div></div><div class="card-bd"><canvas id="monExt"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)${infoDot(iInc)}</div></div>
+            <div class="card-bd"><div class="mon-split">
+              <div><div class="mon-sub">Axis A</div><canvas id="monIncA"></canvas></div>
+              <div><div class="mon-sub">Axis B</div><canvas id="monIncB"></canvas></div>
+            </div></div></div>
+          <div class="card"><div class="card-hd"><div class="t">◎ VWP — Pore Pressure (kPa)${infoDot(iVwp)}</div></div><div class="card-bd"><canvas id="monVwp"></canvas></div></div>
         </div>`;
     }
     function drawInstrumentCharts(){
@@ -1380,13 +1407,17 @@
         }); });
       monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [0,10]);
 
-      // 3) Inclinometer — cumulative top displacement per node (A-axis)
-      const incDs=[]; const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
+      // 3) Inclinometer — cumulative top displacement per node, split Axis A / Axis B
+      const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
+      const incA=[], incB=[];
+      const incXY=(ts,key)=> ts.map(p=>({x:new Date(p.ts).getTime(), y:+p[key]})).filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
+      const incLine=(lbl,data,col)=>({label:lbl, data, borderColor:col, backgroundColor:col, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
       try{ const proc=processInc(DATA.inc7||[]); let ci=0;
         for(const id of Object.keys(proc)){ const ts=proc[id].topSeries; if(!ts||!ts.length) continue;
-          const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id);
-          incDs.push(line(lbl, ts, incPal[ci%incPal.length])); ci++; } }catch(e){}
-      monChart('monInc', incDs.length?incDs:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
+          const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id); const col=incPal[ci%incPal.length];
+          incA.push(incLine(lbl, incXY(ts,'a'), col)); incB.push(incLine(lbl, incXY(ts,'b'), col)); ci++; } }catch(e){}
+      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
+      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [0,10]);
 
       // 4) VWP — pore pressure per channel
       const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
@@ -1670,6 +1701,10 @@
         aRows.forEach(r=>{ aLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
         bRows.forEach(r=>{ bLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
         const baseTsA={}, baseTsB={};
+        // Prefer the install baseline (oldest-ever reading per sensor) so displacement
+        // is absolute since installation; fall back to first reading in the window.
+        const ib = (typeof DATA!=='undefined' && DATA.incBaseline && DATA.incBaseline[String(devId)]) || null;
+        if(ib){ for(const n of allNums){ if(ib.A && ib.A[n]!=null) baseTsA[n]=ib.A[n]; if(ib.B && ib.B[n]!=null) baseTsB[n]=ib.B[n]; } }
         for(const n of allNums){
           for(const ts of timestamps){
             if(baseTsA[n]==null && aLk[ts+'|'+n]!=null) baseTsA[n]=aLk[ts+'|'+n];
