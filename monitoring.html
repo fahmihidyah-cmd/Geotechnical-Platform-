@@ -281,6 +281,7 @@
     .exec-alerts{ grid-column:3; grid-row:1; }
     .exec-bottom{ grid-column:2 / span 2; grid-row:2; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
     .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    .exec-col.exec-left{overflow:hidden}   /* no scrollbar — cards flex to fit the column */
     /* Monitoring dashboard: 4 charts stacked to fill one screen, shared timeline */
     .mon-stack{display:flex;flex-direction:column;gap:7px;height:calc(100vh - 142px);min-height:600px}
     .mon-stack>.card{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -289,8 +290,8 @@
     .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:5px 10px 7px}
     .mon-stack canvas{position:absolute;inset:6px 10px 8px}
     /* Side-by-side A/B axis split for the inclinometer card */
-    .mon-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:100%;min-height:0}
-    .mon-split>div{position:relative;min-height:0}
+    .mon-split{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:12px;height:100%;min-height:0;overflow:hidden}
+    .mon-split>div{position:relative;min-height:0;min-width:0;overflow:hidden}
     .mon-stack .mon-split canvas{position:absolute;inset:15px 4px 8px 4px}
     .mon-sub{position:absolute;top:0;left:4px;font-size:9px;font-weight:800;letter-spacing:.04em;color:#9fb3cf;z-index:1}
     /* Hover info bubble (ⓘ) — technical reading guide per chart */
@@ -1215,7 +1216,7 @@
                   <div class="kpi-val" id="rain24Total" style="font-size:22px">—</div>
                   <div class="kpi-tag"><b id="rain24Lbl" style="color:#38bdf8">—</b></div>
                 </div>
-                <div style="height:84px;margin-top:6px"><canvas id="rain24Chart"></canvas></div>
+                <div style="height:70px;margin-top:5px"><canvas id="rain24Chart"></canvas></div>
               </div>
             </div>
 
