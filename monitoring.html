@@ -2558,8 +2558,14 @@
       // Aerial auto-toggles via the zoomend listener installed above.
       if(points.length && !map._hasInitialView){
         try{
-          const dataBounds = L.latLngBounds(points).pad(0.2);
-          map.fitBounds(dataBounds, { maxZoom:15 });
+          // Only fit to points within the greater-Bahodopi region so a stray
+          // or invalid coordinate (e.g. [0,0]) can't pull the view off-site.
+          const region = L.latLngBounds([-2.80,121.95],[-2.68,122.08]);
+          const valid = points.filter(p=> p && isFinite(p[0]) && isFinite(p[1]) && region.contains(p));
+          if(valid.length){
+            map.fitBounds(L.latLngBounds(valid).pad(0.2), { maxZoom:15 });
+          }
+          // else: keep the Bahodopi center/zoom set at map creation
         } catch(e){ /* keep current view */ }
       }
       map._hasInitialView = true;
