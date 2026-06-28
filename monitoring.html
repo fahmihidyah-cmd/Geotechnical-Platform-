@@ -269,12 +269,21 @@
     }
 
     /* Executive dashboard layout (matches reference mockup) */
-    .exec-body{display:grid;grid-template-columns:1fr 1.95fr 1.05fr;gap:10px;min-height:0;height:calc(100vh - 268px)}
-    .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
-    .exec-body > .card{display:flex;flex-direction:column;min-height:0}
-    .exec-body > .card > .card-bd{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
-    .exec-body .alert-list{flex:1;min-height:0;overflow-y:auto;padding-right:5px}
-    .exec-bottom{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}
+    .exec-grid{
+      display:grid;
+      grid-template-columns: 1fr 1.95fr 1.05fr;
+      grid-template-rows: 1fr auto;
+      gap:10px; min-height:0;
+      height:calc(100vh - 180px);
+    }
+    .exec-left{ grid-column:1; grid-row:1 / span 2; }
+    .exec-map{ grid-column:2; grid-row:1; }
+    .exec-alerts{ grid-column:3; grid-row:1; }
+    .exec-bottom{ grid-column:2 / span 2; grid-row:2; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    .exec-grid > .card{display:flex;flex-direction:column;min-height:0}
+    .exec-grid > .card > .card-bd{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+    .exec-grid .alert-list{flex:1;min-height:0;overflow-y:auto;padding-right:5px}
     .inst-card .card-hd{padding:7px 10px 0}
     .inst-card .card-bd{padding:5px 10px 8px}
     .inst-card .ic-metric{font-size:9px;color:var(--mut)}
@@ -289,7 +298,8 @@
     *::-webkit-scrollbar-thumb:hover{background:rgba(59,130,246,.55);background-clip:padding-box}
     *{scrollbar-width:thin;scrollbar-color:rgba(59,130,246,.38) rgba(2,8,20,.30)}
     @media(max-width:1100px){
-      .exec-body{grid-template-columns:1fr;height:auto}
+      .exec-grid{grid-template-columns:1fr;grid-template-rows:none;height:auto}
+      .exec-left,.exec-map,.exec-alerts,.exec-bottom{grid-column:auto;grid-row:auto}
       .exec-col{overflow:visible}
       .exec-bottom{grid-template-columns:repeat(2,1fr)}
     }
@@ -1068,7 +1078,7 @@
                 <canvas id="riskDonut"></canvas>
                 <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
                   <div id="kRiskTotal" style="font-size:17px;font-weight:900;line-height:1">—</div>
-                  <div style="font-size:6.5px;color:var(--mut);letter-spacing:.03em">Total Lokasi</div>
+                  <div style="font-size:6.5px;color:var(--mut);letter-spacing:.03em">Total</div>
                 </div>
               </div>
               <div class="mini-list" id="kRiskBreakdown" style="flex:1"></div>
@@ -1098,9 +1108,12 @@
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Rain Hours</div><div class="ic">🌧️</div></div>
             <div class="card-bd">
-              <div style="display:flex;align-items:baseline;gap:6px">
-                <div class="kpi-val" id="rhM" style="font-size:23px">—</div>
-                <div class="kpi-sub" style="font-size:10px">This month</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:22px;line-height:1">🌧️</span>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <div class="kpi-val" id="rhM" style="font-size:23px">—</div>
+                  <div class="kpi-sub" style="font-size:10px">This month</div>
+                </div>
               </div>
               <div style="display:flex;gap:14px;margin-top:6px">
                 <div><div class="kpi-val" id="rh1" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">Today</div></div>
@@ -1119,8 +1132,8 @@
           </div>
         </div>
 
-        <div class="exec-body">
-          <div class="exec-col">
+        <div class="exec-grid">
+          <div class="exec-col exec-left">
             <div class="card clickable" onclick="setView('aws')">
               <span class="more-arrow">→</span>
               <div class="card-hd"><div class="t">Rainfall (24H)</div><div class="ic">🌧️</div></div>
@@ -1157,7 +1170,7 @@
             </div>
           </div>
 
-          <div class="card mapcard" style="position:relative;min-height:0">
+          <div class="card mapcard exec-map" style="position:relative;min-height:0">
             <div class="card-hd"><div class="t">Geotechnical Risk Map</div><div class="ic">🗺️</div></div>
             <div class="card-bd map-wrap">
               <div id="map"></div>
@@ -1173,18 +1186,17 @@
             </div>
           </div>
 
-          <div class="card" style="min-height:0">
+          <div class="card exec-alerts" style="min-height:0">
             <div class="card-hd"><div class="t">Active Alerts — EWS</div><div class="ic">🚨</div></div>
             <div class="card-bd" style="min-height:0"><div class="alert-list" id="latestAlerts"></div></div>
           </div>
-        </div>
 
-        <div class="exec-bottom">
-          ${instCardHtml('EXTENSOMETER','📏','Displacement','sparkExt','bExtVal','bExtDelta','spikeExt')}
-          ${instCardHtml('INCLINOMETER','∠','Top Displacement','sparkIp','bIncVal','bIncDelta','spikeInc')}
-          ${instCardHtml('VWP / PIEZOMETER','◎','Pore Pressure','sparkVwp','bVwpVal','bVwpDelta','')}
-          ${instCardHtml('RAINFALL','🌧️','Intensity','sparkRain','bRainVal','bRainDelta','')}
-          ${instCardHtml('TEMPERATURE','🌡️','AWS','sparkTemp','bTempVal','bTempDelta','')}
+          <div class="exec-bottom">
+            ${instCardHtml('EXTENSOMETER','📏','Displacement','sparkExt','bExtVal','bExtDelta','spikeExt')}
+            ${instCardHtml('INCLINOMETER','∠','Top Displacement','sparkIp','bIncVal','bIncDelta','spikeInc')}
+            ${instCardHtml('VWP / PIEZOMETER','◎','Pore Pressure','sparkVwp','bVwpVal','bVwpDelta','')}
+            ${instCardHtml('RAINFALL','🌧️','Intensity','sparkRain','bRainVal','bRainDelta','')}
+          </div>
         </div>`;
     }
 
@@ -2485,15 +2497,10 @@
         // Suppress aerial 404 spam — coverage is intentionally partial.
         aerial.on('tileerror', (e)=>{ try{ e.tile.style.display='none'; }catch(_){} });
         sat.addTo(map);
-        // Default view at Bahodopi area, zoom 13 (whole site visible, no aerial yet).
+        // Site map (aerial) stays ON at all zooms; tiles only render where the
+        // worker has coverage, the Esri satellite shows through elsewhere.
+        aerial.addTo(map);
         map.setView(BAHODOPI_CENTER, 13);
-        // Auto-toggle aerial based on zoom — only attach when zoomed in.
-        function _syncAerial(){
-          const z = map.getZoom();
-          if(z >= AERIAL_THRESHOLD){ if(!map.hasLayer(aerial)) aerial.addTo(map); }
-          else { if(map.hasLayer(aerial)) map.removeLayer(aerial); }
-        }
-        map.on('zoomend', _syncAerial);
 
         overlays = {
           halo: L.layerGroup().addTo(map),
@@ -2503,10 +2510,10 @@
         };
         // Layer control collapsed by default → only a small icon, doesn't cover the map
         L.control.layers({
-          'Satelit (Esri)': sat,
-          'Peta Jalan (OSM)': osm,
+          'Satellite (Esri)': sat,
+          'Road map (OSM)': osm,
         }, {
-          'Aerial PT Vale 2026': aerial,
+          'Site map': aerial,
           'Instrument': overlays.instruments,
           'Inspection': overlays.inspections,
           'Risk Area': overlays.riskAreas,
@@ -2723,8 +2730,6 @@
       const rain = (DATA.wx7||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
       fillInstCard('sparkRain', rain, '#38bdf8', 'bRainVal', 'bRainDelta', 'mm', true);
 
-      const temp = byName(DATA.wx7, 'temperature');
-      fillInstCard('sparkTemp', temp, '#ef4444', 'bTempVal', 'bTempDelta', '°C', false);
 
       // Spiking-instrument badges (point 3): top-moving device per category from EWS
       const fillSpike = (elId, cat)=>{
