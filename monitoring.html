@@ -1165,21 +1165,25 @@
                   <div class="spark">
                     <div class="k">Displacement (Ext)</div>
                     <div class="v" id="sparkExtVal">—</div>
+                    <div class="spike" id="spikeExt"></div>
                     <div class="cv"><canvas id="sparkExt"></canvas></div>
                   </div>
                   <div class="spark">
-                    <div class="k">Pore Pressure (IP)</div>
+                    <div class="k">Displacement (Inc)</div>
                     <div class="v" id="sparkIpVal">—</div>
+                    <div class="spike" id="spikeInc"></div>
                     <div class="cv"><canvas id="sparkIp"></canvas></div>
                   </div>
                   <div class="spark">
-                    <div class="k">Soil Moisture (VWP)</div>
+                    <div class="k">Pore Pressure (VWP)</div>
                     <div class="v" id="sparkVwpVal">—</div>
+                    <div class="spike" id="spikeVwp"></div>
                     <div class="cv"><canvas id="sparkVwp"></canvas></div>
                   </div>
                   <div class="spark">
                     <div class="k">Rainfall (AWS)</div>
                     <div class="v" id="sparkRainVal">—</div>
+                    <div class="spike" id="spikeRain"></div>
                     <div class="cv"><canvas id="sparkRain"></canvas></div>
                   </div>
                 </div>
@@ -2651,6 +2655,22 @@
       // Rain spark from weather rainfall minute
       const rain = (DATA.wx7||[]).filter(r=>(r.sensor_name||'').toLowerCase().includes('rainfall minute'));
       sparkLine('sparkRain', rain, '#38bdf8', (v)=>document.getElementById('sparkRainVal').textContent = v, true);
+
+      // Spiking-instrument badges (point 3): top-moving device per category from EWS
+      const fillSpike = (elId, cat)=>{
+        const el = document.getElementById(elId); if(!el) return;
+        const devs = ((DATA.ews&&DATA.ews.per_device)||[]).filter(d=>d.category===cat);
+        if(!devs.length){ el.innerHTML=''; return; }
+        const t = devs.reduce((a,b)=>(Math.abs(b.velocity_mm_day||0)>Math.abs(a.velocity_mm_day||0))?b:a);
+        const lv = t.trigger_level||'HIJAU';
+        const c = EWS_COLORS[lv]||'#94a3b8';
+        const nm = (t.name||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        el.innerHTML = (lv==='HIJAU')
+          ? `<span style="font-size:10px;color:#94a3b8">⤳ ${esc(nm)} ${fmt(t.velocity_mm_day,2)} mm/d</span>`
+          : `<span style="font-size:10px;font-weight:700;color:${c}">⚠ ${esc(nm)} · ${lv} · ${fmt(t.velocity_mm_day,2)} mm/d</span>`;
+      };
+      fillSpike('spikeExt','extensometer');
+      fillSpike('spikeInc','inclinometer');
     }
 
     function buildSpark(rows, predicate){
