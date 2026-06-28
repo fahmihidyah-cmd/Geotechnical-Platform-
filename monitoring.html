@@ -616,6 +616,13 @@
       return Math.floor(h/24)+' hr';
     }
     function stale(ts,mx){ return !ts || (Date.now()-new Date(ts).getTime())/60000 > (mx||15); }
+    // English "x ago" for the executive dashboard (the detail views use ago()).
+    function agoEn(ts){ if(!ts) return '—'; const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
+      if(m<1) return 'just now'; if(m<60) return m+'m ago'; const h=Math.floor(m/60);
+      if(h<24) return h+'h ago'; return Math.floor(h/24)+'d ago'; }
+    // Live wall-clock for the header (true current time, ticks every second).
+    function updateClock(){ const el=document.getElementById('tsLbl'); if(!el) return;
+      el.textContent = new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
     function fmt(n,dec){ const x=Number(n); if(!isFinite(x)) return '—'; return x.toFixed(dec ?? (Math.abs(x)>=100?0:Math.abs(x)>=10?1:2)); }
 
     function extStatus(s){
@@ -1001,7 +1008,8 @@
               <b id="siteStat" style="display:none">—</b>
               <div class="spacer"></div>
               <span class="chip" id="liveChip"><span class="dot" style="--c:#22c55e;animation:${needsRealtime()?'pulse 2s infinite':'none'}"></span> LIVE · ${needsRealtime()?'RT':'2m'}</span>
-              <span class="chip">🕒 <b id="tsLbl">—</b></span>
+              <span class="chip" title="Current local time">🕒 <b id="tsLbl">—</b></span>
+              <span class="chip" id="dataAgeChip" title="Age of the most recent sensor reading">📡 <b id="dataAge">—</b></span>
               <span class="carousel" title="Putar otomatis antar dashboard (20s)">
                 <button class="btn-ghost xs" onclick="carouselGo(-1)">‹</button>
                 <b id="carName" style="font-size:11px;min-width:84px;text-align:center;display:inline-block"></b>
@@ -2194,7 +2202,14 @@
       const m = compute();
       const newest = m.newest;
       document.getElementById('lastUpd').textContent = newest ? new Date(newest).toLocaleString('id-ID') : '—';
-      document.getElementById('tsLbl').textContent = newest ? new Date(newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+      updateClock(); // 🕒 shows live current time, not the last-data time
+      // 📡 data-age chip: how fresh the newest reading is, coloured if stale
+      const daEl = document.getElementById('dataAge'), daChip = document.getElementById('dataAgeChip');
+      if(daEl){
+        const mins = newest ? (Date.now()-new Date(newest).getTime())/60000 : null;
+        daEl.textContent = newest ? agoEn(newest) : '—';
+        if(daChip) daChip.style.color = mins==null ? '#94a3b8' : mins<=10 ? '#22c55e' : mins<=180 ? '#eab308' : '#f97316';
+      }
 
       const st = overallStatus(m);
       document.getElementById('siteStat').textContent = st.t;
@@ -2378,7 +2393,7 @@
         const total = h.total.size, online = h.online.size, down = total - online;
         const status = total===0 ? 'No data' : down===0 ? 'Active' : online===0 ? 'No recent data' : 'Partial';
         const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC.High : RC.Medium;
-        return {k:t.k, ic:t.ic, online, total, down, status, col, age: h.newest?ago(h.newest):'—'};
+        return {k:t.k, ic:t.ic, online, total, down, status, col, age: h.newest?agoEn(h.newest):'—'};
       });
       const instHealthEl = document.getElementById('instHealth');
       if(instHealthEl) instHealthEl.innerHTML = health.map(h=>`
@@ -2579,9 +2594,13 @@
         rts:{g:'★',s:17,t:'Robotic Total Station'},
         piezometer:{g:'⬣',s:16,t:'VWP / Piezometer'},
       };
+      const _seenLL = {}; // nudge co-located instruments (e.g. two strings in one borehole)
       (DATA.points||[]).forEach(p=>{
-        const lat=+p.lat, lng=+p.lng;
+        let lat=+p.lat, lng=+p.lng;
         if(!isFinite(lat) || !isFinite(lng)) return;
+        const key = lat.toFixed(6)+','+lng.toFixed(6);
+        const n = (_seenLL[key] = (_seenLL[key]||0) + 1) - 1;
+        if(n>0){ const ang=n*2.39996; lng += Math.cos(ang)*0.00004; lat += Math.sin(ang)*0.00004; }
         const cat = p.category;
         const sym = SYMB[cat] || {g:'●',s:14,t:cat};
         // Risk: extensometer via its device EWS; inclinometer via worst inclinometer
@@ -2949,6 +2968,9 @@
       if(!ok) return;
       await loadAll();
       subscribeEws();
+      // Live wall-clock: tick every second so the header time is true real-time.
+      updateClock();
+      setInterval(updateClock, 1000);
       // Egress saver: only poll when tab is visible; refresh immediately when user returns.
       // In live mode poll every 30s; otherwise every 2 min.
       setInterval(()=>{
