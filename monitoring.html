@@ -57,12 +57,16 @@
 
     .app{display:flex;height:100vh;width:100vw}
     .sidebar{
-      width:238px;flex:0 0 238px;
-      background:linear-gradient(180deg, rgba(8,26,45,.98) 0%, rgba(5,18,32,.98) 100%);
-      border-right:1px solid rgba(148,163,184,.10);
+      position:fixed;top:0;left:0;bottom:0;z-index:200;width:240px;
+      background:linear-gradient(180deg, rgba(8,26,45,.99) 0%, rgba(5,18,32,.99) 100%);
+      border-right:1px solid rgba(148,163,184,.12);
       padding:14px 12px;
-      display:flex;flex-direction:column;gap:14px;
+      display:flex;flex-direction:column;gap:14px;overflow-y:auto;
+      transform:translateX(-100%);transition:transform .22s ease;
     }
+    .sidebar.open{transform:translateX(0);box-shadow:6px 0 40px rgba(0,0,0,.55)}
+    .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:190;opacity:0;pointer-events:none;transition:opacity .2s ease}
+    .scrim.show{opacity:1;pointer-events:auto}
     .brand{
       display:flex;align-items:center;gap:10px;
       padding:10px 10px;border-radius:14px;
@@ -169,17 +173,7 @@
     /* Clickable card — used on Overview for drill-down into detail tabs */
     .card.clickable{cursor:pointer;transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease}
     .card.clickable:hover{transform:translateY(-2px);border-color:rgba(59,130,246,.45);box-shadow:0 18px 36px rgba(2,8,20,.45)}
-    .card.clickable::after{
-      content:'';position:absolute;right:12px;top:12px;width:18px;height:18px;border-radius:50%;
-      background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.45);
-      opacity:0;transition:opacity .12s ease;
-    }
-    .card.clickable:hover::after{opacity:1}
-    .card.clickable .more-arrow{
-      position:absolute;right:14px;top:13px;font-size:13px;line-height:1;color:#bfdbfe;
-      opacity:.4;pointer-events:none;font-weight:900;transition:opacity .12s ease, transform .12s ease;z-index:1;
-    }
-    .card.clickable:hover .more-arrow{opacity:1;transform:translateX(2px)}
+    .card.clickable .more-arrow{display:none}
     .card-hd{
       padding:10px 12px 0;
       display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -233,11 +227,11 @@
 
     .kpi-grid{
       display:grid;
-      grid-template-columns:repeat(6, 1fr);
-      gap:10px;
+      grid-template-columns:repeat(7, 1fr);
+      gap:8px;
     }
     @media(max-width:1280px){
-      .kpi-grid{grid-template-columns:repeat(3,1fr)}
+      .kpi-grid{grid-template-columns:repeat(4,1fr)}
       body{overflow:auto} /* fallback utk layar kecil */
       .page{overflow:visible}
     }
@@ -246,6 +240,13 @@
     .kpi-sub{font-size:11px;color:var(--mut2);margin-top:4px;line-height:1.25}
     .kpi-tag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--mut2)}
     .dot{width:8px;height:8px;border-radius:999px;background:var(--c);display:inline-block}
+    /* Tighter typography for the 7-up KPI row */
+    .kpi-grid .card-bd{padding:8px 10px 10px}
+    .kpi-grid .card-hd{padding:8px 10px 0}
+    .kpi-grid .kpi-val{font-size:19px}
+    .kpi-grid .kpi-sub{font-size:9.5px;margin-top:2px}
+    .kpi-grid .kpi-tag{margin-top:4px}
+    .kpi-grid .card-hd .t{font-size:8.5px}
 
     .dash{
       flex:1;
@@ -462,7 +463,7 @@
     .live-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#22c55e;font-weight:900;letter-spacing:.05em}
 
     /* Hamburger toggle — hidden on desktop */
-    .ham{display:none;border:none;background:transparent;color:#e5e7eb;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1}
+    .ham{display:block;border:none;background:transparent;color:#e5e7eb;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1}
 
     /* ===== MOBILE ≤768px ===== */
     @media(max-width:768px){
@@ -548,7 +549,7 @@
     const RC = { Low:getCss('--t-low'), Medium:getCss('--t-med'), High:getCss('--t-high'), 'Very High':getCss('--t-vh') };
     const EEWS_C = { LV1:RC.Low, LV2:RC.Medium, LV3:RC.High, LV4:RC['Very High'] };
     const EWS_COLORS = { HIJAU:'#22c55e', KUNING:'#eab308', JINGGA:'#f97316', MERAH:'#ef4444' };
-    const EWS_LABELS = { HIJAU:'AMAN', KUNING:'WASPADA', JINGGA:'SIAGA', MERAH:'DARURAT' };
+    const EWS_LABELS = { HIJAU:'Low', KUNING:'Medium', JINGGA:'High', MERAH:'Very High' };
 
     const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null, incFrom:null, incTo:null, carouselOn:false };
     let DATA = {};
@@ -886,9 +887,9 @@
 
     function overallStatus(metrics){
       // Meniru gaya "NORMAL" seperti referensi
-      if(metrics.critical>0 || metrics.riskIndex>=70) return {t:'WASPADA', c:RC['Very High'], sub:'Critical condition detected'};
-      if(metrics.totalAlerts>0 || metrics.riskIndex>=40) return {t:'PERHATIAN', c:RC.High, sub:'Attention required on triggered points'};
-      return {t:'NORMAL', c:RC.Low, sub:'All monitored parameters within normal range'};
+      if(metrics.critical>0 || metrics.riskIndex>=70) return {t:'Very High', c:RC['Very High'], sub:'Critical condition detected'};
+      if(metrics.totalAlerts>0 || metrics.riskIndex>=40) return {t:'High', c:RC.High, sub:'Attention required on triggered points'};
+      return {t:'Low', c:RC.Low, sub:'All monitored parameters within normal range'};
     }
 
     function tpl(){
@@ -928,16 +929,19 @@
               <button class="btn" onclick="exportDashboard()">Export Report</button>
             </div>
           </aside>
+          <div class="scrim" onclick="closeSidebar()"></div>
 
           <main class="main">
             <div class="topbar">
               <button class="ham" onclick="toggleSidebar()">☰</button>
               <div class="logo">&#9650;</div>
-              <b style="font-size:13px;letter-spacing:.04em">Geotech Monitoring</b>
-              <div class="sub" id="modeLbl"></div>
+              <div style="line-height:1.12">
+                <b style="font-size:13px;letter-spacing:.03em">Geotech Monitoring</b>
+                <div class="sub" id="modeLbl" style="font-size:10px;margin:0">Executive Dashboard</div>
+              </div>
+              <b id="siteStat" style="display:none">—</b>
               <div class="spacer"></div>
               <span class="chip" id="liveChip"><span class="dot" style="--c:#22c55e;animation:${needsRealtime()?'pulse 2s infinite':'none'}"></span> LIVE · ${needsRealtime()?'RT':'2m'}</span>
-              <span class="chip"><span class="dot" style="--c:${RC.Low}"></span> Status: <b id="siteStat">—</b></span>
               <span class="chip">🕒 <b id="tsLbl">—</b></span>
               <span class="carousel" title="Putar otomatis antar dashboard (20s)">
                 <button class="btn-ghost xs" onclick="carouselGo(-1)">‹</button>
@@ -1030,22 +1034,22 @@
           <div class="card" title="Slope Stability Index — composite EWS + inspeksi + hujan">
             <div class="card-hd"><div class="t">Slope Stability Index</div><div class="ic">◴</div></div>
             <div class="card-bd" style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <div style="position:relative;width:120px;height:66px">
+              <div style="position:relative;width:104px;height:54px">
                 <canvas id="ssiGauge"></canvas>
-                <div style="position:absolute;left:0;right:0;bottom:0;text-align:center">
-                  <div class="kpi-val" id="kSsi" style="font-size:22px;line-height:1">—</div>
-                  <div class="kpi-tag" style="justify-content:center"><b id="kSsiLbl">—</b></div>
+                <div style="position:absolute;left:0;right:0;bottom:-2px;text-align:center">
+                  <div class="kpi-val" id="kSsi" style="font-size:18px;line-height:1">—</div>
+                  <div class="kpi-tag" style="justify-content:center;font-size:10px"><b id="kSsiLbl">—</b></div>
                 </div>
               </div>
-              <div class="kpi-sub">Based on last 24h data</div>
+              <div class="kpi-sub" style="font-size:9px">Based on last 24h</div>
             </div>
           </div>
 
           <div class="card clickable" onclick="setView('inspection')" title="Lihat detail di Inspection Data">
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Total Risk Level</div><div class="ic">◔</div></div>
-            <div class="card-bd" style="display:flex;gap:10px;align-items:center">
-              <div style="width:62px;height:62px"><canvas id="riskDonut"></canvas></div>
+            <div class="card-bd" style="display:flex;gap:8px;align-items:center">
+              <div style="width:50px;height:50px;flex:none"><canvas id="riskDonut"></canvas></div>
               <div style="min-width:0">
                 <div class="kpi-val"><span id="kRiskIdx">—</span></div>
                 <div class="kpi-tag"><span class="dot" id="kRiskDot" style="--c:${RC.High}"></span><b id="kRiskLbl">—</b></div>
@@ -1059,12 +1063,10 @@
             <div class="card-hd"><div class="t">Active Alerts</div><div class="ic">⚠</div></div>
             <div class="card-bd">
               <div class="kpi-val" id="kAlerts">—</div>
-              <div class="kpi-tag">
-                <span class="dot" style="--c:${RC.High}"></span> <span id="kWarn">0 Warning</span>
-                <span style="width:8px"></span>
-                <span class="dot" style="--c:${RC.Medium}"></span> <span id="kWatch">0 Watch</span>
-                <span style="width:8px"></span>
-                <span class="dot" style="--c:${RC['Very High']}"></span> <span id="kCritical">0 Critical</span>
+              <div class="kpi-tag" style="flex-direction:column;align-items:flex-start;gap:2px;font-size:10px">
+                <span><span class="dot" style="--c:${RC['Very High']}"></span> <span id="kCritical">0 Critical</span></span>
+                <span><span class="dot" style="--c:${RC.High}"></span> <span id="kWarn">0 Warning</span></span>
+                <span><span class="dot" style="--c:${RC.Medium}"></span> <span id="kWatch">0 Watch</span></span>
               </div>
             </div>
           </div>
@@ -1082,11 +1084,11 @@
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Rain Hours</div><div class="ic">🌧️</div></div>
             <div class="card-bd">
-              <div style="display:flex;gap:14px;flex-wrap:wrap">
-                <div><div class="kpi-val" id="rh1" style="font-size:22px">—</div><div class="kpi-sub">Today</div></div>
-                <div><div class="kpi-val" id="rh7" style="font-size:22px">—</div><div class="kpi-sub">7 days</div></div>
-                <div><div class="kpi-val" id="rh30" style="font-size:22px">—</div><div class="kpi-sub">30 days</div></div>
-                <div><div class="kpi-val" id="rhM" style="font-size:22px">—</div><div class="kpi-sub">This month</div></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px">
+                <div><div class="kpi-val" id="rh1" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">Today</div></div>
+                <div><div class="kpi-val" id="rh7" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">7d</div></div>
+                <div><div class="kpi-val" id="rh30" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">30d</div></div>
+                <div><div class="kpi-val" id="rhM" style="font-size:16px">—</div><div class="kpi-sub" style="font-size:9px">Month</div></div>
               </div>
             </div>
           </div>
@@ -2127,7 +2129,7 @@
 
       const page = document.getElementById('page');
       page.classList.add('scroll');
-      document.getElementById('modeLbl').textContent = (STATE.view==='overview') ? 'Decision view' : 'Analysis view';
+      document.getElementById('modeLbl').textContent = ({overview:'Executive Dashboard',trends:'Instrument Dashboard',inspection:'Inspection Dashboard',instrument:'Extensometer',inclinometer:'Inclinometer',vwp:'VWP',aws:'AWS / Weather'}[STATE.view]||'Dashboard');
 
       if(STATE.view==='overview'){
         page.innerHTML = overviewLayout();
@@ -2356,14 +2358,15 @@
         const c = EWS_COLORS[a.to_level] || RC.Low;
         const lvLbl = EWS_LABELS[a.to_level] || a.to_level;
         const nm = (a.device_name||a.external_device_id||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        const toLbl = EWS_LABELS[a.to_level] || a.to_level;
+        const fromLbl = EWS_LABELS[a.from_level] || a.from_level;
         const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/hari` : '';
         const vr = a.velocity_ratio!=null ? ` · VR ${fmt(a.velocity_ratio,2)}` : '';
         latestAlerts.push({
-          ttl: `${nm} ${up?'naik':'turun'} → ${a.to_level}`,
-          sev: up ? (a.to_level==='MERAH'?'Critical':a.to_level==='JINGGA'?'Siaga':'Waspada')
-                  : `Turun (${lvLbl})`,
+          ttl: `${nm} ${up?'naik':'turun'} → ${toLbl}`,
+          sev: up ? 'Naik' : 'Turun',
           c: c,
-          msg: `${a.from_level} → ${a.to_level} · ${vd}${vr}`,
+          msg: `${fromLbl} → ${toLbl} · ${vd}${vr}`,
           tm: a.evaluated_at ? new Date(a.evaluated_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'
         });
       });
@@ -2793,8 +2796,8 @@
     }
     window.carouselGo=carouselGo; window.carouselToggle=carouselToggle;
 
-    function toggleSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.toggle('open'); }
-    function closeSidebar(){ const s=document.querySelector('.sidebar'); if(s) s.classList.remove('open'); }
+    function toggleSidebar(){ const s=document.querySelector('.sidebar'), sc=document.querySelector('.scrim'); if(s) s.classList.toggle('open'); if(sc) sc.classList.toggle('show', !!(s&&s.classList.contains('open'))); }
+    function closeSidebar(){ const s=document.querySelector('.sidebar'), sc=document.querySelector('.scrim'); if(s) s.classList.remove('open'); if(sc) sc.classList.remove('show'); }
     window.setView=setView;
     window.toggleSidebar=toggleSidebar;
     window.renderExt=renderExt;
