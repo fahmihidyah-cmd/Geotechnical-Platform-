@@ -281,6 +281,11 @@
     .exec-alerts{ grid-column:3; grid-row:1; }
     .exec-bottom{ grid-column:2 / span 2; grid-row:2; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
     .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    /* Monitoring dashboard: 4 charts stacked to fill one screen, shared timeline */
+    .mon-stack{display:flex;flex-direction:column;gap:10px;height:calc(100vh - 150px);min-height:600px}
+    .mon-stack>.card{flex:1;min-height:0;display:flex;flex-direction:column}
+    .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:6px 10px 8px}
+    .mon-stack canvas{position:absolute;inset:6px 10px 8px}
     .exec-grid > .card{display:flex;flex-direction:column;min-height:0}
     .exec-grid > .card > .card-bd{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
     .exec-grid .alert-list{flex:1;min-height:0;overflow-y:auto;padding-right:5px}
@@ -391,7 +396,7 @@
     .trend-dn{color:var(--red);font-weight:900}
     .trend-st{color:#cbd5e1;font-weight:900}
 
-    .instruments{display:flex;flex-direction:column;gap:5px}
+    .instruments{display:flex;flex-direction:column;gap:6px;flex:1;justify-content:space-between;min-height:0}
     .inst{
       padding:6px 10px;border-radius:10px;
       background:rgba(2,6,23,.18);
@@ -1007,9 +1012,8 @@
               </div>
               <b id="siteStat" style="display:none">—</b>
               <div class="spacer"></div>
-              <span class="chip" id="liveChip"><span class="dot" style="--c:#22c55e;animation:${needsRealtime()?'pulse 2s infinite':'none'}"></span> LIVE · ${needsRealtime()?'RT':'2m'}</span>
               <span class="chip" title="Current local time">🕒 <b id="tsLbl">—</b></span>
-              <span class="chip" id="dataAgeChip" title="Age of the most recent sensor reading">📡 <b id="dataAge">—</b></span>
+              <span class="chip" id="dataAgeChip" title="Age of the most recent sensor reading">📡 Data <b id="dataAge">—</b></span>
               <span class="carousel" title="Putar otomatis antar dashboard (20s)">
                 <button class="btn-ghost xs" onclick="carouselGo(-1)">‹</button>
                 <b id="carName" style="font-size:11px;min-width:84px;text-align:center;display:inline-block"></b>
@@ -1203,7 +1207,7 @@
               </div>
             </div>
 
-            <div class="card clickable" onclick="setView('trends')">
+            <div class="card clickable" onclick="setView('trends')" style="flex:1;min-height:0">
               <span class="more-arrow">→</span>
               <div class="card-hd"><div class="t">Instrument Health Summary</div><div class="ic">🧩</div></div>
               <div class="card-bd"><div class="instruments" id="instHealth"></div></div>
@@ -1310,82 +1314,71 @@
             return `<tr><td>${esc(s.sensor_name)}</td><td>${s.kind==='extensometer'?'Extensometer':'AWS'}</td><td><b>${fmt(s.avg_7d,2)}</b> ${esc(u)}</td><td>${fmt(s.min_7d,2)}</td><td>${fmt(s.max_7d,2)}</td><td>${s.n_7d||0}</td></tr>`;}).join('')}
           </tbody></table></div></div>`;
     }
+    // ── Monitoring dashboard: stacked charts on ONE shared 7-day timeline so a
+    // rainfall burst or earthquake can be visually correlated with instrument
+    // spikes. Titles only; no extra commentary. ──
     function instrumentView(){
-      const ext=groupBySensor(DATA.ext7||[]);
-      const extKeys=Object.keys(ext);
-      const extCards = extKeys.length ? extKeys.map((k,i)=>`
-        <div class="card"><div class="card-hd"><div class="t">📏 ${esc(k)}</div><div class="t" id="extrate_${i}" style="color:#9fb3cf"></div></div>
-          <div class="card-bd" style="height:180px"><canvas id="extc_${i}"></canvas></div></div>`).join('')
-        : `<div class="card"><div class="card-bd" style="color:var(--mut2)">Belum ada data extensometer 7 hari.</div></div>`;
-      const awsCards = `
-        <div class="card"><div class="card-hd"><div class="t">🌧️ Curah Hujan (menit & jam)</div></div><div class="card-bd" style="height:180px"><canvas id="awsRain"></canvas></div></div>
-        <div class="card"><div class="card-hd"><div class="t">🌡️ Suhu & Kelembapan</div></div><div class="card-bd" style="height:180px"><canvas id="awsTH"></canvas></div></div>
-        <div class="card"><div class="card-hd"><div class="t">💨 Kecepatan Angin & Radiasi</div></div><div class="card-bd" style="height:180px"><canvas id="awsWR"></canvas></div></div>`;
-      const rs=DATA.rainSum||{}, rn=DATA.rain||{};
-      const hidro = `
-        <div class="card-hd" style="padding:0 2px 2px"><div class="t">AWS — HIDROLOGI · DATABASE HUJAN (durasi · akumulasi · peak)</div></div>
-        <div class="card"><div class="card-bd">
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
-            ${miniKpi('Durasi hujan kini', rn.is_raining?((rn.ongoing_rain_minutes||0)+' mnt'):'Tidak hujan', '#38bdf8')}
-            ${miniKpi('Akumulasi hari ini', fmt(rs.today_mm,1)+' mm', '#22d3ee')}
-            ${miniKpi('Akumulasi 7 hari', fmt(rs.week_mm,1)+' mm', '#3b82f6')}
-            ${miniKpi('Akumulasi 30 hari', fmt(rs.month_mm,1)+' mm', '#6366f1')}
-            ${miniKpi('Peak menit (24j)', fmt(rs.peak_minute_24h_mm,2)+' mm', '#f59e0b')}
-            ${miniKpi('Peak jam (24j)', fmt(rs.peak_hour_24h_mm,1)+' mm/jam', '#f97316')}
-          </div>
-          <div style="margin-top:7px;font-size:10.5px;color:#9fb3cf">Menit hujan: hari ini <b>${rs.rain_minutes_today||0}</b> · 24 jam <b>${rs.rain_minutes_24h||0}</b>. ${(Number(rs.peak_hour_24h_mm)>0 && Number(rs.today_mm)===0)?'<span style="color:#f59e0b">⚠ Channel hujan/menit membaca 0 tetapi hujan/jam ada nilai — perlu verifikasi sensor.</span>':''}</div>
-          <div style="height:150px;margin-top:8px"><canvas id="rainDaily"></canvas></div>
-        </div></div>`;
-      return hidro + `
-        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">EXTENSOMETER — TREND 7 HARI · garis putus-putus = trendline (laju mm/hari)</div></div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${extCards}</div>
-        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">AWS / CUACA — TREND 7 HARI</div></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${awsCards}</div>
-        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">INCLINOMETER — TOP DISPLACEMENT 7 HARI (mm)</div></div>
-        <div class="card" style="overflow:hidden"><div class="card-bd" style="height:240px;padding:6px"><canvas id="incCombined"></canvas></div></div>
-        <div class="card-hd" style="padding:12px 2px 2px"><div class="t">VWP — PORE PRESSURE 7 HARI (kPa)</div></div>
-        <div class="card" style="overflow:hidden"><div class="card-bd" style="height:240px;padding:6px"><canvas id="instVwp"></canvas></div></div>`
-        + statsTable();
+      return `
+        <div style="font-size:10.5px;color:#9fb3cf;margin:0 2px 8px">Shared 7-day timeline · <span style="color:#f87171">┊ red dashed = earthquake</span> · look for instrument spikes aligned with rain or quakes.</div>
+        <div class="mon-stack">
+          <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall (mm)</div></div><div class="card-bd"><canvas id="monRain"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — WOC &amp; Water Intake (mm)</div></div><div class="card-bd"><canvas id="monExt"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)</div></div><div class="card-bd"><canvas id="monInc"></canvas></div></div>
+          <div class="card"><div class="card-hd"><div class="t">◎ VWP — Pore Pressure (kPa)</div></div><div class="card-bd"><canvas id="monVwp"></canvas></div></div>
+        </div>`;
     }
     function drawInstrumentCharts(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
-      const ext=groupBySensor(DATA.ext7||[]);
-      Object.keys(ext).forEach((k,i)=>{
-        const ms=multiSeries([{name:k,rows:ext[k],color:'#a78bfa'}]); addTrend(ms,'#fbbf24');
-        tsChart('extc_'+i,ms,'mm');
-        const st=seriesStats(ext[k]); const el=document.getElementById('extrate_'+i);
-        if(el&&st.mmPerDay!=null) el.textContent=(st.mmPerDay>=0?'+':'')+fmt(st.mmPerDay,3)+' mm/hari';
-      });
-      tsChart('awsRain', multiSeries([{name:'Hujan/menit (mm)',rows:byName(DATA.wx7,'rainfall minute'),color:'#38bdf8'},{name:'Hujan/jam (mm)',rows:byName(DATA.wx7,'rainfall hour'),color:'#1d4ed8'}]),'mm');
-      const th=multiSeries([{name:'Suhu (°C)',rows:byName(DATA.wx7,'temperature'),color:'#ef4444'},{name:'Kelembapan (%)',rows:byName(DATA.wx7,'humidity'),color:'#22d3ee'}]); addTrend(th,'#fbbf24'); tsChart('awsTH',th);
-      tsChart('awsWR', multiSeries([{name:'Angin (m/s)',rows:byName(DATA.wx7,'wind speed'),color:'#22c55e'},{name:'Radiasi (W/m²)',rows:byName(DATA.wx7,'radiation'),color:'#f97316'}]));
-      // Inclinometer combined top-displacement (reuse inc-tab renderer)
-      try{ drawCombinedIncChart(processInc(DATA.inc7||[])); }catch(e){}
-      // VWP pore-pressure multi-line
-      try{
-        const cvv=document.getElementById('instVwp');
-        if(cvv && window.Chart){
-          const vwp=processVwp(DATA.vwp7||[]);
-          const pal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
-          const series=[]; let ci=0;
-          for(const devId of Object.keys(vwp)){
-            const ch=vwp[devId].channels||{};
-            for(const k of Object.keys(ch)){ series.push({name:vwpChLabel(devId,k), rows:ch[k], color:pal[ci%pal.length]}); ci++; }
-          }
-          if(series.length) tsChart('instVwp', multiSeries(series), 'kPa');
-        }
-      }catch(e){}
+      if(!window.Chart) return;
+      const max=Date.now(), min=max-7*864e5;
+      const XY = rows => (rows||[]).map(r=>({x:new Date(r.ts).getTime(), y:+((r.value!=null)?r.value:r.a)}))
+                          .filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
+      // Earthquake markers shared across every chart (vertical dashed lines).
+      const eqList = (DATA.eq||[]).map(q=>({x:new Date(q.tanggal).getTime(), m:q.magnitude}))
+                      .filter(q=>isFinite(q.x) && q.x>=min && q.x<=max);
+      const eqPlugin = { id:'eqv', afterDatasetsDraw(chart){
+        const a=chart.chartArea, xs=chart.scales.x; if(!a||!xs) return;
+        eqList.forEach(q=>{ const px=xs.getPixelForValue(q.x); if(px<a.left||px>a.right) return;
+          const ctx=chart.ctx; ctx.save(); ctx.strokeStyle='rgba(248,113,113,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+          ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke(); ctx.restore(); }); } };
+      const monChart = (id, datasets, unit, type)=>{
+        const cv=document.getElementById(id); if(!cv) return;
+        charts[id]=new Chart(cv,{ type:type||'line', data:{datasets},
+          options:{responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
+            interaction:{mode:'index',intersect:false},
+            plugins:{ legend:{display:datasets.length>1, position:'top', labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8,usePointStyle:true}},
+              tooltip:{callbacks:{title:(it)=> it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}},
+            scales:{ x:{type:'linear', min, max, ticks:{color:'#9fb3cf',font:{size:8},maxTicksLimit:8,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}, grid:{color:'rgba(148,163,184,.07)'}},
+              y:{ticks:{color:'#9fb3cf',font:{size:9}}, grid:{color:'rgba(148,163,184,.10)'}, title:{display:!!unit,text:unit,color:'#9fb3cf',font:{size:9}}, beginAtZero:type==='bar'} } },
+          plugins:[eqPlugin] });
+      };
+      const line = (label,rows,color)=>({label, data:XY(rows), borderColor:color, backgroundColor:color, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
 
-      // Akumulasi hujan harian (bar)
-      const rd=DATA.rainDaily||[]; const cvd=document.getElementById('rainDaily');
-      if(cvd&&window.Chart){
-        charts['rainDaily']=new Chart(cvd,{type:'bar',
-          data:{labels:rd.map(d=>new Date(d.day).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})),
-            datasets:[{label:'Akumulasi (mm/hari)',data:rd.map(d=>d.total_mm),backgroundColor:'#38bdf8'}]},
-          options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
-            scales:{x:{ticks:{color:'#9fb3cf',font:{size:8}},grid:{display:false}},
-                    y:{beginAtZero:true,ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:true,text:'mm/hari',color:'#9fb3cf',font:{size:9}}}}}});
-      }
+      // 1) Rainfall (bars)
+      monChart('monRain', [{label:'Rainfall', data:XY(byName(DATA.wx7,'rainfall hour')), backgroundColor:'#38bdf8', borderColor:'#38bdf8', barThickness:3, maxBarThickness:6}], 'mm', 'bar');
+
+      // 2) Extensometer — one representative (largest-range) sensor per device
+      const extByDev={}; (DATA.ext7||[]).forEach(r=>{ const d=r.external_device_id; (extByDev[d]=extByDev[d]||{}); (extByDev[d][r.sensor_name]=extByDev[d][r.sensor_name]||[]).push(r); });
+      const extCols={'373':'#a78bfa','372':'#22d3ee'};
+      const extDs=[]; Object.keys(extByDev).forEach(d=>{ let best=null,br=-1;
+        Object.values(extByDev[d]).forEach(rs=>{ const vs=rs.map(x=>+x.value||0); const rng=Math.max(...vs)-Math.min(...vs); if(rng>br){br=rng;best=rs;} });
+        if(best) extDs.push(line(areaLabel(d), best, extCols[d]||'#a78bfa')); });
+      monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm');
+
+      // 3) Inclinometer — top displacement per node
+      const incDs=[]; const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
+      try{ const proc=processInc(DATA.inc7||[]); let ci=0;
+        for(const id of Object.keys(proc)){ const ts=proc[id].topSeries; if(!ts||!ts.length) continue;
+          const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id);
+          incDs.push(line(lbl, ts, incPal[ci%incPal.length])); ci++; } }catch(e){}
+      monChart('monInc', incDs.length?incDs:[line('—',[],'#f59e0b')], 'mm');
+
+      // 4) VWP — pore pressure per channel
+      const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
+      try{ const vwp=processVwp(DATA.vwp7||[]); let ci=0;
+        for(const devId of Object.keys(vwp)){ const ch=vwp[devId].channels||{};
+          for(const k of Object.keys(ch)){ vwpDs.push(line(vwpChLabel(devId,k), ch[k], vwpPal[ci%vwpPal.length])); ci++; } } }catch(e){}
+      monChart('monVwp', vwpDs.length?vwpDs:[line('—',[],'#22d3ee')], 'kPa');
     }
 
     // ===================== EXTENSOMETER & AWS TABS =====================
@@ -2216,7 +2209,7 @@
 
       const page = document.getElementById('page');
       page.classList.add('scroll');
-      document.getElementById('modeLbl').textContent = ({overview:'Executive Dashboard',trends:'Instrument Dashboard',inspection:'Inspection Dashboard',instrument:'Extensometer',inclinometer:'Inclinometer',vwp:'VWP',aws:'AWS / Weather'}[STATE.view]||'Dashboard');
+      document.getElementById('modeLbl').textContent = ({overview:'Executive Dashboard',trends:'Monitoring Dashboard',inspection:'Inspection Dashboard',instrument:'Extensometer',inclinometer:'Inclinometer',vwp:'VWP',aws:'AWS / Weather'}[STATE.view]||'Dashboard');
 
       if(STATE.view==='overview'){
         page.innerHTML = overviewLayout();
@@ -2338,7 +2331,7 @@
       setTxt('kWatchN', cKuning);
 
       document.getElementById('kActive').textContent = `${m.instOnline} / ${m.instTotal}`;
-      document.getElementById('kActiveSub').textContent = (m.instTotal?`${Math.round((m.instOnline/m.instTotal)*100)}% of instruments reporting`:'—');
+      document.getElementById('kActiveSub').textContent = (m.instTotal?`${Math.round((m.instOnline/m.instTotal)*100)}% reporting · updated ${agoEn(m.newest)}`:'—');
 
       const rh = DATA.rainHours||{};
       document.getElementById('rh1').textContent  = (rh.hours_today!=null?rh.hours_today:'—')+' h';
@@ -2453,6 +2446,25 @@
         </tr>`).join('');
 
       const latestAlerts = [];
+      // Data-outage alerts: flag instruments that stopped reporting. Continuous
+      // instruments (AWS/extensometer) alert after 20 min; batch instruments
+      // (inclinometer/VWP, pulled every 15 min) after 3 h — a strong signal the
+      // device or its network link is down.
+      const OUTAGE = { weather:{lbl:'AWS / Rainfall', max:20}, extensometer:{lbl:'Extensometer', max:20},
+                       inclinometer:{lbl:'Inclinometer', max:180}, piezometer:{lbl:'VWP / Piezometer', max:180} };
+      Object.entries(OUTAGE).forEach(([kind,cfg])=>{
+        const h = (m.devHealth||{})[kind]; if(!h || !h.newest) return;
+        const mins = (Date.now()-new Date(h.newest).getTime())/60000;
+        if(mins > cfg.max){
+          latestAlerts.push({
+            ttl: `⚠ ${cfg.lbl} — no data`,
+            lvl: mins>cfg.max*6?'High':'Medium', lvlC: mins>cfg.max*6?RC.High:RC.Medium,
+            c: mins>cfg.max*6?RC.High:RC.Medium,
+            msg: `No reading for ${agoEn(h.newest).replace(' ago','')} — possible device/network outage`,
+            tm: new Date(h.newest).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
+          });
+        }
+      });
       // EWS trigger crossings (point 5): every UP/DOWN crossing per instrument
       (DATA.ewsAlerts||[]).forEach(a=>{
         const up = a.direction==='UP';
@@ -2611,9 +2623,11 @@
           const ms = pdev.filter(d=>d.category==='extensometer' && String(d.name||'').toLowerCase().includes(String(p.remark||'').toLowerCase()));
           lvl = ms.length ? worstOf(ms) : 'Low';
         } else if(ext){
-          // inclinometer (and any device-linked instrument): risk from its own EWS device
+          // Any telemetered (device-linked) instrument — inclinometer & VWP. Use its
+          // own EWS device risk when present; VWP has no velocity EWS yet, so a live
+          // device with no trigger defaults to Low (green), consistent with inclino.
           const ms = pdev.filter(d=>String(d.name||'').includes(String(ext)));
-          if(ms.length) lvl = worstOf(ms);
+          lvl = ms.length ? worstOf(ms) : 'Low';
         }
         const hasRisk = lvl!=null;
         const col = hasRisk ? (RC[lvl]||RC.Low) : '#94a3b8';
@@ -2926,7 +2940,7 @@
     // ── Dashboard carousel (auto 20s + manual) ──
     const DASHBOARDS = [
       {view:'overview', name:'Executive'},
-      {view:'trends',   name:'Instrument'},
+      {view:'trends',   name:'Monitoring'},
       {view:'inspection', name:'Inspection'},
     ];
     let _carouselTimer = null;
