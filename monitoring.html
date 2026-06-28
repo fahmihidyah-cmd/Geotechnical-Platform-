@@ -391,21 +391,17 @@
     .trend-dn{color:var(--red);font-weight:900}
     .trend-st{color:#cbd5e1;font-weight:900}
 
-    .instruments{
-      display:grid;
-      grid-template-columns:repeat(5,1fr);
-      gap:8px;
-    }
+    .instruments{display:flex;flex-direction:column;gap:8px}
     .inst{
-      padding:10px 10px;border-radius:14px;
+      padding:9px 11px;border-radius:12px;
       background:rgba(2,6,23,.18);
       border:1px solid rgba(148,163,184,.12);
-      display:flex;flex-direction:column;gap:6px;
-      min-width:0;
+      display:flex;align-items:center;gap:11px;min-width:0;
     }
-    .inst .nm{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#9fb3cf;font-weight:900}
-    .inst .v{font-size:14px;font-weight:950}
-    .inst .s{font-size:11px;color:var(--mut2)}
+    .inst .inst-ico{font-size:16px;width:22px;text-align:center;flex:none}
+    .inst .nm{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#cbd5e1;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .inst .v{font-size:15px;font-weight:950;flex:none}
+    .inst .s{font-size:10px;flex:none;min-width:62px;text-align:right}
 
     .two-stack{display:flex;flex-direction:column;gap:10px;min-height:0}
     .alerts-stack{display:grid;grid-template-rows: 0.46fr 0.54fr;gap:10px;min-height:0}
@@ -462,6 +458,8 @@
       color:#fff;font-weight:950;font-size:11px;
     }
     .halo{filter:drop-shadow(0 12px 20px rgba(2,6,23,.5))}
+    .minst{display:flex;align-items:center;justify-content:center;line-height:1;font-weight:900;
+      text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px rgba(0,0,0,.9);cursor:pointer;}
     select.flt,input.flt{font-size:12px;padding:6px 8px;border-radius:9px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.30);color:#e5e7eb}
     .btn-ghost.xs{padding:4px 8px;font-size:10px;margin-left:3px}
     .btn-ghost.on{background:rgba(59,130,246,.38);border-color:rgba(59,130,246,.55);color:#fff}
@@ -590,6 +588,18 @@
     const GAUGE_LEN = 3000;
     const INC_NODES = [{id:'108052',label:'WOC-02 INC'},{id:'108102',label:'WDN-2 INC-01'},{id:'108164',label:'WDN-2 INC-02'},{id:'108403',label:'WOC-01 INC'}];
     const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
+
+    // Resolve an instrument's friendly LOCATION label from its EWS device name.
+    // EWS names inclinometers/piezometers as "INC-108052" / "VWP-181348" (node id);
+    // map those to the survey label. Extensometers already carry a location name.
+    function instLocLabel(name){
+      const s = String(name||'');
+      let m = /INC-(\d+)/i.exec(s);
+      if(m){ const n=INC_NODES.find(x=>x.id===m[1]); return n?n.label:s; }
+      m = /VWP-(\d+)/i.exec(s);
+      if(m){ const n=VWP_NODES.find(x=>x.id===m[1]); return n?n.label:s; }
+      return s.replace(/Extensometer\s*/i,'').replace(/\s*\(.*?\)\s*/,'').trim() || s;
+    }
 
     function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
     function num(x){ const n = parseFloat(x); return isNaN(n) ? null : n; }
@@ -767,6 +777,7 @@
         sb.from('v_inspection_risk_areas').select('*'),
         sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
         sb.rpc('instrument_series_json',{p_kind:'piezometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
+        sb.from('v_instrument_points').select('*'),
       ]) : null;
 
       const ewsP = sb.rpc('ews_latest');
@@ -785,6 +796,7 @@
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
         DATA.riskAreas=heavyR[7].data||[];
         DATA.inc7=heavyR[8].data||[]; DATA.vwp7=heavyR[9].data||[];
+        DATA.points=heavyR[10].data||[];
         lastHeavy=nowMs;
       }
       if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
@@ -1058,13 +1070,11 @@
 
           <div class="card" title="Slope Stability Index — composite EWS + inspeksi + hujan">
             <div class="card-hd"><div class="t">Slope Stability Index</div><div class="ic">◴</div></div>
-            <div class="card-bd" style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <div style="position:relative;width:104px;height:54px">
-                <canvas id="ssiGauge"></canvas>
-                <div style="position:absolute;left:0;right:0;bottom:-2px;text-align:center">
-                  <div class="kpi-val" id="kSsi" style="font-size:18px;line-height:1">—</div>
-                  <div class="kpi-tag" style="justify-content:center;font-size:10px"><b id="kSsiLbl">—</b></div>
-                </div>
+            <div class="card-bd" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:108px;height:54px"><canvas id="ssiGauge"></canvas></div>
+              <div style="text-align:center;line-height:1.15">
+                <div class="kpi-val" id="kSsi" style="font-size:19px;line-height:1">—</div>
+                <div class="kpi-tag" style="justify-content:center;font-size:10px;margin-top:2px"><b id="kSsiLbl">—</b></div>
               </div>
               <div class="kpi-sub" style="font-size:9px">Based on last 24h</div>
             </div>
@@ -1115,7 +1125,7 @@
                   <div class="kpi-sub" style="font-size:10px">This month</div>
                 </div>
               </div>
-              <div style="display:flex;gap:14px;margin-top:6px">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);margin-top:8px;text-align:center">
                 <div><div class="kpi-val" id="rh1" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">Today</div></div>
                 <div><div class="kpi-val" id="rh7" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">7 days</div></div>
                 <div><div class="kpi-val" id="rh30" style="font-size:14px">—</div><div class="kpi-sub" style="font-size:8.5px">30 days</div></div>
@@ -1177,10 +1187,16 @@
               <div class="legend" id="mapLegend">
                 <div class="lg" onclick="document.getElementById('mapLegend').classList.toggle('collapsed')"><span>Legend</span><span class="tg">▾</span></div>
                 <div class="body">
+                  <div class="tg" style="margin:1px 0 2px">Risk (colour)</div>
                   <div class="it"><span class="sw" style="--c:${RC['Very High']}"></span> Very High</div>
                   <div class="it"><span class="sw" style="--c:${RC.High}"></span> High</div>
                   <div class="it"><span class="sw" style="--c:${RC.Medium}"></span> Medium</div>
                   <div class="it"><span class="sw" style="--c:${RC.Low}"></span> Low</div>
+                  <div class="tg" style="margin:5px 0 2px;border-top:1px solid rgba(148,163,184,.18);padding-top:4px">Instrument (shape)</div>
+                  <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">➤</span> Inclinometer</div>
+                  <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">◆</span> Extensometer</div>
+                  <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">▲</span> Prism</div>
+                  <div class="it"><span style="width:14px;text-align:center;color:#cbd5e1">★</span> RTS</div>
                 </div>
               </div>
             </div>
@@ -2328,10 +2344,10 @@
       // expected cadence; otherwise it is counted as down.
       const sensors = DATA.sensors||[];
       const HEALTH_TYPES = [
-        {k:'AWS / Rainfall', kind:'weather',       stale:90},
-        {k:'Extensometer',   kind:'extensometer',  stale:180},
-        {k:'Inclinometer',   kind:'inclinometer',  stale:180},
-        {k:'VWP / Piezometer',kind:'piezometer',   stale:180},
+        {k:'AWS / Rainfall', kind:'weather',       stale:90,  ic:'☁'},
+        {k:'Extensometer',   kind:'extensometer',  stale:180, ic:'📏'},
+        {k:'Inclinometer',   kind:'inclinometer',  stale:180, ic:'∠'},
+        {k:'VWP / Piezometer',kind:'piezometer',   stale:180, ic:'◎'},
       ];
       const health = HEALTH_TYPES.map(t=>{
         const byDev = {};
@@ -2346,14 +2362,15 @@
         const down = total - online;
         const status = total===0 ? 'No data' : down===0 ? 'Active' : online===0 ? 'Down' : 'Degraded';
         const col = total===0 ? '#94a3b8' : down===0 ? RC.Low : online===0 ? RC['Very High'] : RC.High;
-        return {k:t.k, online, total, down, status, col};
+        return {k:t.k, ic:t.ic, online, total, down, status, col};
       });
       const instHealthEl = document.getElementById('instHealth');
       if(instHealthEl) instHealthEl.innerHTML = health.map(h=>`
         <div class="inst">
+          <span class="inst-ico">${h.ic}</span>
           <div class="nm">${esc(h.k)}</div>
-          <div class="v">${h.online} / ${h.total}</div>
-          <div class="s" style="color:${h.col}">● ${esc(h.status)}${h.down>0?` · ${h.down} down`:''}</div>
+          <div class="v">${h.online}/${h.total}</div>
+          <div class="s" style="color:${h.col}">● ${esc(h.status)}${h.down>0?` (${h.down} down)`:''}</div>
         </div>`).join('');
 
       // Parameter monitoring latest (ambil yang tersedia; lainnya placeholder)
@@ -2526,37 +2543,52 @@
 
       Object.values(overlays).forEach(g=>g.clearLayers());
 
-      // Instrument markers by device (numbered pins)
-      const sensors = DATA.sensors||[];
-      const devs = {};
-      sensors.forEach(s=>{
-        if(s.lat && s.lng) devs[s.external_device_id] = {lat:+s.lat, lng:+s.lng, id:s.external_device_id};
-      });
-
       // Inspection latest per location
       const latestIns = {};
       (DATA.insp||[]).forEach(d=>{ if(!latestIns[d.location_id]) latestIns[d.location_id]=d; });
       const locMap = {}; (DATA.locs||[]).forEach(l=>locMap[l.id]=l);
 
       const points = [];
-      let idx = 1;
 
-      Object.values(devs).forEach(d=>{
-        const devSensors = sensors.filter(s=>s.external_device_id===d.id && s.kind==='extensometer');
-        const lvl = devSensors.length ? devSensors.reduce((mx,s)=>{
-          const ls = extStatus(s);
-          return riskScoreFromLevel(ls) > riskScoreFromLevel(mx) ? ls : mx;
-        }, 'Low') : 'Low';
-        const col = RC[lvl] || RC.Low;
-
-        points.push([d.lat,d.lng]);
+      // ── Instrument markers from surveyed coordinates (v_instrument_points) ──
+      // Symbology encodes INSTRUMENT TYPE; colour encodes RISK level.
+      const pdev = (DATA.ews&&DATA.ews.per_device)||[];
+      const engLvl = lv => EWS_LABELS[lv] || 'Low';
+      const worstOf = arr => arr.reduce((mx,d)=> riskScoreFromLevel(engLvl(d.trigger_level)) > riskScoreFromLevel(mx) ? engLvl(d.trigger_level) : mx, 'Low');
+      // Per-type glyph (vector arrow for inclinometer per request) + size.
+      const SYMB = {
+        inclinometer:{g:'➤',s:20,t:'Inclinometer'},
+        extensometer:{g:'◆',s:17,t:'Extensometer'},
+        prism:{g:'▲',s:13,t:'Prism'},
+        rts:{g:'★',s:17,t:'Robotic Total Station'},
+        piezometer:{g:'⬣',s:16,t:'VWP / Piezometer'},
+      };
+      (DATA.points||[]).forEach(p=>{
+        const lat=+p.lat, lng=+p.lng;
+        if(!isFinite(lat) || !isFinite(lng)) return;
+        const cat = p.category;
+        const sym = SYMB[cat] || {g:'●',s:14,t:cat};
+        // Risk: extensometer via its device EWS; inclinometer via worst inclinometer
+        // EWS level; survey-only instruments (prism/rts) have no automated EWS.
+        let lvl=null;
+        if(cat==='extensometer'){
+          const ms = pdev.filter(d=>d.category==='extensometer' && String(d.name||'').toLowerCase().includes(String(p.remark||'').toLowerCase()));
+          lvl = ms.length ? worstOf(ms) : 'Low';
+        } else if(cat==='inclinometer'){
+          const ms = pdev.filter(d=>d.category==='inclinometer');
+          lvl = ms.length ? worstOf(ms) : 'Low';
+        }
+        const hasRisk = lvl!=null;
+        const col = hasRisk ? (RC[lvl]||RC.Low) : '#94a3b8';
+        points.push([lat,lng]);
         if(lvl==='High' || lvl==='Very High'){
-          L.circle([d.lat,d.lng], { radius:220, color:col, fillColor:col, fillOpacity:0.14, weight:1, className:'halo' })
+          L.circle([lat,lng], { radius:200, color:col, fillColor:col, fillOpacity:0.14, weight:1, className:'halo' })
             .addTo(overlays.halo);
         }
-        const pin = L.divIcon({ className:'', html:`<div class="marker-pin" style="border-color:${col}">${idx++}</div>`, iconSize:[22,22], iconAnchor:[11,11] });
-        L.marker([d.lat,d.lng], { icon: pin })
-          .bindPopup(`<b>Instrumen dev ${esc(d.id)}</b><br>Trigger: <span style="color:${col};font-weight:950">${esc(lvl)}</span>`)
+        const pin = L.divIcon({ className:'', html:`<div class="minst" style="color:${col};font-size:${sym.s}px">${sym.g}</div>`, iconSize:[sym.s,sym.s], iconAnchor:[sym.s/2,sym.s/2] });
+        const riskTxt = hasRisk ? `<br>Risk: <span style="color:${col};font-weight:900">${esc(lvl)}</span>` : `<br><span style="color:#94a3b8">Survey instrument — no automated EWS</span>`;
+        L.marker([lat,lng], { icon: pin })
+          .bindPopup(`<b>${esc(p.name||sym.t)}</b><br><span style="color:#9fb3cf">${esc(sym.t)}</span>${riskTxt}`)
           .addTo(overlays.instruments);
       });
 
@@ -2731,7 +2763,8 @@
       fillInstCard('sparkRain', rain, '#38bdf8', 'bRainVal', 'bRainDelta', 'mm', true);
 
 
-      // Spiking-instrument badges (point 3): top-moving device per category from EWS
+      // Spiking-instrument badge: fastest-moving device per category from EWS.
+      // Shows the instrument LOCATION name + clear up/down/stable direction.
       const fillSpike = (elId, cat)=>{
         const el = document.getElementById(elId); if(!el) return;
         const devs = ((DATA.ews&&DATA.ews.per_device)||[]).filter(d=>d.category===cat);
@@ -2739,10 +2772,15 @@
         const t = devs.reduce((a,b)=>(Math.abs(b.velocity_mm_day||0)>Math.abs(a.velocity_mm_day||0))?b:a);
         const lv = t.trigger_level||'HIJAU';
         const c = EWS_COLORS[lv]||'#94a3b8';
-        const nm = (t.name||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        const nm = instLocLabel(t.name);
+        const v = +t.velocity_mm_day||0;
+        const dir = v>0.05 ? {a:'▲',w:'rising'} : v<-0.05 ? {a:'▼',w:'falling'} : {a:'→',w:'stable'};
+        const rate = fmt(Math.abs(v),2)+' mm/day';
+        const lvlTxt = EWS_LABELS[lv]||lv;
+        const tip = `Fastest-moving ${cat}: ${nm} — ${dir.w} ${rate} (${lvlTxt})`;
         el.innerHTML = (lv==='HIJAU')
-          ? `<span style="font-size:10px;color:#94a3b8">⤳ ${esc(nm)} ${fmt(t.velocity_mm_day,2)} mm/d</span>`
-          : `<span style="font-size:10px;font-weight:700;color:${c}">⚠ ${esc(nm)} · ${lv} · ${fmt(t.velocity_mm_day,2)} mm/d</span>`;
+          ? `<span style="font-size:10px;color:#94a3b8" title="${esc(tip)}">${dir.a} ${esc(nm)} · ${dir.w} ${esc(rate)}</span>`
+          : `<span style="font-size:10px;font-weight:700;color:${c}" title="${esc(tip)}">⚠ ${esc(nm)} · ${esc(lvlTxt)} · ${dir.a} ${dir.w} ${esc(rate)}</span>`;
       };
       fillSpike('spikeExt','extensometer');
       fillSpike('spikeInc','inclinometer');
