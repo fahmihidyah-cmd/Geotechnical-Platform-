@@ -2247,11 +2247,18 @@
     }
 
     function fillOverview(m, st){
-      // KPI
+      // KPI — Overall Status driven by EWS (single source of truth) with fallback
+      const ews = DATA.ews;
       const overallEl = document.getElementById('kOverall');
-      overallEl.textContent = st.t;
-      overallEl.style.color = st.c;
-      document.getElementById('kOverallSub').textContent = st.sub;
+      if(ews && ews.status){
+        overallEl.textContent = EWS_LABELS[ews.status] || ews.status;
+        overallEl.style.color = EWS_COLORS[ews.status] || st.c;
+        document.getElementById('kOverallSub').textContent = ews.tindakan || ews.alasan || st.sub;
+      } else {
+        overallEl.textContent = st.t;
+        overallEl.style.color = st.c;
+        document.getElementById('kOverallSub').textContent = st.sub;
+      }
 
       // Slope Stability Index gauge
       const ssiEl = document.getElementById('kSsi');
@@ -2265,10 +2272,20 @@
       document.getElementById('kRiskDot').style.setProperty('--c', m.riskLabel.c);
       document.getElementById('kRiskSub').textContent = `↑ ${Math.max(0, Math.round(m.riskIndex*0.06))} from last week`;
 
-      document.getElementById('kAlerts').textContent = m.totalAlerts;
-      document.getElementById('kWarn').textContent = `${m.warn} Warning`;
-      document.getElementById('kWatch').textContent = `${m.watch} Watch`;
-      document.getElementById('kCritical').textContent = `${m.critical} Critical`;
+      // Alerts KPI from EWS per-device levels (fallback to extensometer-derived)
+      const pdev = (ews && ews.per_device) || [];
+      let cMerah, cJingga, cKuning;
+      if(pdev.length){
+        cMerah = pdev.filter(d=>d.trigger_level==='MERAH').length;
+        cJingga = pdev.filter(d=>d.trigger_level==='JINGGA').length;
+        cKuning = pdev.filter(d=>d.trigger_level==='KUNING').length;
+      } else {
+        cMerah = m.critical; cJingga = m.warn; cKuning = m.watch;
+      }
+      document.getElementById('kAlerts').textContent = cMerah + cJingga + cKuning;
+      document.getElementById('kWarn').textContent = `${cJingga} Warning`;
+      document.getElementById('kWatch').textContent = `${cKuning} Watch`;
+      document.getElementById('kCritical').textContent = `${cMerah} Critical`;
 
       document.getElementById('kActive').textContent = `${m.onlineSensors} / ${m.totalSensors}`;
       document.getElementById('kActiveSub').textContent = (m.totalSensors?`${Math.round((m.onlineSensors/m.totalSensors)*100)}% Online`:'—');
