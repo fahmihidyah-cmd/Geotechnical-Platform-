@@ -797,7 +797,7 @@
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
-      else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('instrument_series',{p_kind:'piezometer',p_from:f,p_to:nowIso,p_every:ev}); }
+      else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('vwp_pressure_series',{p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
@@ -809,7 +809,8 @@
         sb.from('v_rain_hours').select('*'),
         sb.from('v_inspection_risk_areas').select('*'),
         sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
-        sb.rpc('instrument_series_json',{p_kind:'piezometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
+        sb.rpc('vwp_pressure_series',{p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
+        sb.rpc('inc_top_displacement_series',{p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
       ]) : null;
 
       // Static reference data (instrument coords + install baseline) changes almost
@@ -835,6 +836,7 @@
         DATA.ext7=heavyR[3].data||[]; DATA.wx7=heavyR[4].data||[]; DATA.awsStats=heavyR[5].data||[]; DATA.rainHours=(heavyR[6].data||[])[0]||{};
         DATA.riskAreas=heavyR[7].data||[];
         DATA.inc7=heavyR[8].data||[]; DATA.vwp7=heavyR[9].data||[];
+        DATA.incTop=heavyR[10].data||[];   // DB-computed cumulative top-displacement A/B (single source)
         lastHeavy=nowMs;
       }
       if(staticR){
@@ -1415,15 +1417,24 @@
         }); });
       monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [0,10]);
 
-      // 3) Inclinometer — cumulative top displacement per node, split Axis A / Axis B
+      // 3) Inclinometer — cumulative top displacement per node, split Axis A / Axis B.
+      // Source: DB RPC inc_top_displacement_series (single source of truth, install
+      // baseline + complete-profile QC). No client-side cumulative computation here.
       const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
       const incA=[], incB=[];
-      const incXY=(ts,key)=> ts.map(p=>({x:new Date(p.ts).getTime(), y:+p[key]})).filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
       const incLine=(lbl,data,col)=>({label:lbl, data, borderColor:col, backgroundColor:col, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
-      try{ const proc=processInc(DATA.inc7||[]); let ci=0;
-        for(const id of Object.keys(proc)){ const ts=proc[id].topSeries; if(!ts||!ts.length) continue;
+      (function(){
+        const byDev={};
+        (DATA.incTop||[]).forEach(r=>{ const id=String(r.external_device_id); const ax=r.axis;
+          const g=byDev[id]=byDev[id]||{A:[],B:[]}; if(g[ax]) g[ax].push({x:new Date(r.ts).getTime(), y:+r.value}); });
+        let ci=0;
+        Object.keys(byDev).sort().forEach(id=>{
           const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id); const col=incPal[ci%incPal.length];
-          incA.push(incLine(lbl, incXY(ts,'a'), col)); incB.push(incLine(lbl, incXY(ts,'b'), col)); ci++; } }catch(e){}
+          const A=byDev[id].A.filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
+          const B=byDev[id].B.filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
+          incA.push(incLine(lbl,A,col)); incB.push(incLine(lbl,B,col)); ci++;
+        });
+      })();
       // Symmetric y-range auto-fit to the data (≈30% headroom), floor ±10 mm so flat
       // data isn't exaggerated and isn't lost in a huge empty axis. A & B share the
       // same bound for direct comparison; expands automatically as displacement grows.
@@ -1912,15 +1923,9 @@
     }
 
     // ===================== VWP TAB =====================
-    // P = G × (R₀ − Rᵢ) [MPa] → × 1000 = kPa
-    // G = gauge factor, R₀ = initial reading (diluar air), Rᵢ = freqSqInDigit current
-    const VWP_CALIB = {
-      '181348': {1:{G:0.00028487,R0:8633.812572225},2:{G:0.00031447,R0:8790.359241316}},
-      '181361': {1:{G:0.00031458,R0:8607.6344904}},
-      '181404': {1:{G:0.00031999,R0:8567.065572025}},
-      '181456': {1:{G:0.00032190,R0:8534.215710244}},
-      '181461': {1:{G:0.00029662,R0:8454.102685836},2:{G:0.00029528,R0:8361.321644025},3:{G:0.00029528,R0:8567.065572025}},
-    };
+    // VWP calibration (G, R0) now lives in the DB (monitoring.vwp_calibration) and the
+    // kPa conversion + QC is done server-side (view v_vwp_pressure / RPC vwp_pressure_series).
+    // The front-end no longer calibrates — single source of truth in the database.
 
     // Koordinat instalasi VWP (mE, mN, depth m) — untuk peta nanti
     const VWP_COORDS = {
@@ -1942,31 +1947,20 @@
       return node.label;
     }
 
+    // Pore pressure (kPa) now comes pre-calibrated and QC-filtered from the DB
+    // (RPC vwp_pressure_series → view v_vwp_pressure). The front-end only reshapes
+    // into per-channel series for the charts — NO calibration here anymore.
     function processVwp(rows){
       const byDev={};
-      (rows||[]).forEach(r=>{(byDev[r.external_device_id]=byDev[r.external_device_id]||[]).push(r);});
-      const out={};
-      for(const devId of Object.keys(byDev)){
-        const all=byDev[devId];
-        const digitRows=all.filter(r=>r.sensor_name.startsWith('freqSqInDigit-'));
-        const tRows=all.filter(r=>r.sensor_name.startsWith('tInCelsius-'));
-        const channels={};
-        const calib=VWP_CALIB[devId];
-        digitRows.forEach(r=>{
-          const m=r.sensor_name.match(/Ch(\d+)/);
-          if(!m||!calib) return;
-          const chNum=parseInt(m[1]);
-          const cal=calib[chNum];
-          if(!cal) return;
-          const pKpa=cal.G*(cal.R0-r.value)*1000;
-          const chKey='p-'+devId+'-Ch'+chNum;
-          const row={...r, sensor_name:chKey, value:pKpa};
-          (channels[chKey]=channels[chKey]||[]).push(row);
-        });
-        const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        out[devId]={channels,latestTemp,pRows:Object.values(channels).flat()};
-      }
-      return out;
+      (rows||[]).forEach(r=>{
+        const devId=String(r.external_device_id); const ch=r.channel;
+        if(ch==null || r.value==null) return;
+        const d = byDev[devId] = byDev[devId] || {channels:{}, latestTemp:null, pRows:[]};
+        const chKey='p-'+devId+'-Ch'+ch;
+        (d.channels[chKey]=d.channels[chKey]||[]).push({ts:r.ts, value:+r.value, sensor_name:chKey});
+      });
+      for(const devId of Object.keys(byDev)) byDev[devId].pRows=Object.values(byDev[devId].channels).flat();
+      return byDev;
     }
 
     function vwpView(){
@@ -2868,15 +2862,19 @@
       const extRows = (DATA.ext7||[]).filter(r=>r && r.external_device_id && r.sensor_name);
       fillInstCard('sparkExt', extRows, '#a78bfa', 'bExtVal', 'bExtDelta', 'mm', false);
 
+      // Top displacement from the DB single-source series (A-axis), pick the most-moved node
       let incRows = [];
       try{
-        const incProc = processInc(DATA.inc7||[]); let best=null, bestAbs=-1;
-        for(const id of Object.keys(incProc)){
-          const tsr = incProc[id].topSeries; if(!tsr || !tsr.length) continue;
-          const la = Math.abs(tsr[tsr.length-1].a||0);
-          if(la>bestAbs){ bestAbs=la; best=tsr; }
+        const byDev={};
+        (DATA.incTop||[]).forEach(r=>{ if(r.axis!=='A') return; const id=String(r.external_device_id);
+          (byDev[id]=byDev[id]||[]).push({ts:r.ts, value:+r.value}); });
+        let best=null, bestAbs=-1;
+        for(const id of Object.keys(byDev)){
+          const s=byDev[id].slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts)); if(!s.length) continue;
+          const la=Math.abs(s[s.length-1].value||0);
+          if(la>bestAbs){ bestAbs=la; best=s; }
         }
-        if(best) incRows = best.map(p=>({ts:p.ts, value:p.a}));
+        if(best) incRows = best;
       }catch(e){}
       fillInstCard('sparkIp', incRows, '#f59e0b', 'bIncVal', 'bIncDelta', 'mm', false);
 
