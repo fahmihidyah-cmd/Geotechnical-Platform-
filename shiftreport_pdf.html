@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shift Monitoring Report — Geotech Monitoring</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<style>
+  :root{--ink:#111827;--mut:#6b7280;--line:#d1d5db;--navy:#0b1f3a;--blue:#1d4ed8;
+    --green:#16a34a;--amber:#d97706;--orange:#ea580c;--red:#dc2626;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e9edf2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);}
+  .toolbar{position:sticky;top:0;background:var(--navy);color:#fff;padding:10px 16px;display:flex;gap:10px;align-items:center;z-index:10;}
+  .toolbar .sp{flex:1;font-size:14px;font-weight:600;}
+  .toolbar button,.toolbar a{background:#fff;color:var(--navy);border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;}
+  .toolbar a.ghost{background:rgba(255,255,255,.14);color:#fff;}
+  .page{background:#fff;width:210mm;min-height:297mm;margin:18px auto;padding:16mm 15mm;box-shadow:0 2px 16px rgba(0,0,0,.18);}
+  .rh{display:flex;align-items:flex-start;gap:14px;border-bottom:3px solid var(--navy);padding-bottom:12px;}
+  .rh .logo{width:46px;height:46px;border-radius:9px;background:var(--navy);color:#fb923c;display:flex;align-items:center;justify-content:center;font-size:24px;flex:0 0 auto;}
+  .rh h1{margin:0;font-size:18px;letter-spacing:.01em;}
+  .rh .co{font-size:11px;color:var(--mut);margin-top:2px;}
+  .rh .meta{margin-left:auto;text-align:right;font-size:10.5px;color:var(--mut);line-height:1.7;}
+  .rh .meta b{color:var(--ink);}
+  h2.sec{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin:18px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px;}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:12px;}
+  .kv .r{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dotted #e5e7eb;}
+  .kv .r .k{color:var(--mut);} .kv .r .v{font-weight:600;text-align:right;}
+  .hero{display:flex;align-items:center;gap:18px;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:4px;}
+  .hero .big{font-size:40px;font-weight:800;line-height:1;}
+  .hero .lv{font-size:18px;font-weight:800;}
+  .hero .tarp{font-size:11px;color:var(--mut);}
+  .hero .act{flex:1;font-size:11.5px;color:var(--ink);line-height:1.5;border-left:1px solid var(--line);padding-left:16px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top;}
+  th{background:#f3f4f6;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);}
+  td.c{text-align:center;}
+  tr.hit td{background:#fff7ed;}
+  .badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:10px;font-weight:700;}
+  .yn-y{color:var(--red);font-weight:800;} .yn-n{color:var(--green);font-weight:700;}
+  .note{font-size:10px;color:#374151;line-height:1.4;}
+  .foot{margin-top:26px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:var(--mut);}
+  .sign{text-align:center;}
+  .sign .line{width:170px;border-top:1px solid var(--ink);margin-top:42px;padding-top:4px;color:var(--ink);font-weight:600;}
+  .loading{padding:60px;text-align:center;color:var(--mut);}
+  @media print{
+    body{background:#fff;} .toolbar{display:none;}
+    .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
+    @page{size:A4;margin:14mm;}
+    .avoid{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span class="sp" id="tt">Shift Monitoring Report</span>
+  <a class="ghost" href="database.html">&#8592; Database</a>
+  <button onclick="window.print()">&#128424; Simpan / Cetak PDF</button>
+</div>
+<div id="out"><div class="loading">Memuat laporan…</div></div>
+
+<script>
+"use strict";
+const sb = GMS.sb, esc = GMS.esc, fmt = GMS.fmtDate;
+const qs = new URLSearchParams(location.search);
+const ID = qs.get("id");
+const TARP_C = {0:'#64748b',1:'#16a34a',2:'#eab308',3:'#ea580c',4:'#dc2626'};
+const TARP_ACTION = {
+  0:'Monitoring rutin — semua dalam batas normal.',
+  1:'Monitoring rutin. Lanjutkan inspeksi terjadwal.',
+  2:'Monitoring harian; siapkan tindakan korektif & review engineering.',
+  3:'Batasi operasi; monitoring per shift; terapkan mitigasi.',
+  4:'STOP operasi segera; aktifkan TARP/ERP; respons darurat geoteknik.'
+};
+const out=document.getElementById("out"), tt=document.getElementById("tt");
+
+function headerHTML(title, docid, dateStr, shift){
+  return '<div class="rh"><div class="logo">&#9650;</div>'+
+    '<div><h1>'+title+'</h1><div class="co">PT Vale Indonesia &middot; IGP Morowali &middot; Bahodopi Block 2 &amp; 3</div></div>'+
+    '<div class="meta"><div>No. Dok: <b>'+esc(docid)+'</b></div><div>Tanggal: <b>'+esc(dateStr)+'</b></div>'+
+    '<div>Shift: <b>'+esc(shift||'-')+'</b></div><div>Dicetak: '+new Date().toLocaleDateString("id-ID")+'</div></div></div>';
+}
+function footHTML(name){
+  return '<div class="foot avoid"><div>Dokumen ini dihasilkan otomatis oleh Geotech Monitoring System.<br>Sah tanpa tanda tangan basah bila diverifikasi di sistem.</div>'+
+    '<div class="sign"><div>Operator / Dispatcher,</div><div class="line">'+esc(name||"________________")+'</div></div></div>';
+}
+function kv(k,v){ return '<div class="r"><span class="k">'+esc(k)+'</span><span class="v">'+esc(v)+'</span></div>'; }
+function yn(v){ return v ? '<span class="yn-y">Ya</span>' : '<span class="yn-n">Tidak</span>'; }
+function hhmm(iso){ try{ return new Date(iso).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return "—"; } }
+
+async function render(){
+  const { data:r, error } = await sb.from("shift_reports").select("*").eq("id",ID).single();
+  if(error||!r){ out.innerHTML='<div class="loading">Shift report tidak ditemukan / tidak punya akses.</div>'; return; }
+
+  // instruments for this report + hourly round checks for the same date & shift
+  const dayStart = r.tanggal+"T00:00:00";
+  const dayEnd   = r.tanggal+"T23:59:59";
+  const [insR, rcR] = await Promise.all([
+    sb.from("shift_report_instruments").select("*").eq("report_uuid", r.id).order("area").order("instrument_id"),
+    sb.from("shift_round_checks").select("*").eq("shift", r.shift).gte("checked_at", dayStart).lte("checked_at", dayEnd).order("checked_at")
+  ]);
+  const insts = insR.data||[];
+  const checks = rcR.data||[];
+
+  const lv = r.tarp_level||0, col = TARP_C[lv]||TARP_C[0];
+  const docid = r.report_id || ("SHIFT-"+String(r.id).slice(0,8));
+
+  // ── Instrument status table ──
+  const instTable = insts.length ? (
+    '<table class="avoid"><thead><tr><th>ID</th><th>Tipe</th><th>Area</th><th>Lokasi</th><th>Status</th><th>Nilai</th><th class="c">TARP</th><th>Catatan</th></tr></thead><tbody>'+
+    insts.map(it=>{ const ic=TARP_C[it.tarp_lv||0]||TARP_C[0];
+      return '<tr class="'+((it.tarp_lv||0)>=2?'hit':'')+'"><td>'+esc(it.instrument_id||'—')+'</td><td>'+esc(it.type||'—')+'</td>'+
+        '<td>'+esc(it.area||'—')+'</td><td>'+esc(it.lokasi||'—')+'</td>'+
+        '<td>'+esc(it.status||'—')+'</td><td>'+(it.nilai!=null?esc(it.nilai)+' '+esc(it.unit||''):'—')+'</td>'+
+        '<td class="c" style="font-weight:700;color:'+ic+'">'+esc(it.tarp_label||('LV'+(it.tarp_lv||0)))+'</td>'+
+        '<td class="note">'+esc(it.catatan||'')+'</td></tr>'; }).join('')+
+    '</tbody></table>'
+  ) : '<div class="note" style="padding:8px 0">Tidak ada data instrumen pada laporan ini.</div>';
+
+  // ── Hourly cycle round-check resume ──
+  const rcTable = checks.length ? (
+    '<table class="avoid"><thead><tr><th>Jam</th><th>Status</th><th class="c">Trigger</th><th class="c">Anomali</th><th class="c">Hujan</th><th class="c">Gempa</th><th>Catatan &amp; Follow-up</th></tr></thead><tbody>'+
+    checks.map(c=>{
+      const stc = /abnormal/i.test(c.overall_state)?'#dc2626':/watch/i.test(c.overall_state)?'#d97706':'#16a34a';
+      const notes=[];
+      if(c.connectivity_note) notes.push('Alat: '+c.connectivity_note);
+      if(c.has_trigger&&c.trigger_note) notes.push('Trigger: '+c.trigger_note);
+      if(c.has_anomaly&&c.anomaly_note) notes.push('Anomali: '+c.anomaly_note);
+      if(c.issue_followup) notes.push('Follow-up: '+c.issue_followup);
+      if(c.has_rain&&c.rain_note) notes.push('Hujan: '+c.rain_note);
+      if(c.has_quake&&c.quake_note) notes.push('Gempa: '+c.quake_note);
+      if(c.quake_para_followup) notes.push('PARA: '+c.quake_para_followup);
+      if(c.general_note) notes.push(c.general_note);
+      return '<tr class="'+((c.has_trigger||c.has_anomaly)?'hit':'')+'">'+
+        '<td class="c" style="font-weight:700">'+hhmm(c.checked_at)+'</td>'+
+        '<td style="font-weight:700;color:'+stc+'">'+esc(c.overall_state||'—')+'</td>'+
+        '<td class="c">'+yn(c.has_trigger)+'</td><td class="c">'+yn(c.has_anomaly)+'</td>'+
+        '<td class="c">'+yn(c.has_rain)+'</td><td class="c">'+yn(c.has_quake)+'</td>'+
+        '<td class="note">'+esc(notes.join(' · '))+'</td></tr>';
+    }).join('')+
+    '</tbody></table>'
+  ) : '<div class="note" style="padding:8px 0">Belum ada cycle round check tercatat untuk shift ini.</div>';
+
+  // round-check rollup flags
+  const anyTrig = checks.some(c=>c.has_trigger), anyAnom = checks.some(c=>c.has_anomaly),
+        anyRain = checks.some(c=>c.has_rain),    anyQuake= checks.some(c=>c.has_quake);
+  const worst = checks.reduce((m,c)=> /abnormal/i.test(c.overall_state)?'Abnormal':(m==='Abnormal'?m:(/watch/i.test(c.overall_state)?'Watch':m)),'Normal');
+
+  // handover (jsonb) → readable
+  let handoverHTML='';
+  if(r.handover && typeof r.handover==='object'){
+    const ho=Object.entries(r.handover).filter(([,v])=>v!=null&&String(v).trim()!=='');
+    if(ho.length) handoverHTML='<h2 class="sec">Serah Terima (Handover)</h2><div class="kv">'+ho.map(([k,v])=>kv(k, String(v))).join('')+'</div>';
+  }
+
+  out.innerHTML='<div class="page">'+
+    headerHTML("Laporan Shift Monitoring", docid, r.tanggal||'-', r.shift)+
+
+    '<h2 class="sec">Ringkasan Shift</h2>'+
+    '<div class="hero avoid">'+
+      '<div><div class="big" style="color:'+col+'">'+(lv?('LV'+lv):'—')+'</div><div class="tarp">TARP</div></div>'+
+      '<div><div class="lv" style="color:'+col+'">'+esc(r.tarp_label||'Normal')+'</div>'+
+        '<div class="tarp">Instrumen online '+(r.online_instruments||0)+'/'+(r.total_instruments||0)+
+        (r.coverage_pct!=null?(' &middot; coverage '+r.coverage_pct+'%'):'')+'</div>'+
+        '<div class="tarp">Alert: '+(r.alert_count||0)+' &middot; Round check: '+(checks.length||r.round_check_count||0)+'×</div></div>'+
+      '<div class="act"><b>Rekomendasi Tindakan:</b><br>'+esc(TARP_ACTION[lv]||TARP_ACTION[0])+'</div>'+
+    '</div>'+
+
+    '<h2 class="sec">Informasi Shift</h2>'+
+    '<div class="kv">'+
+      kv("No. Laporan", docid)+
+      kv("Tanggal", r.tanggal||'-')+
+      kv("Shift", r.shift||'-')+
+      kv("Operator", r.operator||'-')+
+      kv("Cuaca", r.cuaca||'-')+
+      kv("Curah hujan", r.curah_hujan!=null?(r.curah_hujan+' mm'):'-')+
+      kv("Hujan mulai / berhenti", (r.jam_hujan_mulai||'-')+' / '+(r.jam_hujan_berhenti||'-'))+
+      kv("Status round check shift", worst)+
+    '</div>'+
+
+    '<h2 class="sec">Status Instrumen (Submit Form Monitoring)</h2>'+ instTable +
+
+    '<h2 class="sec">Resume Cycle Round Check (per jam)</h2>'+
+    '<div class="kv" style="margin-bottom:8px">'+
+      kv("Jumlah round check", (checks.length)+'×')+
+      kv("Trigger/TARP terlampaui", anyTrig?'Ya (lihat tabel)':'Tidak')+
+      kv("Anomali tren", anyAnom?'Ya':'Tidak')+
+      kv("Hujan / Gempa", (anyRain?'Hujan':'-')+' / '+(anyQuake?'Gempa':'-'))+
+    '</div>'+ rcTable +
+
+    ((r.catatan&&r.catatan.trim())?('<h2 class="sec">Kesimpulan / Catatan Shift</h2><div class="note" style="font-size:11.5px;line-height:1.6">'+esc(r.catatan)+'</div>'):'')+
+    handoverHTML+
+    footHTML(r.operator)+
+  '</div>';
+
+  tt.textContent="Shift Monitoring · "+docid;
+  document.title=docid+" — Shift Monitoring Report";
+}
+
+(async()=>{
+  const s=await GMS.getSession();
+  if(!s){ out.innerHTML='<div class="loading">Perlu login. <a href="index.html">Masuk dulu</a> lalu buka ulang link laporan.</div>'; return; }
+  if(!ID){ out.innerHTML='<div class="loading">Parameter ?id= tidak ada.</div>'; return; }
+  try{ await render(); }
+  catch(e){ out.innerHTML='<div class="loading">Gagal memuat: '+esc(e.message||String(e))+'</div>'; }
+})();
+</script>
+</body>
+</html>
