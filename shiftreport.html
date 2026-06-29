@@ -188,6 +188,20 @@ function tarpLv(type,val){
 function rowLv(d){ return (d&&d.lv!=null)?d.lv:tarpLv(d.type,d.val); }
 function fmt(iso){ if(!iso)return'—'; try{return new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
 function deriveShift(){ const h=new Date().getHours(); return (h>=6&&h<18)?'Pagi':'Malam'; }
+function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Current shift + its START date. Early-morning (00:00–06:00) Malam belongs to the
+// PREVIOUS day's shift, so the report date / round-check window line up across midnight.
+function shiftInfo(){
+  const now=new Date(), h=now.getHours();
+  const shift=(h>=6&&h<18)?'Pagi':'Malam';
+  const d=new Date(now); if(h<6) d.setDate(d.getDate()-1);
+  return { shift, tanggal:localDateStr(d) };
+}
+async function fetchRoundChecks(tanggal,shift){
+  const r=await sb.rpc('shift_round_checks_for_report',{p_tanggal:tanggal,p_shift:shift});
+  if(r&&!r.error&&r.data) return Array.isArray(r.data)?r.data:JSON.parse(r.data);
+  return [];
+}
 function genReportId(){ const n=new Date(),p=x=>String(x).padStart(2,'0'); return `RPT-${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}`; }
 
 async function loadAuto(){
@@ -286,10 +300,10 @@ function buildChecklist(){
 }
 
 async function loadRoundChecks(){
-  const today=new Date().toISOString().slice(0,10);
-  const r=await sb.from("shift_round_checks").select("checked_at,has_trigger,has_anomaly,has_rain,has_quake,overall_state")
-    .gte("checked_at",today+"T00:00:00").order("checked_at",{ascending:false});
-  return (r&&!r.error&&r.data)?r.data:[];
+  // Round checks for the CURRENT shift window (WITA, cross-midnight aware) — same
+  // source the PDF report uses, so form and report always agree.
+  const si=shiftInfo();
+  return fetchRoundChecks(si.tanggal, si.shift);
 }
 
 function render(rcs){
@@ -425,7 +439,7 @@ function render(rcs){
         </div>
       </div>
       <div class="sbx">
-        <div class="t">Round Check Hari Ini</div>
+        <div class="t">Round Check Shift Ini</div>
         <div class="rcrow"><span>Jumlah round check</span><b>${rcCount}</b></div>
         <div class="rcrow"><span>Ada trigger</span><b style="color:${flags.trigger?'#dc2626':'#16a34a'}">${flags.trigger?'Ya':'Tidak'}</b></div>
         <div class="rcrow"><span>Ada anomali</span><b style="color:${flags.anomaly?'#dc2626':'#16a34a'}">${flags.anomaly?'Ya':'Tidak'}</b></div>
@@ -435,7 +449,7 @@ function render(rcs){
       </div>
     </div>
   </div>`;
-  $("f-date").valueAsDate=new Date();
+  $("f-date").value=shiftInfo().tanggal;  // shift-start date (handles early-morning Malam)
   renderRows();
   $("btn-submit").onclick=submit;
   startClock();
@@ -450,16 +464,19 @@ async function submit(){
   if(!operator||!tanggal){ msg.innerHTML='<div class="banner err">Tanggal & operator wajib diisi.</div>'; return; }
   btn.disabled=true; btn.textContent="Menyimpan…";
   const lv=overallLv(); const reportId=$("f-reportid").value.trim()||genReportId();
+  const shiftVal=$("f-shift").value;
   const on=INST.filter(d=>d.status==='Online').length, dn=INST.filter(d=>d.status==='Down').length, n=INST.length;
   try{
-    const head={ report_id:reportId, tanggal, shift:$("f-shift").value, operator,
+    // Snapshot the round-check count for this report's shift window (same DB source as the PDF).
+    let rcCount=0; try{ rcCount=(await fetchRoundChecks(tanggal, shiftVal)).length; }catch(e){}
+    const head={ report_id:reportId, tanggal, shift:shiftVal, operator,
       cuaca:$("f-weather").value, curah_hujan:parseFloat($("f-rain").value)||0,
       jam_hujan_mulai:$("f-rain-start").value||null, jam_hujan_berhenti:$("f-rain-end").value||null,
       tarp_level:lv, tarp_label:RISK[lv].lab, catatan:$("f-notes").value||null,
       checklist:CHECKLIST.map((c,i)=>({q:c.q,answer:clState[i]||null})),
       handover:{out:$("sig-out").value||null,in:$("sig-in").value||null,eng:$("sig-eng").value||null},
       total_instruments:n, online_instruments:on, down_instruments:dn,
-      alert_count:INST.filter(d=>rowLv(d)>=2).length,
+      alert_count:INST.filter(d=>rowLv(d)>=2).length, round_check_count:rcCount,
       coverage_pct:n?Math.round(on/n*100):0, map_view:captureView() };
     const ins=await sb.from("shift_reports").insert(head).select("id").single();
     if(ins.error) throw ins.error;
