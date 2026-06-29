@@ -613,7 +613,7 @@
     // data-outage alert — the two can never disagree.
     const INST_FRESH = { weather:30, extensometer:30, inclinometer:180, piezometer:180 };
     const INST_FRESH_LBL = { weather:'AWS / Rainfall', extensometer:'Extensometer', inclinometer:'Inclinometer', piezometer:'VWP / Piezometer' };
-    const VWP_NODES = [{id:'181348',label:'OPJ VWP'},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
+    const VWP_NODES = [{id:'181348',label:'OPJ VWP',channels:2},{id:'181361',label:'OPN VWP'},{id:'181404',label:'WOC-02 VWP'},{id:'181456',label:'WOC-01 VWP'},{id:'181461',label:'WDN-2 VWP',channels:3}];
 
     // Resolve an instrument's friendly LOCATION label from its EWS device name.
     // EWS names inclinometers/piezometers as "INC-108052" / "VWP-181348" (node id);
@@ -1161,7 +1161,7 @@
             </div>
           </div>
 
-          <div class="card clickable" onclick="setView('instrument')" title="Lihat detail di Extensometer">
+          <div class="card clickable" id="kAlertCard" onclick="setView('instrument')" title="Active Alerts">
             <span class="more-arrow">→</span>
             <div class="card-hd"><div class="t">Active Alerts</div><div class="ic">⚠</div></div>
             <div class="card-bd" style="display:flex;flex-direction:column;gap:5px">
@@ -1267,7 +1267,7 @@
           </div>
 
           <div class="card exec-alerts" style="min-height:0">
-            <div class="card-hd"><div class="t">Active Alerts — EWS</div><div class="ic">🚨</div></div>
+            <div class="card-hd"><div class="t">Active Alerts</div><div class="ic">🚨</div></div>
             <div class="card-bd" style="min-height:0"><div class="alert-list" id="latestAlerts"></div></div>
           </div>
 
@@ -1319,13 +1319,15 @@
       const reg=linearRegression(pts); if(!reg) return;
       ms.datasets.push({label:'Trendline',data:d0.map((_,i)=>reg.a+reg.b*i),borderColor:color||'#fbbf24',borderDash:[6,4],borderWidth:1.5,pointRadius:0,fill:false,tension:0,order:99});
     }
-    function tsChart(canvasId,ms,unit){
+    function tsChart(canvasId,ms,unit,yhint){
       const cv=document.getElementById(canvasId); if(!cv||!window.Chart) return;
+      const yScale={ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}};
+      if(yhint){ yScale.suggestedMin=yhint[0]; yScale.suggestedMax=yhint[1]; }
       charts[canvasId]=new Chart(cv,{type:'line',data:{labels:ms.labels,datasets:ms.datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
           plugins:{legend:{display:true,labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8}}},
           scales:{x:{ticks:{maxTicksLimit:6,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
-                  y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}});
+                  y:yScale}}});
     }
 
     function miniKpi(label,val,color){
@@ -1372,20 +1374,23 @@
       const XY = rows => (rows||[]).map(r=>({x:new Date(r.ts).getTime(), y:+((r.value!=null)?r.value:r.a)}))
                           .filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
       // Earthquake markers shared across every chart (vertical dashed lines).
-      // Only magnitude ≥ 2 is shown — micro-quakes (<2) are noise for slope EWS.
-      const eqList = (DATA.eq||[]).map(q=>({x:new Date(q.tanggal).getTime(), m:+q.magnitude}))
-                      .filter(q=>isFinite(q.x) && q.x>=min && q.x<=max && q.m>=2);
+      // Shown ONLY when the quake's site PGA crosses the (existing) trigger — i.e. its
+      // TARP level is above LV1. A quake felt below trigger is not drawn.
+      const eqList = (DATA.eq||[]).map(q=>{ const p=latestPga(q);
+                        return {x:new Date(q.tanggal).getTime(), lv:p?p.tarp:'LV1'}; })
+                      .filter(q=>isFinite(q.x) && q.x>=min && q.x<=max && q.lv && q.lv!=='LV1');
       const eqPlugin = { id:'eqv', afterDatasetsDraw(chart){
         const a=chart.chartArea, xs=chart.scales.x; if(!a||!xs) return;
         eqList.forEach(q=>{ const px=xs.getPixelForValue(q.x); if(px<a.left||px>a.right) return;
           const ctx=chart.ctx; ctx.save(); ctx.strokeStyle='rgba(248,113,113,.5)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
           ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke(); ctx.restore(); }); } };
-      const monChart = (id, datasets, unit, type, yhint)=>{
+      const monChart = (id, datasets, unit, type, yhint, trig)=>{
         const cv=document.getElementById(id); if(!cv) return;
         const yScale={ticks:{color:'#9fb3cf',font:{size:9}}, grid:{color:'rgba(148,163,184,.10)'}, title:{display:!!unit,text:unit,color:'#9fb3cf',font:{size:9}}, beginAtZero:type==='bar'};
         // Default display range; Chart.js only EXTENDS past suggested bounds, never clips,
         // so the axis auto-adjusts upward when displacement grows beyond the hint.
         if(yhint){ yScale.suggestedMin=yhint[0]; yScale.suggestedMax=yhint[1]; }
+        const plugs = trig ? [eqPlugin, trigLinesPlugin(trig)] : [eqPlugin];
         charts[id]=new Chart(cv,{ type:type||'line', data:{datasets},
           options:{responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
             interaction:{mode:'index',intersect:false},
@@ -1393,7 +1398,7 @@
               tooltip:{callbacks:{title:(it)=> it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}},
             scales:{ x:{type:'linear', min, max, ticks:{color:'#9fb3cf',font:{size:8},maxTicksLimit:8,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}, grid:{color:'rgba(148,163,184,.07)'}},
               y:yScale } },
-          plugins:[eqPlugin] });
+          plugins:plugs });
       };
       const line = (label,rows,color)=>({label, data:XY(rows), borderColor:color, backgroundColor:color, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
 
@@ -1404,15 +1409,15 @@
       // baseline-zeroed so the line shows that sensor's movement (displacement).
       const extBy={}; (DATA.ext7||[]).forEach(r=>{ const s=r.sensor_name||''; if(!/^D\d/i.test(s)) return;
         const d=r.external_device_id; (extBy[d]=extBy[d]||{}); (extBy[d][s]=extBy[d][s]||[]).push(r); });
-      const extShades={'373':['#c4b5fd','#a78bfa','#8b5cf6','#7c3aed','#6d28d9'],'372':['#67e8f9','#22d3ee','#06b6d4','#0891b2']};
-      const extDs=[];
-      Object.keys(extBy).sort().forEach(d=>{ const pal=extShades[d]||['#a78bfa'];
-        Object.keys(extBy[d]).sort().forEach((s,i)=>{
+      const extPal=['#a78bfa','#22d3ee','#f59e0b','#22c55e','#ef4444','#ec4899','#3b82f6','#84cc16','#fb923c'];
+      const extDs=[]; let eci=0;
+      Object.keys(extBy).sort().forEach(d=>{
+        Object.keys(extBy[d]).sort().forEach((s)=>{
           const rows=extBy[d][s].slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
           const f=rows.find(r=>r.value!=null); const b0=f?+f.value:0;
-          extDs.push(line(`${areaLabel(d)} ${s}`, rows.map(r=>({ts:r.ts,value:(+r.value||0)-b0})), pal[i%pal.length]));
+          extDs.push(line(`${areaLabel(d)} ${s}`, rows.map(r=>({ts:r.ts,value:(+r.value||0)-b0})), extPal[eci%extPal.length])); eci++;
         }); });
-      monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [0,10]);
+      monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [0,10], DISP_TRIG);
 
       // 3) Inclinometer — cumulative top displacement per node, split Axis A / Axis B.
       // Source: DB RPC inc_top_displacement_series (single source of truth, install
@@ -1437,15 +1442,15 @@
       // same bound for direct comparison; expands automatically as displacement grows.
       let incMax=0; incA.concat(incB).forEach(ds=>ds.data.forEach(p=>{ const a=Math.abs(p.y); if(a>incMax) incMax=a; }));
       const incB0 = Math.max(10, Math.ceil(incMax*1.3/5)*5);
-      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0]);
-      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0]);
+      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0], DISP_TRIG);
+      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0], DISP_TRIG);
 
       // 4) VWP — pore pressure per channel
       const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
       try{ const vwp=processVwp(DATA.vwp7||[]); let ci=0;
         for(const devId of Object.keys(vwp)){ const ch=vwp[devId].channels||{};
           for(const k of Object.keys(ch)){ vwpDs.push(line(vwpChLabel(devId,k), ch[k], vwpPal[ci%vwpPal.length])); ci++; } } }catch(e){}
-      monChart('monVwp', vwpDs.length?vwpDs:[line('—',[],'#22d3ee')], 'kPa');
+      monChart('monVwp', vwpDs.length?vwpDs:[line('—',[],'#22d3ee')], 'kPa', 'line', [-50,50]);
     }
 
     // ===================== EXTENSOMETER & AWS TABS =====================
@@ -1464,11 +1469,31 @@
     function trendOfRows(rows){ const byS={}; (rows||[]).forEach(r=>{(byS[r.sensor_name]=byS[r.sensor_name]||[]).push(r);});
       const sl=Object.values(byS).map(rs=>seriesStats(rs).mmPerDay).filter(x=>x!=null&&isFinite(x));
       return sl.length? sl.reduce((a,b)=>a+b,0)/sl.length : null; }
-    function areaCfg(ms,unit){ return {type:'line',data:{labels:ms.labels,datasets:ms.datasets},
+    // Horizontal EWS trigger lines (dashed) drawn across a chart's plot area.
+    // levels = [{y, color, label}]. Lines outside the visible y-range are skipped.
+    function trigLinesPlugin(levels){
+      return { id:'trigLines', afterDatasetsDraw(chart){
+        const a=chart.chartArea, ys=chart.scales.y; if(!a||!ys) return; const ctx=chart.ctx;
+        (levels||[]).forEach(L=>{ const py=ys.getPixelForValue(L.y); if(!isFinite(py)||py<a.top||py>a.bottom) return;
+          ctx.save(); ctx.strokeStyle=L.color; ctx.lineWidth=1; ctx.setLineDash([6,4]);
+          ctx.beginPath(); ctx.moveTo(a.left,py); ctx.lineTo(a.right,py); ctx.stroke();
+          ctx.setLineDash([]); ctx.fillStyle=L.color; ctx.font='9px sans-serif'; ctx.textAlign='right';
+          ctx.fillText(L.label, a.right-4, py-2); ctx.restore(); });
+      }};
+    }
+    // Cumulative-displacement EWS triggers (±mm): Medium 50, High 100 (TH_CUM_K/J).
+    const DISP_TRIG = [
+      {y:50,color:'rgba(234,179,8,.6)',label:'Medium 50'}, {y:-50,color:'rgba(234,179,8,.6)',label:''},
+      {y:100,color:'rgba(249,115,22,.65)',label:'High 100'}, {y:-100,color:'rgba(249,115,22,.65)',label:''},
+    ];
+    function areaCfg(ms,unit,opts){ opts=opts||{}; const cfg={type:'line',data:{labels:ms.labels,datasets:ms.datasets},
       options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
         plugins:{legend:{display:true,position:'top',labels:{color:'#cbd5e1',font:{size:9},boxWidth:10,boxHeight:8,usePointStyle:true}}},
         scales:{x:{ticks:{maxTicksLimit:7,color:'#9fb3cf',font:{size:8}},grid:{display:false}},
-                y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}}; }
+                y:{ticks:{color:'#9fb3cf',font:{size:9}},grid:{color:'rgba(148,163,184,.10)'},title:{display:!!unit,text:unit||'',color:'#9fb3cf',font:{size:9}}}}}};
+      if(opts.yhint){ cfg.options.scales.y.suggestedMin=opts.yhint[0]; cfg.options.scales.y.suggestedMax=opts.yhint[1]; }
+      if(opts.trig){ cfg.plugins=[trigLinesPlugin(opts.trig)]; }
+      return cfg; }
     function dStr(off){ return new Date(Date.now()+off*86400000).toISOString().slice(0,10); }
     function areaLabel(dev){ return dev==='373'?'WOC':dev==='372'?'Water Intake':('dev '+dev); }
 
@@ -2036,7 +2061,7 @@
       if(combSeries.length){
         const ms=multiSeries(combSeries);
         if(STATE.vwpRange==='live') addTrend(ms,'#fbbf24');
-        tsChart('vwpCombined',ms,'kPa');
+        tsChart('vwpCombined',ms,'kPa',[-50,50]);
       }
       const updEl=document.getElementById('vwpLastUpdate');
       if(updEl && latestTs) updEl.innerHTML='Last data: <b>'+new Date(latestTs).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> ('+ago(latestTs)+')';
@@ -2055,7 +2080,7 @@
         if(detailSeries.length){
           const ms=multiSeries(detailSeries);
           if(STATE.vwpRange==='live') addTrend(ms,'#fbbf24');
-          tsChart('vwpDetail',ms,'kPa');
+          tsChart('vwpDetail',ms,'kPa',[-50,50]);
         }
       }
     }
@@ -2380,6 +2405,13 @@
       setTxt('kCriticalN', cMerah);
       setTxt('kWarnN', cJingga);
       setTxt('kWatchN', cKuning);
+      // Hover tooltip: which instruments are actually in alert (by area name)
+      const alCard=document.getElementById('kAlertCard');
+      if(alCard){
+        const triggered=pdev.filter(d=>d.trigger_level && d.trigger_level!=='HIJAU')
+          .map(d=>`${instLocLabel(d.name)}: ${EWS_LABELS[d.trigger_level]||d.trigger_level}${d.velocity_mm_day!=null?` · ${fmt(d.velocity_mm_day,2)} mm/day`:''}`);
+        alCard.title = triggered.length ? ('Active alerts:\n'+triggered.join('\n')) : 'No instruments in alert — all within limits';
+      }
 
       document.getElementById('kActive').textContent = `${m.instOnline} / ${m.instTotal}`;
       document.getElementById('kActiveSub').textContent = (m.instTotal?`updated ${agoEn(m.newest)}`:'—');
@@ -2518,7 +2550,7 @@
         const up = a.direction==='UP';
         const c = EWS_COLORS[a.to_level] || RC.Low;
         const lvLbl = EWS_LABELS[a.to_level] || a.to_level;
-        const nm = (a.device_name||a.external_device_id||'').replace(/Extensometer /,'Ext ').replace(/ \(.*\)/,'');
+        const nm = instLocLabel(a.device_name||a.external_device_id||'');
         const toLbl = EWS_LABELS[a.to_level] || a.to_level;
         const fromLbl = EWS_LABELS[a.from_level] || a.from_level;
         const vd = a.velocity_mm_day!=null ? `${fmt(a.velocity_mm_day,2)} mm/day` : '';
