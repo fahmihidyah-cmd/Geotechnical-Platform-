@@ -142,8 +142,11 @@ const RISK={
   1:{lab:'Low',      c:'#16a34a',bg:'#f0fdf4'},
   2:{lab:'Medium',   c:'#eab308',bg:'#fefce8'},
   3:{lab:'High',     c:'#f97316',bg:'#fff7ed'},
-  4:{lab:'High Risk',c:'#dc2626',bg:'#fef2f2'}
+  4:{lab:'Very High',c:'#dc2626',bg:'#fef2f2'}
 };
+// Single source of truth: DB EWS levels (HIJAU/KUNING/JINGGA/MERAH) → shift-report lv.
+// Matches the Executive dashboard mapping exactly.
+const EWS_LV={HIJAU:1,KUNING:2,JINGGA:3,MERAH:4};
 const TARP_DESC={
   0:'Tidak ada threshold terlampaui. Kondisi normal.',
   1:'Deformasi kecil. Monitoring rutin.',
@@ -153,7 +156,7 @@ const TARP_DESC={
 };
 const TYPES=['IPI','PRM','EXT','VWP'];
 const AREAS=['PIT','WD','ETO','EFO','INFRA','SP','MHR','DYKE','WOC','PORT','OTHER'];
-const UNIT={IPI:'mm',PRM:'mm',EXT:'mm/h',VWP:'ΔkPa'};
+const UNIT={IPI:'mm',PRM:'mm',EXT:'mm',VWP:'kPa/hari'};
 
 const CHECKLIST=[
   {q:'Semua instrumen terbaca minimal 1x shift ini',s:'Coverage telemetry'},
@@ -167,47 +170,53 @@ const CHECKLIST=[
 
 let INST=[], clState={}, counter=0;
 
+// Manual-entry fallback thresholds (telemetered ext/inc come pre-levelled from the DB EWS).
 function tarpLv(type,val){
   val=parseFloat(val)||0;
   if(val<=0) return 0;
-  if(type==='EXT'){ if(val<23.33)return 1; if(val<46.67)return 2; if(val<70)return 3; return 4; }
-  if(type==='VWP'){ const k=val/0.5; if(k<1.4)return 1; if(k<4.3)return 2; if(k<7.14)return 3; return 4; }
-  // IPI / PRM : displacement mm (LV1<50, LV2 50-100, LV3>=100)
+  // VWP — rate of pore-pressure rise (kPa/day). Aligned with the VWP TARP reference.
+  if(type==='VWP'){ if(val<5)return 1; if(val<10)return 2; if(val<20)return 3; return 4; }
+  // IPI / PRM / manual EXT — cumulative displacement (mm), same basis as EWS (50 / 100 mm).
   if(val<50)return 1; if(val<100)return 2; return 3;
 }
+// Use the EWS-supplied level when present (auto rows); otherwise compute from the manual value.
+function rowLv(d){ return (d&&d.lv!=null)?d.lv:tarpLv(d.type,d.val); }
 function fmt(iso){ if(!iso)return'—'; try{return new Date(iso).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
 function deriveShift(){ const h=new Date().getHours(); return (h>=6&&h<18)?'Pagi':'Malam'; }
 function genReportId(){ const n=new Date(),p=x=>String(x).padStart(2,'0'); return `RPT-${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}`; }
 
 async function loadAuto(){
-  const ri=await sb.from('v_instrument_sensors')
-    .select('sensor_id,sensor_name,unit,device_name,latest_value,latest_ts,manual_state')
-    .eq('kind','extensometer').order('sensor_name');
-  const rows=(ri&&!ri.error&&ri.data)?ri.data:[];
-  // velocity from last 2 readings (48h)
-  let velMap={};
-  if(rows.length){
-    const ids=rows.map(r=>r.sensor_id);
-    const since=new Date(Date.now()-48*3600000).toISOString();
-    const rr=await sb.from('v_instrument_readings').select('sensor_id,ts,value').in('sensor_id',ids).gte('ts',since).order('ts',{ascending:true});
-    const by={};
-    ((rr&&!rr.error&&rr.data)?rr.data:[]).forEach(x=>{ (by[x.sensor_id]=by[x.sensor_id]||[]).push(x); });
-    Object.keys(by).forEach(id=>{ const a=by[id]; if(a.length>=2){ const p=a[a.length-2],q=a[a.length-1]; const dh=(new Date(q.ts)-new Date(p.ts))/3600000; if(dh>0) velMap[id]=Math.abs((q.value-p.value)/dh); } });
-  }
-  rows.forEach(s=>{
-    const off=(s.manual_state==='offline')||!s.latest_ts||((Date.now()-new Date(s.latest_ts).getTime())/3600000>3);
-    const vel=velMap[s.sensor_id];
-    let area='OTHER'; const dn=(s.device_name||'').toUpperCase();
-    if(dn.includes('WOC'))area='WOC'; else if(dn.includes('PORT'))area='PORT';
-    INST.push({idx:counter++, id:s.sensor_name, type:'EXT', area, loc:s.device_name||'', status:off?'Down':'Online',
-      val:(vel!=null?Math.round(vel*1000)/1000:''), ref:(s.latest_value!=null?(s.latest_value+' mm @ '+fmt(s.latest_ts)):''), source:'auto'});
+  // Pull extensometer + inclinometer trigger levels straight from the DB EWS
+  // (evaluate_ews) — identical numbers to the Executive dashboard. No client-side
+  // velocity/threshold logic here; the database is the single source of truth.
+  let devs=[];
+  try{
+    const r=await sb.rpc('ews_device_latest');
+    if(!r.error && r.data) devs=Array.isArray(r.data)?r.data:JSON.parse(r.data);
+  }catch(e){}
+  const areaOf=(name)=>{ const n=(name||'').toUpperCase();
+    if(n.includes('WOC'))return 'WOC'; if(n.includes('PORT'))return 'PORT';
+    if(n.includes('INTAKE')||n.includes('WATER'))return 'WOC'; return 'OTHER'; };
+  devs.forEach(d=>{
+    const isExt=d.category==='extensometer';
+    const valid=d.qc==='VALID';
+    const lv=valid?(EWS_LV[d.trigger_level]||1):0;        // no recent data → no trigger
+    const status=valid?'Online':'Down';
+    // Reference text = the governing live metric so the operator can see why.
+    const v=isExt
+      ? `${fmt2(d.velocity_mm_hr)} mm/h · ${fmt2(d.velocity_mm_day)} mm/d · cum ${fmt2(d.cumulative_disp_mm)} mm`
+      : `cum ${fmt2(d.cumulative_disp_mm)} mm · ${fmt2(d.velocity_mm_day)} mm/d`;
+    INST.push({ idx:counter++, id:d.device_name||(d.external_device_id||''), type:isExt?'EXT':'IPI',
+      area:areaOf(d.device_name), loc:d.external_device_id?('ID '+d.external_device_id):'',
+      status, val:'', lv, ref:(valid?v:(d.qc_reason||'Tidak ada data terbaru')), source:'auto' });
   });
 }
+function fmt2(x){ const n=parseFloat(x); return isFinite(n)?(Math.round(n*100)/100):'0'; }
 
 function rowHtml(d){
   const typeOpts=TYPES.map(t=>`<option ${d.type===t?'selected':''}>${t}</option>`).join('');
   const areaOpts=AREAS.map(a=>`<option ${d.area===a?'selected':''}>${a}</option>`).join('');
-  const lv=tarpLv(d.type,d.val); const rk=RISK[lv];
+  const lv=rowLv(d); const rk=RISK[lv];
   return `<tr id="row-${d.idx}">
     <td><input value="${esc(d.id)}" oninput="upd(${d.idx},'id',this.value)" style="font-weight:700;min-width:96px">${d.source==='auto'?'<span class="auto-tag">AUTO</span>':''}</td>
     <td><select onchange="updType(${d.idx},this.value)">${typeOpts}</select> <span class="itag ${d.type}">${d.type}</span></td>
@@ -224,17 +233,17 @@ function rowHtml(d){
 function renderRows(){ $("inst-body").innerHTML=INST.map(rowHtml).join(""); updateStats(); }
 function upd(idx,f,v){ const d=INST.find(x=>x.idx===idx); if(d){d[f]=v;} }
 function updType(idx,v){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.type=v; renderRows(); }
-function updVal(idx,v){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.val=v; const lv=tarpLv(d.type,v); const rk=RISK[lv];
+function updVal(idx,v){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.val=v; d.lv=null; const lv=tarpLv(d.type,v); const rk=RISK[lv];
   const c=$("lv-"+idx); if(c) c.innerHTML=`<span class="tind" style="color:${rk.c};background:${rk.bg};border-color:${rk.c}">${rk.lab}</span>`; updateStats(); }
 const CYCLE=['Online','Down','Parsial','Manual'];
 function cycle(idx){ const d=INST.find(x=>x.idx===idx); if(!d)return; d.status=CYCLE[(CYCLE.indexOf(d.status)+1)%CYCLE.length]; renderRows(); }
 function del(idx){ INST=INST.filter(x=>x.idx!==idx); $("row-"+idx)?.remove(); updateStats(); }
 function addRow(){ INST.push({idx:counter++,id:`INST-${counter}`,type:'IPI',area:'PIT',loc:'',status:'Online',val:'',ref:'',source:'manual'}); renderRows(); }
 
-function overallLv(){ return INST.reduce((m,d)=>Math.max(m,tarpLv(d.type,d.val)),0); }
+function overallLv(){ return INST.reduce((m,d)=>Math.max(m,rowLv(d)),0); }
 function updateStats(){
   const on=INST.filter(d=>d.status==='Online').length, dn=INST.filter(d=>d.status==='Down').length;
-  const al=INST.filter(d=>tarpLv(d.type,d.val)>=2).length, n=INST.length;
+  const al=INST.filter(d=>rowLv(d)>=2).length, n=INST.length;
   const cv=n?Math.round(on/n*100):0;
   if($("st-on"))$("st-on").textContent=on; if($("st-dn"))$("st-dn").textContent=dn;
   if($("st-al"))$("st-al").textContent=al; if($("st-cv"))$("st-cv").textContent=cv;
@@ -296,7 +305,7 @@ function render(rcs){
           </tr></thead><tbody id="inst-body"></tbody></table>
           <div class="addrow" onclick="addRow()">+ Tambah instrumen manual (IPI · Prisma · VWP)</div>
         </div>
-        <div style="font-size:11px;color:var(--mut);margin-top:8px">Extensometer ditarik otomatis (AUTO). Nilai = velocity mm/jam; instrumen lain isi manual.</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:8px">Extensometer &amp; Inklinometer ditarik otomatis (AUTO) dengan level TARP langsung dari EWS database — sama persis dengan dashboard. Kolom <b>Catatan/Nilai</b> menampilkan metrik live (velocity &amp; kumulatif). VWP / Prisma manual isi laju kenaikan / displacement.</div>
       </div>
 
       <div class="panel sec">
@@ -366,22 +375,18 @@ function render(rcs){
       <div class="sbx">
         <div class="t">Guideline Threshold</div>
         <div class="thr">
-          <div style="color:#d97706"><b>Extensometer</b> (mm/jam)</div>
-          <div style="color:#16a34a">Low &lt; 23.3</div>
-          <div style="color:#eab308">Medium 23.3–46.7</div>
-          <div style="color:#f97316">High 46.7–70</div>
-          <div style="color:#dc2626">High Risk &gt; 70</div>
+          <div style="color:#d97706"><b>Extensometer &amp; Inklinometer</b> — dari EWS (mm)</div>
+          <div style="color:#eab308">Medium · velocity &gt; 4.1 mm/hari <span style="color:var(--mut)">(1.5 m/thn)</span> · kumulatif &gt; 50 mm</div>
+          <div style="color:#f97316">High · velocity &gt; 50 mm/hari <span style="color:var(--mut)">(1.5 m/bln)</span> · kumulatif &gt; 100 mm</div>
+          <div style="color:#dc2626">Very High · velocity &gt; 62.5 mm/jam <span style="color:var(--mut)">(1.5 m/hari)</span> · VR &gt; 1.5</div>
+          <div style="color:var(--mut);font-size:10px">Level ditarik otomatis dari database (sama dengan dashboard). Modifier hujan ×0.5.</div>
           <div style="height:6px"></div>
-          <div style="color:#7c3aed"><b>IPI / Prisma</b> (mm)</div>
-          <div style="color:#16a34a">Low &lt; 50</div>
-          <div style="color:#eab308">Medium 50–100</div>
-          <div style="color:#f97316">High &ge; 100</div>
-          <div style="height:6px"></div>
-          <div style="color:#2563eb"><b>VWP</b> (kPa/hari)</div>
-          <div style="color:#16a34a">Low &lt; 1.4</div>
-          <div style="color:#eab308">Medium 1.4–4.3</div>
-          <div style="color:#f97316">High 4.3–7.14</div>
-          <div style="color:#dc2626">High Risk &gt; 7.14</div>
+          <div style="color:#7c3aed"><b>VWP / Piezometer</b> — laju kenaikan (kPa/hari)</div>
+          <div style="color:#16a34a">Low &lt; 5</div>
+          <div style="color:#eab308">Medium 5–10</div>
+          <div style="color:#f97316">High 10–20</div>
+          <div style="color:#dc2626">Very High &ge; 20</div>
+          <div style="color:var(--mut);font-size:10px">Referensi laju kenaikan tekanan pori (lihat catatan). Angka sementara, menunggu kalibrasi geoteknik.</div>
         </div>
       </div>
       <div class="sbx">
@@ -437,13 +442,13 @@ async function submit(){
       checklist:CHECKLIST.map((c,i)=>({q:c.q,answer:clState[i]||null})),
       handover:{out:$("sig-out").value||null,in:$("sig-in").value||null,eng:$("sig-eng").value||null},
       total_instruments:n, online_instruments:on, down_instruments:dn,
-      alert_count:INST.filter(d=>tarpLv(d.type,d.val)>=2).length,
+      alert_count:INST.filter(d=>rowLv(d)>=2).length,
       coverage_pct:n?Math.round(on/n*100):0, map_view:captureView() };
     const ins=await sb.from("shift_reports").insert(head).select("id").single();
     if(ins.error) throw ins.error;
     const rid=ins.data.id;
     if(INST.length){
-      const payload=INST.map(d=>{ const l=tarpLv(d.type,d.val); return {
+      const payload=INST.map(d=>{ const l=rowLv(d); return {
         report_uuid:rid, report_id:reportId, instrument_id:d.id, type:d.type, area:d.area, lokasi:d.loc,
         status:d.status, nilai:parseFloat(d.val)||null, unit:UNIT[d.type]||'mm', tarp_lv:l, tarp_label:RISK[l].lab,
         source:d.source||'manual', catatan:d.catatan||null }; });
