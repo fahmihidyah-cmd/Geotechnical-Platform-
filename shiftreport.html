@@ -64,8 +64,13 @@
   .tarpinfo{border-radius:10px;border:1px solid;padding:12px;}
   .tarpinfo .lv{font-size:20px;font-weight:800;} .tarpinfo .nm{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:2px 0 6px;}
   .tarpinfo .ds{font-size:11px;line-height:1.5;opacity:.9;}
-  .thr{font-size:10.5px;line-height:1.8;font-family:ui-monospace,Menlo,monospace;}
-  .thr b{font-weight:700;}
+  .thr{font-size:11px;}
+  .thr-h{font-weight:700;color:var(--txt);font-size:11px;margin:10px 0 5px;}
+  .thr-h:first-child{margin-top:0;}
+  .thr-r{display:grid;grid-template-columns:72px 1fr;gap:8px;align-items:baseline;padding:2.5px 0;}
+  .thr-r .lvl{font-weight:700;font-size:10px;}
+  .thr-r span:last-child{color:var(--txt2);font-variant-numeric:tabular-nums;}
+  .lvl.med{color:#eab308;} .lvl.high{color:#f97316;} .lvl.vh{color:#dc2626;}
   .stat4{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .stbox{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:9px 11px;}
   .stbox .l{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;}
@@ -391,17 +396,14 @@ function render(rcs){
       <div class="sbx">
         <div class="t">Guideline Threshold</div>
         <div class="thr">
-          <div style="color:#d97706"><b>Extensometer &amp; Inklinometer</b> — dari EWS (mm)</div>
-          <div style="color:#eab308">Medium · velocity &gt; 4.1 mm/hari <span style="color:var(--mut)">(1.5 m/thn)</span> · kumulatif &gt; 50 mm</div>
-          <div style="color:#f97316">High · velocity &gt; 50 mm/hari <span style="color:var(--mut)">(1.5 m/bln)</span> · kumulatif &gt; 100 mm</div>
-          <div style="color:#dc2626">Very High · velocity &gt; 62.5 mm/jam <span style="color:var(--mut)">(1.5 m/hari)</span> · VR &gt; 1.5</div>
-          <div style="color:var(--mut);font-size:10px">Level ditarik otomatis dari database (sama dengan dashboard). Modifier hujan ×0.5.</div>
-          <div style="height:6px"></div>
-          <div style="color:#7c3aed"><b>VWP / Piezometer</b> — dari DB (laju kenaikan kPa/hari · vs baseline 7-hari)</div>
-          <div style="color:#eab308">Medium · &ge; 5 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 10 kPa di atas baseline</div>
-          <div style="color:#f97316">High · &ge; 10 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 20 kPa di atas baseline</div>
-          <div style="color:#dc2626">Very High · &ge; 20 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 40 kPa di atas baseline</div>
-          <div style="color:var(--mut);font-size:10px">Otomatis dari database (rate-of-rise + baseline, modifier hujan ×0.5). Angka default — bisa di-tune setelah kalibrasi geoteknik.</div>
+          <div class="thr-h">Extensometer &amp; Inklinometer</div>
+          <div class="thr-r"><span class="lvl med">Medium</span><span>&gt; 4.1 mm/hari · kum &gt; 50 mm</span></div>
+          <div class="thr-r"><span class="lvl high">High</span><span>&gt; 50 mm/hari · kum &gt; 100 mm</span></div>
+          <div class="thr-r"><span class="lvl vh">Very High</span><span>&gt; 62.5 mm/jam · VR &gt; 1.5</span></div>
+          <div class="thr-h">VWP / Piezometer</div>
+          <div class="thr-r"><span class="lvl med">Medium</span><span>&ge; 5 kPa/hari</span></div>
+          <div class="thr-r"><span class="lvl high">High</span><span>&ge; 10 kPa/hari</span></div>
+          <div class="thr-r"><span class="lvl vh">Very High</span><span>&ge; 20 kPa/hari</span></div>
         </div>
       </div>
       <div class="sbx">
