@@ -90,6 +90,7 @@
   .mlgd{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2);padding:2px 0;}
   .mlgd .lgd{width:11px;height:11px;border-radius:3px;display:inline-block;}
   .mlgd .lgd.tri{width:0;height:0;border-radius:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid #16a34a;}
+  .mlgd .lgi{width:13px;text-align:center;display:inline-block;font-size:12px;line-height:1;font-weight:900;text-shadow:0 0 2px #000;}
   .maphint{font-size:11px;color:var(--mut);margin-top:8px;}
 
   /* PDF / print — strip chrome, fit A4 portrait, no clipped boxes. */
@@ -309,12 +310,17 @@ function render(rcs){
             <div class="pt">Filter</div>
             <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
             <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
-            <div class="pt">Legend Risk</div>
-            <div class="mlgd"><span class="lgd tri"></span> Instrumen</div>
-            <div class="mlgd"><span class="lgd" style="background:#16a34a"></span> Low</div>
-            <div class="mlgd"><span class="lgd" style="background:#eab308"></span> Medium</div>
+            <div class="pt">Risk (warna)</div>
+            <div class="mlgd"><span class="lgd" style="background:#ef4444"></span> Very High</div>
             <div class="mlgd"><span class="lgd" style="background:#f97316"></span> High</div>
-            <div class="mlgd"><span class="lgd" style="background:#dc2626"></span> High Risk</div>
+            <div class="mlgd"><span class="lgd" style="background:#eab308"></span> Medium</div>
+            <div class="mlgd"><span class="lgd" style="background:#22c55e"></span> Low</div>
+            <div class="pt">Instrumen (bentuk)</div>
+            <div class="mlgd"><span class="lgi" style="color:#f59e0b">➤</span> Inclinometer</div>
+            <div class="mlgd"><span class="lgi" style="color:#a78bfa">◆</span> Extensometer</div>
+            <div class="mlgd"><span class="lgi" style="color:#22d3ee">⬣</span> VWP / Piezometer</div>
+            <div class="mlgd"><span class="lgi" style="color:#94a3b8">▲</span> Prism</div>
+            <div class="mlgd"><span class="lgi" style="color:#eab308">★</span> RTS</div>
           </div>
         </div>
         <div class="maphint">Atur posisi, zoom &amp; filter peta sesuai area yang ingin dilaporkan. Tampilan ini akan tersimpan & dipakai di PDF.</div>
