@@ -99,7 +99,7 @@ function headerHTML(title, docid, dateStr, shift){
   return '<div class="rh"><div class="logo">&#9650;</div>'+
     '<div><h1>'+title+'</h1><div class="co">PT Vale Indonesia &middot; IGP Morowali &middot; Bahodopi Block 2 &amp; 3</div></div>'+
     '<div class="meta"><div>No. Dok: <b>'+esc(docid)+'</b></div><div>Tanggal: <b>'+esc(dateStr)+'</b></div>'+
-    '<div>Shift: <b>'+esc(shift||'-')+'</b></div><div>: '+new Date().toLocaleDateString("id-ID")+'</div></div></div>';
+    '<div>Shift: <b>'+esc(shift||'-')+'</b></div><div>Dicetak: '+new Date().toLocaleDateString("id-ID")+'</div></div></div>';
 }
 function footHTML(name){
   return '<div class="foot avoid"><div>Dokumen ini dihasilkan otomatis oleh Geotech Monitoring System.<br>Sah tanpa tanda tangan basah bila diverifikasi di sistem.</div>'+
