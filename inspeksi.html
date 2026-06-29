@@ -197,7 +197,7 @@ function getRiskCenter(){
 }
 function ensureRiskMap(){
   if(riskMap) return;
-  riskMap = L.map("riskMap",{zoomControl:true,attributionControl:true});
+  riskMap = L.map("riskMap",{zoomControl:true,attributionControl:true,center:getRiskCenter(),zoom:16});
   riskBase = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"&copy; OpenStreetMap"});
   riskSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles &copy; Esri"});
   riskAerial = L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minZoom:0,maxZoom:22,minNativeZoom:16,maxNativeZoom:19,tms:false,attribution:"Aerial &copy; PT Vale"});
@@ -261,14 +261,17 @@ function openRiskModal(){
   }
   $("riskModal").classList.add("show");
   $("riskModal").setAttribute("aria-hidden","false");
-  setTimeout(()=>{
+  // Wait for the modal to become visible & laid out before initialising/sizing the map.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
     ensureRiskMap();
     syncRiskMap();
     // Initial view once (existing polygon → fit; else center on target/GPS)
     if(riskArea.points.length>=3){ const b=L.latLngBounds(riskArea.points); if(b.isValid()) riskMap.fitBounds(b.pad(.15)); }
     else riskMap.setView(getRiskCenter(),16);
-    riskMap.invalidateSize();
-  },60);
+    // Leaflet renders tiles based on container size; the modal may still be settling,
+    // so re-measure a few times to guarantee tiles paint.
+    [0,120,300,600].forEach(d=>setTimeout(()=>{ try{ riskMap.invalidateSize(); }catch(e){} },d));
+  }));
 }
 function closeRiskModal(){
   $("riskModal").classList.remove("show");
