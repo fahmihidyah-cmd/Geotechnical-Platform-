@@ -1780,21 +1780,25 @@
       const cv=document.getElementById(canvasId); if(!cv||!window.Chart||!nd) return;
       const pal=['#ef4444','#3b82f6','#f97316','#22c55e','#a78bfa','#ec4899','#06b6d4','#f43f5e'];
       const datasets=[{label:'Initial (0)',data:nd.depths.map(d=>({x:0,y:d})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}];
-      let xMax=10;
+      let mx=0;
       (nd.dailyDates||[]).forEach((dk,i)=>{
         const p=nd.dailyProfiles[dk]; if(!p) return;
         const vals=axis==='a'?p.aCum:p.bCum;
-        vals.forEach(v=>{if(Math.abs(v)>xMax) xMax=Math.ceil(Math.abs(v)/5)*5;});
+        vals.forEach(v=>{const a=Math.abs(+v); if(isFinite(a)&&a>mx) mx=a;});
         const dep=(p.depths&&p.depths.length)?p.depths:nd.depths;
         const pts=dep.map((d,j)=>({x:vals[j],y:d}));
         datasets.push({label:dk+' (avg)',data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
+      // Auto-fit the X scale to the real movement (sub-mm … tens of mm) so low-movement
+      // holes are not crushed flat by a fixed ±10 floor — every inclinometer reads clearly.
+      const xMax=Math.max(2,Math.ceil(mx*1.15));
+      const xStep=xMax<=3?0.5:xMax<=10?2:xMax<=30?5:10;
       charts[canvasId]=new Chart(cv,{type:'scatter',
         data:{datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:false,
           plugins:{legend:{position:'top',align:'center',labels:{color:'#cbd5e1',font:{size:10},boxWidth:14,padding:10,usePointStyle:true,pointStyle:'line'}},title:{display:true,text:title,color:'#e5e7eb',font:{size:14,weight:'bold'},padding:{bottom:6}}},
           scales:{
-            x:{min:-xMax,max:xMax,title:{display:true,text:'Profile Change (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:xMax<=10?2:5},grid:{color:'rgba(148,163,184,.08)'}},
+            x:{min:-xMax,max:xMax,title:{display:true,text:'Profile Change (mm)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:xStep},grid:{color:'rgba(148,163,184,.08)'}},
             y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:10}},ticks:{color:'#9fb3cf',font:{size:9},stepSize:1},grid:{color:'rgba(148,163,184,.08)'}}
           }}});
     }
@@ -1803,19 +1807,22 @@
       const cv=document.getElementById('incCombined'); if(!cv||!window.Chart) return;
       const pal=['#ef4444','#3b82f6','#22c55e','#f97316','#a78bfa','#ec4899','#06b6d4','#fbbf24'];
       const datasets=[];
-      let yMax=50;
+      let yMax=0;
       let idx=0;
       for(const node of INC_NODES){
         const nd=incData[node.id]; if(!nd||!nd.topSeries.length) continue;
         const aData=nd.topSeries.map(p=>({x:p.ts,y:p.a}));
         const bData=nd.topSeries.map(p=>({x:p.ts,y:p.b}));
-        aData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
-        bData.forEach(p=>{if(Math.abs(p.y)>yMax) yMax=Math.ceil(Math.abs(p.y)/10)*10;});
+        aData.forEach(p=>{const a=Math.abs(+p.y); if(isFinite(a)&&a>yMax) yMax=a;});
+        bData.forEach(p=>{const a=Math.abs(+p.y); if(isFinite(a)&&a>yMax) yMax=a;});
         datasets.push({label:node.label+' A',data:aData,borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:1.5,pointRadius:2,pointBackgroundColor:pal[idx%pal.length],tension:0,fill:false});
         idx++;
         datasets.push({label:node.label+' B',data:aData.map((_,i)=>({x:nd.topSeries[i].ts,y:nd.topSeries[i].b})),borderColor:pal[idx%pal.length],backgroundColor:pal[idx%pal.length],borderWidth:1.5,pointRadius:2,pointBackgroundColor:pal[idx%pal.length],borderDash:[5,3],tension:0,fill:false});
         idx++;
       }
+      // Auto-fit Y to the actual displacement range so small-movement holes are visible
+      // (a fixed ±50 floor flattened everything except the largest mover).
+      yMax=Math.max(5,Math.ceil(yMax*1.12/5)*5);
       const allLabels=[...new Set(Object.values(incData).flatMap(nd=>nd.timestamps))].sort();
       const labels=allLabels.map(t=>{const d=new Date(t);return d.toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});});
       const dsFixed=datasets.map(ds=>({...ds,data:allLabels.map(t=>{const p=ds.data.find(d=>d.x===t);return p?p.y:null;})}));
