@@ -98,10 +98,10 @@ function render(last){
       qBlock("quake","Apakah ada event gempa jam ini?","Magnitudo &amp; lokasi bila ada.",true,"quake_para_followup")+
 
       '<div class="sech">Penutup</div>'+
-      '<div class="q"><div class="qt">Status keseluruhan shift</div>'+
+      '<div class="q"><div class="qt">Status saat ini</div>'+
         '<div class="ostate" id="ostate">'+['Normal','Watch','Abnormal'].map(v=>'<button type="button" data-v="'+v+'" class="'+(v===S.overall?"on":"")+'" onclick="setOverall(\''+v+'\')">'+v+'</button>').join("")+'</div>'+
       '</div>'+
-      qBlock("general","Catatan umum / serah info ke shift berikut","",false,null)+
+      qBlock("general","Catatan","",false,null)+
 
       '<div class="todo" id="todo"></div>'+
       '<div id="msg"></div>'+
