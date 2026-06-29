@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shift Monitoring Report — Geotech Monitoring</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="common.js"></script>
 <style>
   :root{--ink:#111827;--mut:#6b7280;--line:#d1d5db;--navy:#0b1f3a;--blue:#1d4ed8;
@@ -43,11 +45,28 @@
   .sign{text-align:center;}
   .sign .line{width:170px;border-top:1px solid var(--ink);margin-top:42px;padding-top:4px;color:var(--ink);font-weight:600;}
   .loading{padding:60px;text-align:center;color:var(--mut);}
+  /* round-check resume */
+  .rcsum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 10px;}
+  .rcsum .c{border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:center;}
+  .rcsum .c .n{font-size:20px;font-weight:800;line-height:1;}
+  .rcsum .c .l{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-top:3px;}
+  .resp{font-size:10.5px;line-height:1.5;}
+  .resp .ri{display:flex;gap:8px;padding:3px 0;border-bottom:1px dotted #e5e7eb;}
+  .resp .ri .t{flex:0 0 46px;font-weight:700;color:var(--ink);}
+  /* full-page map sheet */
+  .mappage{display:flex;flex-direction:column;}
+  #repmap{flex:1 1 auto;min-height:232mm;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .maplgd{font-size:9.5px;color:var(--mut);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;}
+  .maplgd b{color:var(--ink);}
+  .leaflet-control-attribution{font-size:8px;}
   @media print{
     body{background:#fff;} .toolbar{display:none;}
     .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
+    .mappage{page-break-before:always;height:269mm;}
+    #repmap{min-height:0;height:218mm;}
     @page{size:A4;margin:14mm;}
     .avoid{break-inside:avoid;}
+    .leaflet-control-zoom{display:none;}
   }
 </style>
 </head>
@@ -141,10 +160,33 @@ async function render(){
     '</tbody></table>'
   ) : '<div class="note" style="padding:8px 0">Belum ada cycle round check tercatat untuk shift ini.</div>';
 
-  // round-check rollup flags
+  // round-check rollup flags + counts
   const anyTrig = checks.some(c=>c.has_trigger), anyAnom = checks.some(c=>c.has_anomaly),
         anyRain = checks.some(c=>c.has_rain),    anyQuake= checks.some(c=>c.has_quake);
   const worst = checks.reduce((m,c)=> /abnormal/i.test(c.overall_state)?'Abnormal':(m==='Abnormal'?m:(/watch/i.test(c.overall_state)?'Watch':m)),'Normal');
+  const cnt = (f)=>checks.filter(f).length;
+  const nTrig=cnt(c=>c.has_trigger), nAnom=cnt(c=>c.has_anomaly), nRain=cnt(c=>c.has_rain), nQuake=cnt(c=>c.has_quake);
+  const nAbn=cnt(c=>/abnormal/i.test(c.overall_state)), nWatch=cnt(c=>/watch/i.test(c.overall_state));
+  // consolidated response / follow-up timeline (only rows that carry an action/finding)
+  const responses=[];
+  checks.forEach(c=>{ const hh=hhmm(c.checked_at); const parts=[];
+    if(c.has_trigger&&c.trigger_note) parts.push('Trigger — '+c.trigger_note);
+    if(c.has_anomaly&&c.anomaly_note) parts.push('Anomali — '+c.anomaly_note);
+    if(c.issue_followup) parts.push('Tindak lanjut — '+c.issue_followup);
+    if(c.has_quake&&c.quake_para_followup) parts.push('PARA pasca-gempa — '+c.quake_para_followup);
+    if(c.connectivity_note) parts.push('Konektivitas — '+c.connectivity_note);
+    if(parts.length) responses.push({hh, text:parts.join(' · ')});
+  });
+  const respHTML = responses.length
+    ? '<div class="resp avoid">'+responses.map(x=>'<div class="ri"><span class="t">'+esc(x.hh)+'</span><span>'+esc(x.text)+'</span></div>').join('')+'</div>'
+    : '<div class="note" style="padding:6px 0">Tidak ada respons/tindak lanjut khusus — kondisi normal sepanjang shift.</div>';
+  const rcCards =
+    '<div class="rcsum avoid">'+
+      '<div class="c"><div class="n">'+checks.length+'</div><div class="l">Round Check</div></div>'+
+      '<div class="c"><div class="n" style="color:'+(nAbn?'#dc2626':nWatch?'#d97706':'#16a34a')+'">'+(nAbn?nAbn:nWatch?nWatch:checks.length)+'</div><div class="l">'+(nAbn?'Abnormal':nWatch?'Watch':'Normal')+'</div></div>'+
+      '<div class="c"><div class="n" style="color:'+(nTrig?'#dc2626':'#16a34a')+'">'+nTrig+'</div><div class="l">Trigger</div></div>'+
+      '<div class="c"><div class="n" style="color:'+(nAnom?'#ea580c':'#16a34a')+'">'+nAnom+'</div><div class="l">Anomali</div></div>'+
+    '</div>';
 
   // handover (jsonb) → readable
   let handoverHTML='';
@@ -180,21 +222,75 @@ async function render(){
 
     '<h2 class="sec">Status Instrumen (Submit Form Monitoring)</h2>'+ instTable +
 
-    '<h2 class="sec">Resume Cycle Round Check (per jam)</h2>'+
-    '<div class="kv" style="margin-bottom:8px">'+
-      kv("Jumlah round check", (checks.length)+'×')+
-      kv("Trigger/TARP terlampaui", anyTrig?'Ya (lihat tabel)':'Tidak')+
-      kv("Anomali tren", anyAnom?'Ya':'Tidak')+
-      kv("Hujan / Gempa", (anyRain?'Hujan':'-')+' / '+(anyQuake?'Gempa':'-'))+
-    '</div>'+ rcTable +
+    '<h2 class="sec">Resume Respons Round Check (per jam)</h2>'+
+    rcCards +
+    '<div class="note" style="margin:2px 0 8px">Hujan: '+(anyRain?nRain+'× tercatat':'tidak')+' &middot; Gempa: '+(anyQuake?nQuake+'× tercatat':'tidak')+' &middot; Status terburuk shift: <b>'+worst+'</b></div>'+
+    '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin:6px 0 4px">Respons &amp; Tindak Lanjut</div>'+
+    respHTML +
+    '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin:12px 0 4px">Rincian per Jam</div>'+
+    rcTable +
 
     ((r.catatan&&r.catatan.trim())?('<h2 class="sec">Kesimpulan / Catatan Shift</h2><div class="note" style="font-size:11.5px;line-height:1.6">'+esc(r.catatan)+'</div>'):'')+
     handoverHTML+
     footHTML(r.operator)+
+  '</div>'+
+
+  // ── Last sheet: full-page site map captured from the shift report ──
+  '<div class="page mappage">'+
+    headerHTML("Peta Area Laporan Shift", docid, r.tanggal||'-', r.shift)+
+    '<h2 class="sec">Site Base Map — Area Laporan</h2>'+
+    '<div id="repmap"></div>'+
+    '<div class="maplgd">'+
+      '<span><b>Risk:</b></span><span style="color:#dc2626">&#9632; Very High</span><span style="color:#ea580c">&#9632; High</span><span style="color:#eab308">&#9632; Medium</span><span style="color:#16a34a">&#9632; Low</span>'+
+      '<span><b>Instrumen:</b></span><span>&#10148; Inklinometer</span><span>&#9670; Extensometer</span><span>&#11107; VWP</span><span>&#9650; Prism</span><span>&#9733; RTS</span>'+
+    '</div>'+
   '</div>';
 
   tt.textContent="Shift Monitoring · "+docid;
   document.title=docid+" — Shift Monitoring Report";
+  buildReportMap(r.map_view);
+}
+
+async function buildReportMap(mv){
+  const el=document.getElementById("repmap");
+  if(!el || typeof L==="undefined") return;
+  mv = mv || {base:"esri", inst:true, risk:true, zoom:14, center:[-2.740815,122.006525]};
+  const center = (Array.isArray(mv.center)&&mv.center.length===2)?mv.center:[-2.740815,122.006525];
+  const zoom = mv.zoom||14;
+  const map = L.map("repmap",{zoomControl:false,attributionControl:true,scrollWheelZoom:false,dragging:true});
+  const bases={
+    esri:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"}),
+    aerial:L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:16,maxNativeZoom:19,maxZoom:19,attribution:"PTVI"}),
+    osm:L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OSM"})
+  };
+  (bases[mv.base]||bases.esri).addTo(map);
+  map.setView(center, zoom);
+  // Risk boundaries
+  if(mv.risk!==false){
+    try{
+      const rp=await sb.from("v_inspection_risk_areas").select("polygon_geojson,risk_color,risk_level,location_name").limit(300);
+      ((rp&&!rp.error&&rp.data)?rp.data:[]).forEach(a=>{ if(!a.polygon_geojson)return;
+        try{ const gj=(typeof a.polygon_geojson==="string")?JSON.parse(a.polygon_geojson):a.polygon_geojson; const col=a.risk_color||"#dc2626";
+          L.geoJSON(gj,{style:{color:col,weight:2,fillColor:col,fillOpacity:.22}}).addTo(map);
+        }catch(e){}
+      });
+    }catch(e){}
+  }
+  // Instrument points (same symbology as the form & dashboard)
+  if(mv.inst!==false){
+    try{
+      const SYMB={inclinometer:{g:'➤',s:18},extensometer:{g:'◆',s:15},piezometer:{g:'⬣',s:15},prism:{g:'▲',s:12},rts:{g:'★',s:15}};
+      const CC={inclinometer:'#f59e0b',extensometer:'#a78bfa',piezometer:'#22d3ee',prism:'#94a3b8',rts:'#eab308'};
+      const rs=await sb.from("v_instrument_points").select("name,category,lat,lng");
+      ((rs&&!rs.error&&rs.data)?rs.data:[]).forEach(p=>{ if(p.lat==null||p.lng==null)return;
+        const sy=SYMB[p.category]||{g:'●',s:13}; const col=CC[p.category]||'#94a3b8';
+        L.marker([+p.lat,+p.lng],{icon:L.divIcon({className:"",html:'<div style="color:'+col+';font-size:'+sy.s+'px;line-height:1;text-shadow:0 0 2px #000,0 1px 2px #000;font-weight:900">'+sy.g+'</div>',iconSize:[sy.s,sy.s],iconAnchor:[sy.s/2,sy.s/2]})})
+          .addTo(map);
+      });
+    }catch(e){}
+  }
+  // re-measure once the sheet has laid out so tiles fill the page before printing
+  [120,400,900].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); map.setView(center,zoom); }catch(e){} },d));
 }
 
 (async()=>{
