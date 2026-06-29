@@ -113,15 +113,14 @@ async function render(){
   const { data:r, error } = await sb.from("shift_reports").select("*").eq("id",ID).single();
   if(error||!r){ out.innerHTML='<div class="loading">Shift report tidak ditemukan / tidak punya akses.</div>'; return; }
 
-  // instruments for this report + hourly round checks for the same date & shift
-  const dayStart = r.tanggal+"T00:00:00";
-  const dayEnd   = r.tanggal+"T23:59:59";
+  // instruments for this report + round checks for this report's actual shift WINDOW
+  // (DB RPC, WITA-aware — Malam shift crosses midnight, so a single-date match misses checks)
   const [insR, rcR] = await Promise.all([
     sb.from("shift_report_instruments").select("*").eq("report_uuid", r.id).order("area").order("instrument_id"),
-    sb.from("shift_round_checks").select("*").eq("shift", r.shift).gte("checked_at", dayStart).lte("checked_at", dayEnd).order("checked_at")
+    sb.rpc("shift_round_checks_for_report", {p_tanggal:r.tanggal, p_shift:r.shift})
   ]);
   const insts = insR.data||[];
-  const checks = rcR.data||[];
+  const checks = Array.isArray(rcR.data)?rcR.data:(rcR.data?JSON.parse(rcR.data):[]);
 
   const lv = r.tarp_level||0, col = TARP_C[lv]||TARP_C[0];
   const docid = r.report_id || ("SHIFT-"+String(r.id).slice(0,8));
