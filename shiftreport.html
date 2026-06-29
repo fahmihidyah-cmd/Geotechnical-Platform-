@@ -75,22 +75,30 @@
   .proto .d{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}
   .rcrow{font-size:11.5px;display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--line2);}
   .rcrow:first-child{border-top:none;}
-  /* map with collapsible control panel */
+  /* map with dashboard-style dark Layer & Legend panel (bottom-left) */
   .mapwrap{position:relative;}
   #map{height:440px;border-radius:12px;border:1px solid var(--line);}
   .lbltip{font-size:9px;font-weight:800;background:rgba(255,255,255,.88);border:none;box-shadow:none;padding:0 4px;color:#0f172a;}
   .lbltip::before{display:none;}
-  .mapgear{position:absolute;top:10px;left:10px;z-index:500;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--txt);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15);}
-  .mappanel{position:absolute;top:48px;left:10px;z-index:500;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;width:210px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:none;}
-  .mappanel.show{display:block;}
-  .mappanel .pt{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);font-weight:700;margin:8px 0 5px;}
+  /* Matches the Executive dashboard legend: translucent dark, blurred, collapsible. */
+  .mappanel{position:absolute;left:10px;bottom:10px;z-index:500;
+    background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);border-radius:10px;
+    padding:6px 9px;font-size:10.5px;color:#cbd5e1;backdrop-filter:blur(10px);
+    width:190px;max-height:340px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.35);
+    transition:max-height .2s ease,padding .15s ease;}
+  .mappanel.collapsed{max-height:26px;overflow:hidden;}
+  .mappanel .lgh{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#9fb3cf;font-weight:900;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin-bottom:5px;}
+  .mappanel.collapsed .lgh{margin-bottom:0;}
+  .mappanel .lgbody{display:block;}
+  .mappanel.collapsed .lgbody{display:none;}
+  .mappanel .pt{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#9fb3cf;font-weight:700;margin:7px 0 4px;}
   .mappanel .pt:first-child{margin-top:0;}
-  .mappanel label{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;cursor:pointer;color:var(--txt);}
-  .mappanel input{width:15px;height:15px;}
-  .mlgd{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2);padding:2px 0;}
-  .mlgd .lgd{width:11px;height:11px;border-radius:3px;display:inline-block;}
-  .mlgd .lgd.tri{width:0;height:0;border-radius:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid #16a34a;}
-  .mlgd .lgi{width:13px;text-align:center;display:inline-block;font-size:12px;line-height:1;font-weight:900;text-shadow:0 0 2px #000;}
+  .mappanel label{display:flex;align-items:center;gap:7px;font-size:11px;padding:2px 0;cursor:pointer;color:#cbd5e1;}
+  .mappanel input{width:13px;height:13px;}
+  .mlgd{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#cbd5e1;padding:1.5px 0;}
+  .mlgd .lgd{width:10px;height:10px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.16);}
+  .mlgd .lgi{width:14px;text-align:center;display:inline-block;font-size:11px;line-height:1;color:#cbd5e1;}
   .maphint{font-size:11px;color:var(--mut);margin-top:8px;}
 
   /* PDF / print — strip chrome, fit A4 portrait, no clipped boxes. */
@@ -301,26 +309,28 @@ function render(rcs){
         <div class="sec-h">Site Base Map — atur area untuk laporan</div>
         <div class="mapwrap">
           <div id="map"></div>
-          <button class="mapgear" type="button" onclick="toggleMapPanel()">&#9776; Layer &amp; Legend</button>
           <div class="mappanel" id="mappanel">
-            <div class="pt">Base Map</div>
-            <label><input type="radio" name="mbase" value="esri" checked onchange="setBase('esri')"> Satelit (Esri)</label>
-            <label><input type="radio" name="mbase" value="aerial" onchange="setBase('aerial')"> Aerial PTVI</label>
-            <label><input type="radio" name="mbase" value="osm" onchange="setBase('osm')"> Peta (OSM)</label>
-            <div class="pt">Filter</div>
-            <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
-            <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
-            <div class="pt">Risk (warna)</div>
-            <div class="mlgd"><span class="lgd" style="background:#ef4444"></span> Very High</div>
-            <div class="mlgd"><span class="lgd" style="background:#f97316"></span> High</div>
-            <div class="mlgd"><span class="lgd" style="background:#eab308"></span> Medium</div>
-            <div class="mlgd"><span class="lgd" style="background:#22c55e"></span> Low</div>
-            <div class="pt">Instrumen (bentuk)</div>
-            <div class="mlgd"><span class="lgi" style="color:#f59e0b">➤</span> Inclinometer</div>
-            <div class="mlgd"><span class="lgi" style="color:#a78bfa">◆</span> Extensometer</div>
-            <div class="mlgd"><span class="lgi" style="color:#22d3ee">⬣</span> VWP / Piezometer</div>
-            <div class="mlgd"><span class="lgi" style="color:#94a3b8">▲</span> Prism</div>
-            <div class="mlgd"><span class="lgi" style="color:#eab308">★</span> RTS</div>
+            <div class="lgh" onclick="document.getElementById('mappanel').classList.toggle('collapsed')"><span>Layer &amp; Legend</span><span>&#9662;</span></div>
+            <div class="lgbody">
+              <div class="pt">Base Map</div>
+              <label><input type="radio" name="mbase" value="esri" checked onchange="setBase('esri')"> Satelit (Esri)</label>
+              <label><input type="radio" name="mbase" value="aerial" onchange="setBase('aerial')"> Aerial PTVI</label>
+              <label><input type="radio" name="mbase" value="osm" onchange="setBase('osm')"> Peta (OSM)</label>
+              <div class="pt">Filter</div>
+              <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
+              <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
+              <div class="pt">Risk (colour)</div>
+              <div class="mlgd"><span class="lgd" style="background:#ef4444"></span> Very High</div>
+              <div class="mlgd"><span class="lgd" style="background:#f97316"></span> High</div>
+              <div class="mlgd"><span class="lgd" style="background:#eab308"></span> Medium</div>
+              <div class="mlgd"><span class="lgd" style="background:#22c55e"></span> Low</div>
+              <div class="pt">Instrument (shape)</div>
+              <div class="mlgd"><span class="lgi">&#10148;</span> Inclinometer</div>
+              <div class="mlgd"><span class="lgi">&#9670;</span> Extensometer</div>
+              <div class="mlgd"><span class="lgi">&#11107;</span> VWP / Piezometer</div>
+              <div class="mlgd"><span class="lgi">&#9650;</span> Prism</div>
+              <div class="mlgd"><span class="lgi">&#9733;</span> RTS</div>
+            </div>
           </div>
         </div>
         <div class="maphint">Atur posisi, zoom &amp; filter peta sesuai area yang ingin dilaporkan. Tampilan ini akan tersimpan & dipakai di PDF.</div>
@@ -472,7 +482,8 @@ async function buildMap(){
     });
   }catch(e){}
   riskGroup.addTo(map); instGroup.addTo(map);
-  if(all.length){ try{ map.fitBounds(L.latLngBounds(all).pad(0.25),{maxZoom:15}); }catch(e){ map.setView([-2.74,122.014],13); } } else { map.setView([-2.74,122.014],13); }
+  // Always open on the Bahodopi block by default.
+  try{ map.fitBounds(BAHODOPI_BOUNDS,{padding:[20,20]}); }catch(e){ map.setView([-2.7365,122.013],14); }
   mapBuilt=true;
   setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },250);
 }
