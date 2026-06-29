@@ -80,11 +80,11 @@
   #map{height:440px;border-radius:12px;border:1px solid var(--line);}
   .lbltip{font-size:9px;font-weight:800;background:rgba(255,255,255,.88);border:none;box-shadow:none;padding:0 4px;color:#0f172a;}
   .lbltip::before{display:none;}
-  /* Matches the Executive dashboard legend: translucent dark, blurred, collapsible. */
+  /* Legend (bottom-left) — matches the Executive dashboard: translucent dark, blurred, collapsible. */
   .mappanel{position:absolute;left:10px;bottom:10px;z-index:500;
     background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);border-radius:10px;
     padding:6px 9px;font-size:10.5px;color:#cbd5e1;backdrop-filter:blur(10px);
-    width:190px;max-height:340px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.35);
+    width:172px;box-shadow:0 6px 20px rgba(0,0,0,.35);
     transition:max-height .2s ease,padding .15s ease;}
   .mappanel.collapsed{max-height:26px;overflow:hidden;}
   .mappanel .lgh{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#9fb3cf;font-weight:900;
@@ -92,10 +92,23 @@
   .mappanel.collapsed .lgh{margin-bottom:0;}
   .mappanel .lgbody{display:block;}
   .mappanel.collapsed .lgbody{display:none;}
-  .mappanel .pt{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#9fb3cf;font-weight:700;margin:7px 0 4px;}
-  .mappanel .pt:first-child{margin-top:0;}
-  .mappanel label{display:flex;align-items:center;gap:7px;font-size:11px;padding:2px 0;cursor:pointer;color:#cbd5e1;}
-  .mappanel input{width:13px;height:13px;}
+  /* Base map & filter controls — top-right toggle button + panel. */
+  .maptool{position:absolute;top:10px;right:10px;z-index:500;width:34px;height:34px;border-radius:8px;
+    background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);color:#cbd5e1;backdrop-filter:blur(10px);
+    font-size:15px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);}
+  .maptool:hover{color:#fff;}
+  .maplayers{position:absolute;top:52px;right:10px;z-index:500;display:none;
+    background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);border-radius:10px;
+    padding:8px 10px;font-size:10.5px;color:#cbd5e1;backdrop-filter:blur(10px);width:172px;
+    box-shadow:0 6px 20px rgba(0,0,0,.35);}
+  .maplayers.show{display:block;}
+  .mappanel .pt,.maplayers .pt{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#9fb3cf;font-weight:700;margin:7px 0 4px;}
+  .mappanel .pt:first-child,.maplayers .pt:first-child{margin-top:0;}
+  .mappanel label,.maplayers label{display:flex;align-items:center;gap:7px;font-size:11px;padding:2px 0;cursor:pointer;color:#cbd5e1;}
+  .mappanel input,.maplayers input{width:13px;height:13px;}
+  /* Zoom +/- control — dark/blue so it reads on the satellite base. */
+  .leaflet-control-zoom a{color:#0f172a !important;font-weight:900;}
+  .leaflet-control-zoom a:hover{color:#2563eb !important;}
   .mlgd{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#cbd5e1;padding:1.5px 0;}
   .mlgd .lgd{width:10px;height:10px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.16);}
   .mlgd .lgi{width:14px;text-align:center;display:inline-block;font-size:11px;line-height:1;color:#cbd5e1;}
@@ -105,7 +118,7 @@
   @media print{
     @page{size:A4;margin:10mm;}
     body{background:#fff;color:#0f172a;}
-    header.gms, #hdr, .mapgear, .mappanel, .addrow, .delbtn,
+    header.gms, #hdr, .maptool, .maplayers, .mappanel, .addrow, .delbtn,
     button:not(.no-hide), .leaflet-control-zoom, .leaflet-control-layers{display:none !important;}
     .wrap{max-width:none !important;padding:0 !important;}
     .layout{display:block !important;}
@@ -309,16 +322,21 @@ function render(rcs){
         <div class="sec-h">Site Base Map — atur area untuk laporan</div>
         <div class="mapwrap">
           <div id="map"></div>
+          <!-- Top-right: base map & filter controls (no scroll, separate from legend) -->
+          <button class="maptool" id="maptoolBtn" type="button" title="Base map &amp; filter" onclick="document.getElementById('maplayers').classList.toggle('show')">&#9776;</button>
+          <div class="maplayers" id="maplayers">
+            <div class="pt">Base Map</div>
+            <label><input type="radio" name="mbase" value="esri" checked onchange="setBase('esri')"> Satelit (Esri)</label>
+            <label><input type="radio" name="mbase" value="aerial" onchange="setBase('aerial')"> Aerial PTVI</label>
+            <label><input type="radio" name="mbase" value="osm" onchange="setBase('osm')"> Peta (OSM)</label>
+            <div class="pt">Filter</div>
+            <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
+            <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
+          </div>
+          <!-- Bottom-left: legend only (matches Executive dashboard) -->
           <div class="mappanel" id="mappanel">
-            <div class="lgh" onclick="document.getElementById('mappanel').classList.toggle('collapsed')"><span>Layer &amp; Legend</span><span>&#9662;</span></div>
+            <div class="lgh" onclick="document.getElementById('mappanel').classList.toggle('collapsed')"><span>Legend</span><span>&#9662;</span></div>
             <div class="lgbody">
-              <div class="pt">Base Map</div>
-              <label><input type="radio" name="mbase" value="esri" checked onchange="setBase('esri')"> Satelit (Esri)</label>
-              <label><input type="radio" name="mbase" value="aerial" onchange="setBase('aerial')"> Aerial PTVI</label>
-              <label><input type="radio" name="mbase" value="osm" onchange="setBase('osm')"> Peta (OSM)</label>
-              <div class="pt">Filter</div>
-              <label><input type="checkbox" id="fRisk" checked onchange="toggleRisk(this.checked)"> Boundary Risiko</label>
-              <label><input type="checkbox" id="fInst" checked onchange="toggleInst(this.checked)"> Instrumen + Label ID</label>
               <div class="pt">Risk (colour)</div>
               <div class="mlgd"><span class="lgd" style="background:#ef4444"></span> Very High</div>
               <div class="mlgd"><span class="lgd" style="background:#f97316"></span> High</div>
