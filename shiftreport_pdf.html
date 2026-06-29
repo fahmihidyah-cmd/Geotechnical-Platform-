@@ -53,18 +53,20 @@
   .resp{font-size:10.5px;line-height:1.5;}
   .resp .ri{display:flex;gap:8px;padding:3px 0;border-bottom:1px dotted #e5e7eb;}
   .resp .ri .t{flex:0 0 46px;font-weight:700;color:var(--ink);}
-  /* full-page map sheet */
-  .mappage{display:flex;flex-direction:column;}
-  #repmap{flex:1 1 auto;min-height:232mm;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  /* full-page map sheet — landscape */
+  .mappage{display:flex;flex-direction:column;width:297mm;min-height:210mm;}
+  #repmap{flex:1 1 auto;min-height:158mm;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
   .maplgd{font-size:9.5px;color:var(--mut);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;}
   .maplgd b{color:var(--ink);}
   .leaflet-control-attribution{font-size:8px;}
   @media print{
     body{background:#fff;} .toolbar{display:none;}
     .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
-    .mappage{page-break-before:always;height:269mm;}
-    #repmap{min-height:0;height:218mm;}
-    @page{size:A4;margin:14mm;}
+    @page{size:A4 portrait;margin:14mm;}
+    @page mapLand{size:A4 landscape;margin:12mm;}
+    /* Last sheet rotates to landscape A4 (content area ≈ 273 × 186 mm). */
+    .mappage{page:mapLand;page-break-before:always;width:auto;min-height:auto;height:186mm;}
+    #repmap{min-height:0;height:150mm;}
     .avoid{break-inside:avoid;}
     .leaflet-control-zoom{display:none;}
   }
