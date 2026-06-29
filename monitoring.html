@@ -796,7 +796,7 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:iFrom,p_to:iTo,p_every:iEv}); }
+      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=Promise.all([sb.rpc('inc_top_displacement_series',{p_from:iFrom,p_to:iTo,p_every:iEv}), sb.rpc('inc_profile_daily',{p_from:iFrom,p_to:iTo})]); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('vwp_pressure_series',{p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
@@ -813,21 +813,25 @@
         sb.rpc('inc_top_displacement_series',{p_from:parseRange('7d'),p_to:nowIso,p_every:'3 hours'}),
       ]) : null;
 
-      // Static reference data (instrument coords + install baseline) changes almost
-      // never — fetch ONCE at boot, not every heavy cycle, to keep egress low.
+      // Static reference data (instrument coords) — fetch ONCE at boot. The inclinometer
+      // install baseline is now used server-side only (inc RPCs), not in the front-end.
       const staticP = (!DATA.points) ? Promise.all([
         sb.from('v_instrument_points').select('*'),
-        sb.rpc('inc_initial_baseline'),
       ]) : null;
 
       const ewsP = sb.rpc('ews_latest');
       const ewsAlP = sb.rpc('ews_alerts_recent',{p_limit:20});
       const rain24P = sb.rpc('instrument_series_json',{p_kind:'weather',p_from:new Date(nowMs-24*3600*1000).toISOString(),p_to:nowIso,p_every:'1 hour'});
-      const [base, active, heavyR, ewsR, ewsAlR, rain24R, staticR] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP, rain24P, staticP]);
+      const instTempP = sb.rpc('inst_latest_temp');
+      const [base, active, heavyR, ewsR, ewsAlR, rain24R, staticR, instTempR] = await Promise.all([baseP, activeP, heavyP, ewsP, ewsAlP, rain24P, staticP, instTempP]);
+      if(instTempR && instTempR.data) DATA.instTemp = instTempR.data;
       const [sn,rain,rsum,rdaily]=base;
       DATA.sensors=sn.data||[]; DATA.rain=(rain.data||[])[0]||{};
       DATA.rainSum=(rsum.data||[])[0]||{}; DATA.rainDaily=rdaily.data||[];
-      if(active && activeTarget) DATA[activeTarget]=active.data||[];
+      if(active && activeTarget){
+        if(activeTarget==='incData'){ DATA.incData={ top:(active[0]&&active[0].data)||[], daily:(active[1]&&active[1].data)||[] }; }
+        else DATA[activeTarget]=active.data||[];
+      }
       if(ewsR.data) DATA.ews = ewsR.data;
       if(ewsAlR && ewsAlR.data) DATA.ewsAlerts = ewsAlR.data;
       if(rain24R && rain24R.data) DATA.rain24 = rain24R.data;
@@ -841,13 +845,6 @@
       }
       if(staticR){
         DATA.points=staticR[0].data||[];
-        // Install baseline (oldest reading per inclinometer sensor) → {dev:{A:{n:v},B:{n:v}}}
-        const ibRows = (staticR[1] && staticR[1].data) || [];
-        const ib = {};
-        ibRows.forEach(r=>{ const dev=String(r.external_device_id); const n=sensorNum(r.sensor_name||'');
-          const ax = /-A-Axis-sin/.test(r.sensor_name)?'A':(/-B-Axis-sin/.test(r.sensor_name)?'B':null);
-          if(!ax || !(n>0)) return; (ib[dev]=ib[dev]||{A:{},B:{}})[ax][n]=r.value; });
-        DATA.incBaseline = ib;
       }
       if(STATE.view==='aws'){ try{ const ro=await sb.rpc('rain_overview',{p_range:STATE.rainRange}); DATA.rainOv=ro.data||[]; }catch(e){ DATA.rainOv=DATA.rainOv||[]; } }
       render();
@@ -1705,69 +1702,52 @@
 
     function sensorNum(name){ const m=(name||'').match(/Sensor(\d+)/); return m?parseInt(m[1]):0; }
 
-    function processInc(rows){
-      const byDev={};
-      (rows||[]).forEach(r=>{(byDev[r.external_device_id]=byDev[r.external_device_id]||[]).push(r);});
-      const out={};
-      for(const devId of Object.keys(byDev)){
-        const all=byDev[devId];
-        const aRows=all.filter(r=>r.sensor_name.includes('-A-Axis-sin'));
-        const bRows=all.filter(r=>r.sensor_name.includes('-B-Axis-sin'));
-        const tRows=all.filter(r=>r.sensor_name.includes('-Temp-'));
-        const nums=[...new Set(aRows.map(r=>sensorNum(r.sensor_name)))].filter(n=>n>0).sort((a,b)=>a-b);
-        if(!nums.length) continue;
-        const maxN=Math.max(...nums);
-        const allNums=[];
-        for(let n=1;n<=maxN;n++) allNums.push(n);
-        const timestamps=[...new Set(aRows.map(r=>r.ts))].sort();
-        if(!timestamps.length) continue;
-        const aLk={}, bLk={};
-        aRows.forEach(r=>{ aLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
-        bRows.forEach(r=>{ bLk[r.ts+'|'+sensorNum(r.sensor_name)]=r.value; });
-        const baseTsA={}, baseTsB={};
-        // Prefer the install baseline (oldest-ever reading per sensor) so displacement
-        // is absolute since installation; fall back to first reading in the window.
-        const ib = (typeof DATA!=='undefined' && DATA.incBaseline && DATA.incBaseline[String(devId)]) || null;
-        if(ib){ for(const n of allNums){ if(ib.A && ib.A[n]!=null) baseTsA[n]=ib.A[n]; if(ib.B && ib.B[n]!=null) baseTsB[n]=ib.B[n]; } }
-        for(const n of allNums){
-          for(const ts of timestamps){
-            if(baseTsA[n]==null && aLk[ts+'|'+n]!=null) baseTsA[n]=aLk[ts+'|'+n];
-            if(baseTsB[n]==null && bLk[ts+'|'+n]!=null) baseTsB[n]=bLk[ts+'|'+n];
-            if(baseTsA[n]!=null && baseTsB[n]!=null) break;
-          }
-        }
-        const profiles={};
-        for(const ts of timestamps){
-          let cumA=0,cumB=0; const depths=[],aCum=[],bCum=[];
-          for(const n of allNums){
-            const aVal=aLk[ts+'|'+n], bVal=bLk[ts+'|'+n];
-            const dA=aVal!=null&&baseTsA[n]!=null?(aVal-baseTsA[n])*GAUGE_LEN:0;
-            const dB=bVal!=null&&baseTsB[n]!=null?(bVal-baseTsB[n])*GAUGE_LEN:0;
-            cumA+=dA; cumB+=dB;
-            depths.push((maxN-n+1)*3);
-            aCum.push(cumA); bCum.push(cumB);
-          }
-          profiles[ts]={depths,aCum,bCum};
-        }
-        const topIdx=allNums.length-1;
-        // Cumulative is a bottom-up SUM, so a single missing depth sensor at a
-        // timestamp corrupts the top value (false spike). Keep only timestamps whose
-        // reporting-sensor count matches the normal (mode) profile; drop partial reads.
-        const tsCountA={}, cnt={};
-        for(const ts of timestamps){ let c=0; for(const n of allNums){ if(aLk[ts+'|'+n]!=null) c++; } tsCountA[ts]=c; cnt[c]=(cnt[c]||0)+1; }
-        let modeCount=0, modeFreq=-1;
-        for(const k in cnt){ if(cnt[k]>modeFreq){ modeFreq=cnt[k]; modeCount=+k; } }
-        const topSeries=timestamps
-          .filter(ts=> modeCount>0 && tsCountA[ts]>=modeCount)
-          .map(ts=>({ts,a:profiles[ts].aCum[topIdx],b:profiles[ts].bCum[topIdx]}));
-        const latestTemp=tRows.length?tRows.sort((a,b)=>b.ts.localeCompare(a.ts))[0].value:null;
-        const dailyGroups={};
-        for(const ts of timestamps){ const dk=new Date(ts).toLocaleDateString('id-ID',{day:'numeric',month:'short'}); (dailyGroups[dk]=dailyGroups[dk]||[]).push(ts); }
-        const dailyDates=Object.keys(dailyGroups);
-        const dailyProfiles={};
-        for(const dk of dailyDates){ const tsList=dailyGroups[dk]; const cnt=tsList.length; const aCum=allNums.map((_,j)=>tsList.reduce((s,ts)=>s+(profiles[ts]?.aCum[j]||0),0)/cnt); const bCum=allNums.map((_,j)=>tsList.reduce((s,ts)=>s+(profiles[ts]?.bCum[j]||0),0)/cnt); dailyProfiles[dk]={depths:allNums.map(nn=>(maxN-nn+1)*3),aCum,bCum}; }
-        out[devId]={nums:allNums,maxN,timestamps,profiles,topSeries,latestTemp,depths:allNums.map(n=>(maxN-n+1)*3),dailyDates,dailyProfiles};
+    // Inclinometer interpretation is now done in the DB. This only RESHAPES the two
+    // DB results into the structure the detail-tab charts expect:
+    //   data = { top:[{external_device_id,axis,ts,value}],            (inc_top_displacement_series)
+    //            daily:[{external_device_id,day,axis,sn,depth_m,cum_mm}] }  (inc_profile_daily)
+    function processInc(data){
+      data = data || {};
+      const out = {};
+      const dev = id => out[id] = out[id] || {maxN:0, timestamps:[], topSeries:[], depths:[], dailyDates:[], dailyProfiles:{}, latestTemp:null};
+
+      // top-displacement time-series → {ts, a, b}
+      const topByDev = {};
+      (data.top || []).forEach(r=>{ const id=String(r.external_device_id);
+        const m = topByDev[id] = topByDev[id] || {};
+        const t = m[r.ts] = m[r.ts] || {ts:r.ts, a:null, b:null};
+        if(r.axis==='A') t.a=+r.value; else if(r.axis==='B') t.b=+r.value;
+      });
+      for(const id of Object.keys(topByDev)){
+        const series = Object.values(topByDev[id]).sort((x,y)=>String(x.ts).localeCompare(String(y.ts)));
+        const d = dev(id); d.topSeries = series; d.timestamps = series.map(s=>s.ts);
       }
+
+      // daily depth profiles → dailyProfiles[label] = {depths, aCum, bCum}
+      const dByDev = {};
+      (data.daily || []).forEach(r=>{ const id=String(r.external_device_id);
+        const days = dByDev[id] = dByDev[id] || {};
+        const day = days[r.day] = days[r.day] || {A:[], B:[]};
+        (day[r.axis] || (day[r.axis]=[])).push({sn:+r.sn, depth:+r.depth_m, cum:+r.cum_mm});
+      });
+      for(const id of Object.keys(dByDev)){
+        const d = dev(id); let depths=null;
+        Object.keys(dByDev[id]).sort().forEach(day=>{
+          const A=(dByDev[id][day].A||[]).slice().sort((a,b)=>a.sn-b.sn);
+          const B=(dByDev[id][day].B||[]).slice().sort((a,b)=>a.sn-b.sn);
+          const dep = A.map(x=>x.depth);
+          if(!depths && dep.length) depths = dep;
+          const label = new Date(day+'T00:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+          d.dailyDates.push(label);
+          d.dailyProfiles[label] = {depths:dep, aCum:A.map(x=>x.cum), bCum:B.map(x=>x.cum)};
+          d.maxN = Math.max(d.maxN, A.length);
+        });
+        if(depths) d.depths = depths;
+      }
+
+      // latest temperature (from inst_latest_temp RPC)
+      const temps = (typeof DATA!=='undefined' && DATA.instTemp) || {};
+      for(const id of Object.keys(out)){ if(temps[id]!=null) out[id].latestTemp = +temps[id]; }
       return out;
     }
 
@@ -1780,7 +1760,8 @@
         const p=nd.dailyProfiles[dk]; if(!p) return;
         const vals=axis==='a'?p.aCum:p.bCum;
         vals.forEach(v=>{if(Math.abs(v)>xMax) xMax=Math.ceil(Math.abs(v)/5)*5;});
-        const pts=nd.depths.map((d,j)=>({x:vals[j],y:d}));
+        const dep=(p.depths&&p.depths.length)?p.depths:nd.depths;
+        const pts=dep.map((d,j)=>({x:vals[j],y:d}));
         datasets.push({label:dk+' (avg)',data:pts,showLine:true,borderColor:pal[i%pal.length],backgroundColor:pal[i%pal.length],borderWidth:2,pointRadius:2.5,pointBackgroundColor:pal[i%pal.length],fill:false,tension:0});
       });
       charts[canvasId]=new Chart(cv,{type:'scatter',
@@ -1847,9 +1828,12 @@
         const toTs=new Date(to+'T23:59:59').toISOString();
         const diffD=Math.max(1,Math.round((new Date(toTs)-new Date(fromTs))/86400000));
         const ev=diffD<=7?'1 hour':diffD<=14?'3 hours':'6 hours';
-        const {data,error}=await sb.rpc('instrument_series_json',{p_kind:'inclinometer',p_from:fromTs,p_to:toTs,p_every:ev});
-        if(error) throw error;
-        DATA.incData=data||[];
+        const [topR, dailyR]=await Promise.all([
+          sb.rpc('inc_top_displacement_series',{p_from:fromTs,p_to:toTs,p_every:ev}),
+          sb.rpc('inc_profile_daily',{p_from:fromTs,p_to:toTs})
+        ]);
+        if(topR.error) throw topR.error; if(dailyR.error) throw dailyR.error;
+        DATA.incData={ top:topR.data||[], daily:dailyR.data||[] };
         drawIncTab();
         if(res) res.textContent='';
       }catch(e){if(res) res.textContent='Error: '+(e.message||e);}
@@ -2059,9 +2043,10 @@
 
       const nodeId=STATE.vwpNode||VWP_NODES[0].id;
       const nd=vwpData[nodeId];
+      const vwpTempC=(DATA.instTemp||{})[nodeId];
+      const tempEl=document.getElementById('vwpTemp');
+      if(tempEl) tempEl.textContent='🌡️ '+(vwpTempC!=null?(+vwpTempC).toFixed(1)+'°C':'—');
       if(nd){
-        const tempEl=document.getElementById('vwpTemp');
-        if(tempEl) tempEl.textContent='🌡️ '+(nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'—');
         const chKeys=Object.keys(nd.channels).sort();
         const detailSeries=chKeys.map((ch,i)=>{
           const rows=nd.channels[ch].slice().sort((a,b)=>a.ts.localeCompare(b.ts));
