@@ -454,13 +454,15 @@ async function buildMap(){
     });
   }catch(e){}
   try{
-    const rs=await sb.from("v_instrument_sensors").select("external_device_id,sensor_name,kind,lat,lng,manual_state,latest_ts").eq("kind","extensometer");
-    const seen={};
-    ((rs&&!rs.error&&rs.data)?rs.data:[]).forEach(s=>{ if(s.lat==null||s.lng==null)return; const key=s.external_device_id||s.sensor_name; if(seen[key])return; seen[key]=1;
-      const off=(s.manual_state==="offline")||!s.latest_ts||((Date.now()-new Date(s.latest_ts).getTime())/3600000>3); const col=off?"#dc2626":"#16a34a";
-      L.marker([+s.lat,+s.lng],{icon:L.divIcon({className:"",html:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid '+col+';filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))"></div>',iconSize:[14,13],iconAnchor:[7,13]})})
-        .bindTooltip(String(key),{permanent:true,direction:"right",className:"lbltip",offset:[8,-6]}).addTo(instGroup);
-      all.push([+s.lat,+s.lng]);
+    // All surveyed instruments (matches the Executive map): symbology per type.
+    const rs=await sb.from("v_instrument_points").select("name,category,lat,lng");
+    const SYMB={inclinometer:{g:'➤',s:18},extensometer:{g:'◆',s:15},piezometer:{g:'⬣',s:15},prism:{g:'▲',s:12},rts:{g:'★',s:15}};
+    const CC={inclinometer:'#f59e0b',extensometer:'#a78bfa',piezometer:'#22d3ee',prism:'#94a3b8',rts:'#eab308'};
+    ((rs&&!rs.error&&rs.data)?rs.data:[]).forEach(p=>{ if(p.lat==null||p.lng==null)return;
+      const sy=SYMB[p.category]||{g:'●',s:13}; const col=CC[p.category]||'#94a3b8';
+      L.marker([+p.lat,+p.lng],{icon:L.divIcon({className:"",html:'<div style="color:'+col+';font-size:'+sy.s+'px;line-height:1;text-shadow:0 0 2px #000,0 1px 2px #000;font-weight:900">'+sy.g+'</div>',iconSize:[sy.s,sy.s],iconAnchor:[sy.s/2,sy.s/2]})})
+        .bindTooltip(esc(p.name||p.category),{permanent:false,direction:"right",className:"lbltip",offset:[8,-6]}).addTo(instGroup);
+      all.push([+p.lat,+p.lng]);
     });
   }catch(e){}
   riskGroup.addTo(map); instGroup.addTo(map);

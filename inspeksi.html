@@ -222,8 +222,9 @@ function syncRiskMap(){
   if(!riskMap) return;
   riskMarkers.clearLayers();
   if(riskTargetMarker){ riskMap.removeLayer(riskTargetMarker); riskTargetMarker=null; }
-  const center=getRiskCenter();
-  riskMap.setView(center,16);
+  // NOTE: do NOT move the view here — syncRiskMap runs on every point add/drag/delete,
+  // so resetting the view made the map jump on each edit. Initial view is set once
+  // in openRiskModal() instead.
   const l=LOCATIONS.find(x=>String(x.id)===String(locId));
   const t=locTarget(l);
   if(t){
@@ -239,8 +240,6 @@ function syncRiskMap(){
   if(riskArea.points.length>=3){
     riskPolygon.setLatLngs(riskArea.points);
     if(!riskMap.hasLayer(riskPolygon)) riskPolygon.addTo(riskMap);
-    const bounds=L.latLngBounds(riskArea.points);
-    if(bounds.isValid()) riskMap.fitBounds(bounds.pad(.15));
   }else{
     riskPolygon.setLatLngs([]);
   }
@@ -265,6 +264,9 @@ function openRiskModal(){
   setTimeout(()=>{
     ensureRiskMap();
     syncRiskMap();
+    // Initial view once (existing polygon → fit; else center on target/GPS)
+    if(riskArea.points.length>=3){ const b=L.latLngBounds(riskArea.points); if(b.isValid()) riskMap.fitBounds(b.pad(.15)); }
+    else riskMap.setView(getRiskCenter(),16);
     riskMap.invalidateSize();
   },60);
 }
