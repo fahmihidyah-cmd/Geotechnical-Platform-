@@ -210,6 +210,22 @@ async function loadAuto(){
       area:areaOf(d.device_name), loc:d.external_device_id?('ID '+d.external_device_id):'',
       status, val:'', lv, ref:(valid?v:(d.qc_reason||'Tidak ada data terbaru')), source:'auto' });
   });
+  // VWP / piezometer — DB trigger (rate of rise + rise above baseline). Same single-source pattern.
+  let vwp=[];
+  try{
+    const r=await sb.rpc('vwp_device_latest');
+    if(!r.error && r.data) vwp=Array.isArray(r.data)?r.data:JSON.parse(r.data);
+  }catch(e){}
+  vwp.forEach(d=>{
+    const valid=d.qc==='VALID';
+    const lv=valid?(EWS_LV[d.trigger_level]||1):0;
+    const ref=valid
+      ? `${fmt2(d.latest_kpa)} kPa · +${fmt2(d.rate_kpa_day)} kPa/hari · vs base +${fmt2(d.rise_vs_baseline_kpa)} kPa${d.rain_modifier?' · hujan×0.5':''}`
+      : 'Tidak ada data terbaru';
+    INST.push({ idx:counter++, id:'VWP '+(d.external_device_id||'')+(d.n_channels>1?(' Ch'+d.channel):''),
+      type:'VWP', area:'OTHER', loc:'ID '+(d.external_device_id||''), status:valid?'Online':'Down',
+      val:'', lv, ref, source:'auto' });
+  });
 }
 function fmt2(x){ const n=parseFloat(x); return isFinite(n)?(Math.round(n*100)/100):'0'; }
 
@@ -303,9 +319,9 @@ function render(rcs){
           <table><thead><tr>
             <th>ID</th><th>Tipe</th><th>Area</th><th>Lokasi</th><th>Status</th><th>Nilai</th><th>Unit</th><th>TARP</th><th>Catatan</th><th></th>
           </tr></thead><tbody id="inst-body"></tbody></table>
-          <div class="addrow" onclick="addRow()">+ Tambah instrumen manual (IPI · Prisma · VWP)</div>
+          <div class="addrow" onclick="addRow()">+ Tambah instrumen manual (Prisma · IPI · VWP tanpa telemetri)</div>
         </div>
-        <div style="font-size:11px;color:var(--mut);margin-top:8px">Extensometer &amp; Inklinometer ditarik otomatis (AUTO) dengan level TARP langsung dari EWS database — sama persis dengan dashboard. Kolom <b>Catatan/Nilai</b> menampilkan metrik live (velocity &amp; kumulatif). VWP / Prisma manual isi laju kenaikan / displacement.</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:8px">Extensometer, Inklinometer &amp; VWP ditarik otomatis (AUTO) dengan level TARP langsung dari database — sama persis dengan dashboard. Baris bawah tiap nilai menampilkan metrik live. Prisma / instrumen tanpa telemetri ditambah manual.</div>
       </div>
 
       <div class="panel sec">
@@ -381,12 +397,11 @@ function render(rcs){
           <div style="color:#dc2626">Very High · velocity &gt; 62.5 mm/jam <span style="color:var(--mut)">(1.5 m/hari)</span> · VR &gt; 1.5</div>
           <div style="color:var(--mut);font-size:10px">Level ditarik otomatis dari database (sama dengan dashboard). Modifier hujan ×0.5.</div>
           <div style="height:6px"></div>
-          <div style="color:#7c3aed"><b>VWP / Piezometer</b> — laju kenaikan (kPa/hari)</div>
-          <div style="color:#16a34a">Low &lt; 5</div>
-          <div style="color:#eab308">Medium 5–10</div>
-          <div style="color:#f97316">High 10–20</div>
-          <div style="color:#dc2626">Very High &ge; 20</div>
-          <div style="color:var(--mut);font-size:10px">Referensi laju kenaikan tekanan pori (lihat catatan). Angka sementara, menunggu kalibrasi geoteknik.</div>
+          <div style="color:#7c3aed"><b>VWP / Piezometer</b> — dari DB (laju kenaikan kPa/hari · vs baseline 7-hari)</div>
+          <div style="color:#eab308">Medium · &ge; 5 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 10 kPa di atas baseline</div>
+          <div style="color:#f97316">High · &ge; 10 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 20 kPa di atas baseline</div>
+          <div style="color:#dc2626">Very High · &ge; 20 kPa/hari <span style="color:var(--mut)">atau</span> &ge; 40 kPa di atas baseline</div>
+          <div style="color:var(--mut);font-size:10px">Otomatis dari database (rate-of-rise + baseline, modifier hujan ×0.5). Angka default — bisa di-tune setelah kalibrasi geoteknik.</div>
         </div>
       </div>
       <div class="sbx">
