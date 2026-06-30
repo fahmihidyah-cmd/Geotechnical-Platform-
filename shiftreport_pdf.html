@@ -265,6 +265,11 @@ async function buildReportMap(mv){
     osm:L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OSM"})
   };
   (bases[mv.base]||bases.esri).addTo(map);
+  // Match the form exactly: Esri/OSM have no imagery here past ~z16, so at high zoom
+  // the form overlays the PTVI aerial. Replicate that so the PDF shows the same coverage
+  // the user set (otherwise high-zoom views render blank "Map data not yet available").
+  bases.aerial.on("tileerror", (e)=>{ try{ e.tile.style.display="none"; }catch(_){} });
+  if(zoom>=16 && mv.base!=="aerial"){ bases.aerial.addTo(map); }
   map.setView(center, zoom);
   // Risk boundaries
   if(mv.risk!==false){
