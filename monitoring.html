@@ -794,8 +794,8 @@
         sb.from('v_rain_daily').select('*'),
       ]);
       let activeP=null, activeTarget=null;
-      if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
+      if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series_json',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
+      else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series_json',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():'2020-01-01T00:00:00Z'; const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=Promise.all([sb.rpc('inc_top_displacement_series',{p_from:iFrom,p_to:iTo,p_every:iEv}), sb.rpc('inc_profile_daily',{p_from:iFrom,p_to:iTo})]); }
       else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30,'all':0}[STATE.vwpRange]||7); const f=d===0?'2020-01-01T00:00:00Z':new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':STATE.vwpRange==='all'?'6 hours':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('vwp_pressure_series',{p_from:f,p_to:nowIso,p_every:ev}); }
 
@@ -803,8 +803,8 @@
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
         sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
         sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status,lintang,bujur').order('tanggal',{ascending:false}).limit(8),
-        sb.rpc('instrument_series',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
-        sb.rpc('instrument_series',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
+        sb.rpc('instrument_series_json',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
+        sb.rpc('instrument_series_json',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
         sb.from('v_aws_stats').select('*'),
         sb.from('v_rain_hours').select('*'),
         sb.from('v_inspection_risk_areas').select('*'),
