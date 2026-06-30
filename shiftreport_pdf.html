@@ -258,7 +258,11 @@ async function buildReportMap(mv){
   mv = mv || {base:"esri", inst:true, risk:true, zoom:14, center:[-2.740815,122.006525]};
   const center = (Array.isArray(mv.center)&&mv.center.length===2)?mv.center:[-2.740815,122.006525];
   const zoom = mv.zoom||14;
-  const map = L.map("repmap",{zoomControl:false,attributionControl:true,scrollWheelZoom:false,dragging:true});
+  // Fully NON-INTERACTIVE: the coverage is set once in the form and submitted. The PDF
+  // just shows that frozen view (no drag/zoom) so the operator never re-adjusts it here.
+  const map = L.map("repmap",{zoomControl:false,attributionControl:true,
+    dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,
+    keyboard:false,touchZoom:false,tap:false,inertia:false});
   const bases={
     esri:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"}),
     aerial:L.tileLayer("https://young-mouse-1ee2.fahmihidyah.workers.dev/{z}/{x}/{y}.jpg",{minNativeZoom:16,maxNativeZoom:19,maxZoom:19,attribution:"PTVI"}),
