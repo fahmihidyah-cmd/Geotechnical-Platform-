@@ -125,7 +125,7 @@ function render(){
         '<td class="mono">'+esc(s.tanggal||"")+'</td><td>'+esc(s.shift||"—")+'</td><td>'+esc(s.operator||"—")+'</td>'+
         '<td><span class="badge" style="color:'+(SRISK[s.tarp_level||0])+'">'+esc(s.tarp_label||"Normal")+'</span></td>'+
         '<td class="mono" style="text-align:center">'+(s.online_instruments||0)+'/'+(s.total_instruments||0)+'</td>'+
-        '<td><a class="lnk" href="shiftreport_pdf.html?id='+esc(s.id)+'" target="_top">PDF →</a></td></tr>').join("")
+        '<td><a class="lnk" href="shiftreport_pdf.html?id='+esc(s.id)+'&dl=1" target="_top" title="Buka &amp; unduh PDF otomatis">&#11015; PDF</a></td></tr>').join("")
         :'<tr><td colspan="7" style="color:var(--mut);padding:18px">Belum ada shift report.</td></tr>')+
       '</tbody></table></div></div>';
   }
