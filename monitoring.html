@@ -3137,7 +3137,7 @@
       window.print();
     }
 
-    function setView(v){ STATE.view=v; closeSidebar(); if(needsRealtime()) subscribeRealtime(); else unsubscribeRealtime(); if(v==='instrument'||v==='aws'||v==='inclinometer'||v==='vwp'){ loadAll(); } else { render(); } }
+    function setView(v){ STATE.view=v; closeSidebar(); if(needsRealtime()) subscribeRealtime(); else unsubscribeRealtime(); loadAll(); }
 
     // ── Dashboard carousel (auto 20s + manual) ──
     const DASHBOARDS = [
