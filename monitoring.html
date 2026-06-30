@@ -595,7 +595,7 @@
     const EWS_COLORS = { HIJAU:'#22c55e', KUNING:'#eab308', JINGGA:'#f97316', MERAH:'#ef4444' };
     const EWS_LABELS = { HIJAU:'Low', KUNING:'Medium', JINGGA:'High', MERAH:'Very High' };
 
-    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'7d', incNode:null, vwpNode:null, incFrom:null, incTo:null, carouselOn:false };
+    const STATE = { view:'overview', exRange:'24h', awRange:'24h', rainRange:'7d', incRange:'7d', vwpRange:'all', incNode:null, vwpNode:null, incFrom:null, incTo:null, carouselOn:false };
     let DATA = {};
     let map = null;
     let overlays = null;
@@ -796,8 +796,8 @@
       let activeP=null, activeTarget=null;
       if(STATE.view==='instrument' && STATE.exRange!=='7d'){ const p=rangeParams(STATE.exRange,nowIso); activeTarget='extActive'; activeP=sb.rpc('instrument_series',{p_kind:'extensometer',p_from:p.from,p_to:p.to,p_every:p.every}); }
       else if(STATE.view==='aws' && STATE.awRange!=='7d'){ const p=rangeParams(STATE.awRange,nowIso); activeTarget='wxActive'; activeP=sb.rpc('instrument_series',{p_kind:'weather',p_from:p.from,p_to:p.to,p_every:p.every}); }
-      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():new Date(Date.now()-7*24*3600*1000).toISOString(); const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=Promise.all([sb.rpc('inc_top_displacement_series',{p_from:iFrom,p_to:iTo,p_every:iEv}), sb.rpc('inc_profile_daily',{p_from:iFrom,p_to:iTo})]); }
-      else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30}[STATE.vwpRange]||7); const f=new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('vwp_pressure_series',{p_from:f,p_to:nowIso,p_every:ev}); }
+      else if(STATE.view==='inclinometer'){ const iFrom=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():'2020-01-01T00:00:00Z'; const iTo=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():nowIso; const iDiff=Math.max(1,Math.round((new Date(iTo)-new Date(iFrom))/86400000)); const iEv=iDiff<=7?'1 hour':iDiff<=14?'3 hours':'6 hours'; activeTarget='incData'; activeP=Promise.all([sb.rpc('inc_top_displacement_series',{p_from:iFrom,p_to:iTo,p_every:iEv}), sb.rpc('inc_profile_daily',{p_from:iFrom,p_to:iTo})]); }
+      else if(STATE.view==='vwp'){ const d=STATE.vwpRange==='live'?1:({'3d':3,'7d':7,'10d':10,'30d':30,'all':0}[STATE.vwpRange]||7); const f=d===0?'2020-01-01T00:00:00Z':new Date(Date.now()-d*24*3600*1000).toISOString(); const ev=STATE.vwpRange==='live'?'5 minutes':STATE.vwpRange==='all'?'6 hours':(d<=3?'1 hour':d<=10?'3 hours':'6 hours'); activeTarget='vwpData'; activeP=sb.rpc('vwp_pressure_series',{p_from:f,p_to:nowIso,p_every:ev}); }
 
       const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
@@ -1722,7 +1722,7 @@
 
     // ===================== INCLINOMETER TAB =====================
     function lsRangeToggle(scope,cur){
-      const opts=[['live','Live'],['3d','3D'],['7d','7D'],['10d','10D'],['30d','30D']];
+      const opts=[['live','Live'],['3d','3D'],['7d','7D'],['10d','10D'],['30d','30D'],['all','All']];
       const fn=scope==='inc'?'setIncRange':'setVwpRange';
       return opts.map(([v,l])=>`<button class="btn-ghost xs ${cur===v?'on':''}" onclick="${fn}('${v}')">${v==='live'?'<span class="dot" style="--c:#22c55e;width:6px;height:6px;vertical-align:middle;margin-right:3px;animation:pulse 2s infinite"></span>':''} ${l}</button>`).join('');
     }
@@ -1904,7 +1904,7 @@
       return `
         <div style="display:flex;align-items:center;gap:10px;padding:0 2px 8px;flex-wrap:wrap">
           <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
-          <input type="date" id="inc_from" class="flt" value="${STATE.incFrom||dStr(-7)}" style="font-size:12px">
+          <input type="date" id="inc_from" class="flt" value="${STATE.incFrom||'2020-01-01'}" style="font-size:12px">
           <span style="color:#9fb3cf;font-size:12px">—</span>
           <input type="date" id="inc_to" class="flt" value="${STATE.incTo||dStr(0)}" style="font-size:12px">
           <button class="btn-ghost" onclick="loadIncByDate()" style="font-weight:700;padding:6px 16px">SHOW</button>
@@ -1992,7 +1992,7 @@
       const nodeOpts=VWP_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       const isLive = STATE.vwpRange==='live';
       const liveInfo = isLive ? `<span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · auto-refresh 30s</span>` : '';
-      const rangeLabel = isLive?'24 jam terakhir':({'3d':'3 hari','7d':'7 hari','10d':'10 hari','30d':'30 hari'}[STATE.vwpRange]||'7 hari');
+      const rangeLabel = isLive?'24 jam terakhir':({'3d':'3 hari','7d':'7 hari','10d':'10 hari','30d':'30 hari','all':'Semua data'}[STATE.vwpRange]||'7 hari');
       return `
         <div class="card-hd" style="padding:0 2px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <div class="t">VWP — Pore Pressure (kPa) vs Time · P = G(R₀−Rᵢ) ${liveInfo}</div>
