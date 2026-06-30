@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="common.js"></script>
 <style>
   :root{--ink:#111827;--mut:#6b7280;--line:#d1d5db;--navy:#0b1f3a;--blue:#1d4ed8;
@@ -59,18 +61,18 @@
   .maplgd{font-size:9.5px;color:var(--mut);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;}
   .maplgd b{color:var(--ink);}
   .leaflet-control-attribution{font-size:8px;}
+  /* Generating-PDF overlay */
+  .genov{position:fixed;inset:0;background:rgba(15,23,42,.82);color:#fff;z-index:50;
+    display:none;align-items:center;justify-content:center;font-size:15px;font-weight:600;}
+  .genov.show{display:flex;} .genov .sp{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-right:10px;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg)}}
   @media print{
-    body{background:#fff;} .toolbar{display:none;}
+    body{background:#fff;} .toolbar,.genov{display:none;}
     .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
     @page{size:A4 portrait;margin:14mm;}
-    /* Map sheet: print on a margin-less portrait page but ROTATE the content 90° so it
-       reads landscape. (Named-page 'size:landscape' is not honoured by Edge/some Chrome,
-       so we rotate instead — works everywhere.) The 297×210 box maps onto the 210×297 page. */
-    @page mapPage{size:A4 portrait;margin:0;}
-    .mappage{page:mapPage;page-break-before:always;
-      width:297mm;height:210mm;overflow:hidden;
-      transform-origin:top left;transform:rotate(90deg) translateY(-210mm);}
-    #repmap{min-height:0;height:150mm;}
+    /* Print fallback (the recommended path is Download PDF): map page stays portrait. */
+    .mappage{width:auto !important;min-height:auto;page-break-before:always;}
+    #repmap{min-height:0;height:120mm;}
     .avoid{break-inside:avoid;}
     .leaflet-control-zoom{display:none;}
   }
@@ -80,8 +82,10 @@
 <div class="toolbar">
   <span class="sp" id="tt">Shift Monitoring Report</span>
   <a class="ghost" href="database.html">&#8592; Database</a>
-  <button onclick="window.print()">&#128424; Simpan / Cetak PDF</button>
+  <button id="btnDl" onclick="downloadPDF(false)">&#11015; Download PDF</button>
+  <button class="ghost" onclick="window.print()" title="Cetak via dialog browser">&#128424;</button>
 </div>
+<div class="genov" id="genov"><div><span class="sp"></span>Membuat PDF… mohon tunggu</div></div>
 <div id="out"><div class="loading">Memuat laporan…</div></div>
 
 <script>
@@ -307,11 +311,61 @@ async function buildReportMap(mv){
   [120,400,900].forEach(d=>setTimeout(()=>{ try{ map.invalidateSize(); map.setView(center,zoom); }catch(e){} },d));
 }
 
+// ── Direct PDF download (no browser print dialog) ──
+// Text pages → portrait; the site map → its own landscape page. The map is captured
+// with useCORS; Esri/OSM tiles capture cleanly. For the PTVI aerial to appear in the
+// file its Cloudflare Worker must send "Access-Control-Allow-Origin: *" (one line).
+function addPaged(pdf, canvas, orient, firstPage){
+  const pw = orient==='l'?297:210, ph = orient==='l'?210:297;
+  const imgW = pw, imgH = canvas.height*pw/canvas.width;
+  const img = canvas.toDataURL('image/jpeg',0.92);
+  let heightLeft = imgH, position = 0;
+  if(!firstPage) pdf.addPage('a4',orient);
+  pdf.addImage(img,'JPEG',0,position,imgW,imgH);
+  heightLeft -= ph;
+  while(heightLeft > 0.5){ position -= ph; pdf.addPage('a4',orient); pdf.addImage(img,'JPEG',0,position,imgW,imgH); heightLeft -= ph; }
+}
+function fitPage(pdf, canvas, orient){
+  const pw = orient==='l'?297:210, ph = orient==='l'?210:297;
+  const r = Math.min(pw/canvas.width, ph/canvas.height);
+  const w = canvas.width*r, h = canvas.height*r;
+  pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(pw-w)/2,(ph-h)/2,w,h);
+}
+async function downloadPDF(auto){
+  const btn=document.getElementById('btnDl'), ov=document.getElementById('genov');
+  if(typeof html2canvas==='undefined' || !(window.jspdf&&window.jspdf.jsPDF)){
+    if(!auto) alert('Library PDF belum termuat. Cek koneksi internet lalu coba lagi.'); return;
+  }
+  const textEl=document.querySelector('.page:not(.mappage)'), mapEl=document.querySelector('.mappage');
+  if(!textEl){ if(!auto) alert('Laporan belum siap.'); return; }
+  try{
+    if(btn){ btn.disabled=true; btn.textContent='Menyiapkan…'; }
+    if(ov) ov.classList.add('show');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const opt = {scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false};
+    const c1 = await html2canvas(textEl, opt);
+    addPaged(pdf, c1, 'p', true);
+    if(mapEl){
+      const c2 = await html2canvas(mapEl, opt);
+      pdf.addPage('a4','landscape');
+      fitPage(pdf, c2, 'l');
+    }
+    const name=(document.title||'shift-report').replace(/[^\w.-]+/g,'_').replace(/_+/g,'_');
+    pdf.save(name+'.pdf');
+  }catch(e){ if(!auto) alert('Gagal membuat PDF: '+(e.message||e)); console.error(e); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML='&#11015; Download PDF'; } if(ov) ov.classList.remove('show'); }
+}
+window.downloadPDF=downloadPDF;
+
 (async()=>{
   const s=await GMS.getSession();
   if(!s){ out.innerHTML='<div class="loading">Perlu login. <a href="index.html">Masuk dulu</a> lalu buka ulang link laporan.</div>'; return; }
   if(!ID){ out.innerHTML='<div class="loading">Parameter ?id= tidak ada.</div>'; return; }
-  try{ await render(); }
+  try{ await render();
+    // Opened from Database with &dl=1 → auto-download once the map tiles have settled.
+    if(qs.get('dl')==='1'){ setTimeout(()=>downloadPDF(true), 2800); }
+  }
   catch(e){ out.innerHTML='<div class="loading">Gagal memuat: '+esc(e.message||String(e))+'</div>'; }
 })();
 </script>
