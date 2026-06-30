@@ -53,9 +53,9 @@
   .resp{font-size:10.5px;line-height:1.5;}
   .resp .ri{display:flex;gap:8px;padding:3px 0;border-bottom:1px dotted #e5e7eb;}
   .resp .ri .t{flex:0 0 46px;font-weight:700;color:var(--ink);}
-  /* full-page map sheet — landscape */
-  .mappage{display:flex;flex-direction:column;width:297mm;min-height:210mm;}
-  #repmap{flex:1 1 auto;min-height:158mm;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  /* full-page map sheet — laid out landscape (297×210) on screen and in print */
+  .mappage{display:flex;flex-direction:column;width:297mm;min-height:210mm;padding:8mm;box-sizing:border-box;}
+  #repmap{flex:1 1 auto;min-height:150mm;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
   .maplgd{font-size:9.5px;color:var(--mut);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;}
   .maplgd b{color:var(--ink);}
   .leaflet-control-attribution{font-size:8px;}
@@ -63,9 +63,13 @@
     body{background:#fff;} .toolbar{display:none;}
     .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:0;}
     @page{size:A4 portrait;margin:14mm;}
-    @page mapLand{size:A4 landscape;margin:12mm;}
-    /* Last sheet rotates to landscape A4 (content area ≈ 273 × 186 mm). */
-    .mappage{page:mapLand;page-break-before:always;width:auto;min-height:auto;height:186mm;}
+    /* Map sheet: print on a margin-less portrait page but ROTATE the content 90° so it
+       reads landscape. (Named-page 'size:landscape' is not honoured by Edge/some Chrome,
+       so we rotate instead — works everywhere.) The 297×210 box maps onto the 210×297 page. */
+    @page mapPage{size:A4 portrait;margin:0;}
+    .mappage{page:mapPage;page-break-before:always;
+      width:297mm;height:210mm;overflow:hidden;
+      transform-origin:top left;transform:rotate(90deg) translateY(-210mm);}
     #repmap{min-height:0;height:150mm;}
     .avoid{break-inside:avoid;}
     .leaflet-control-zoom{display:none;}
