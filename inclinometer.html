@@ -10,128 +10,121 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="common.js"></script>
 <style>
-:root{
-  --bg0:#051426;--bg1:#04101f;--panel0:#0a2037;--panel1:#0b243f;--panel2:#0e2c4d;
-  --stroke:rgba(148,163,184,.16);--txt:#e5e7eb;--mut:#94a3b8;
-  --green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#ef4444;
-}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--txt);overflow:hidden;height:100vh}
+:root{--bg0:#051426;--bg1:#04101f;--p0:#0a2037;--p1:#0b243f;--p2:#0e2c4d;--st:rgba(148,163,184,.16);--tx:#e5e7eb;--mu:#94a3b8;--grn:#22c55e;--yel:#eab308;--org:#f97316;--red:#ef4444}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--tx);overflow:hidden;height:100vh}
 
-/* ── Header ── */
-.hdr{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--panel0);border-bottom:1px solid var(--stroke);flex-wrap:wrap;min-height:48px}
-.hdr .title{font-size:15px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
-.hdr .stats{display:flex;gap:6px;flex-wrap:wrap}
-.hdr .stat{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--stroke)}
-.hdr .stat b{font-size:16px;margin-right:3px}
-.hdr .clock{margin-left:auto;text-align:right;font-size:11px;color:var(--mut);white-space:nowrap}
-.hdr .clock b{display:block;font-size:14px;color:var(--txt)}
-.hdr .legend{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--mut)}
-.hdr .legend .sq{width:14px;height:14px;border-radius:2px;display:inline-block}
-.hdr .back-btn{background:none;border:1px solid var(--stroke);color:var(--mut);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
-.hdr .back-btn:hover{color:var(--txt);border-color:var(--mut)}
+/* Header */
+.hdr{display:flex;align-items:center;gap:8px;padding:4px 12px;background:var(--p0);border-bottom:1px solid var(--st);height:36px;flex-shrink:0}
+.hdr .back{background:none;border:1px solid var(--st);color:var(--mu);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;white-space:nowrap}
+.hdr .back:hover{color:var(--tx)}
+.hdr .ttl{font-size:13px;font-weight:800;letter-spacing:.03em;white-space:nowrap}
+.hdr .st{padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;background:var(--p2);border:1px solid var(--st);white-space:nowrap}
+.hdr .st b{font-size:13px;margin-right:2px}
+.hdr .lg{display:flex;gap:3px;align-items:center;font-size:9px;color:var(--mu);margin-left:auto}
+.hdr .lg .sq{width:12px;height:12px;border-radius:2px;display:inline-block}
+.hdr .clk{text-align:right;font-size:10px;color:var(--mu);white-space:nowrap;margin-left:8px;line-height:1.2}
+.hdr .clk b{display:block;font-size:13px;color:var(--tx)}
 
-/* ── Layout ── */
-.wrap{display:grid;grid-template-columns:220px 1fr 240px;gap:0;height:calc(100vh - 48px);overflow:hidden}
-@media(max-width:1100px){.wrap{grid-template-columns:180px 1fr 200px}}
-@media(max-width:800px){.wrap{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}}
+/* 3-column layout */
+.wrap{display:grid;grid-template-columns:180px 1fr 220px;height:calc(100vh - 36px);overflow:hidden}
 
-/* ── Overview Panel (left) ── */
-.ov-panel{background:var(--panel0);border-right:1px solid var(--stroke);padding:8px;overflow-y:auto}
-.ov-panel h3{font-size:11px;color:var(--mut);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em}
-.ov-col{display:flex;gap:2px;margin-bottom:10px;cursor:pointer;border-radius:6px;padding:4px;transition:background .15s}
-.ov-col:hover{background:var(--panel2)}
-.ov-col.act{background:var(--panel1);outline:2px solid #22d3ee}
-.ov-col .lbl{font-size:10px;color:var(--mut);text-align:center;margin-bottom:3px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-col .info{font-size:9px;color:var(--mut);text-align:center;margin-top:3px}
-.ov-strip{display:flex;flex-direction:column;align-items:center;flex:1}
-.ov-strip .ax-lbl{font-size:9px;color:var(--mut);margin-bottom:2px;font-weight:600}
-.ov-cell{width:100%;height:16px;min-width:20px;border-radius:1px;margin-bottom:1px;position:relative}
-.ov-cell.dead{background:repeating-linear-gradient(45deg,#374151,#374151 2px,#4b5563 2px,#4b5563 4px)}
-.ov-cell.nodata{background:#1e293b}
-.ov-dot{width:8px;height:8px;border-radius:50%;margin:3px auto 0}
+/* Left: device selector */
+.lp{background:var(--p0);border-right:1px solid var(--st);padding:6px;overflow-y:auto}
+.lp h3{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.dv{cursor:pointer;border-radius:5px;padding:4px;margin-bottom:6px;border:2px solid transparent;transition:all .15s}
+.dv:hover{background:var(--p2)}
+.dv.act{background:var(--p1);border-color:#22d3ee}
+.dv .nm{font-size:10px;font-weight:700;margin-bottom:2px;text-align:center}
+.dv .ax-row{display:flex;gap:1px;justify-content:center}
+.dv .ax-col{display:flex;flex-direction:column;align-items:center;gap:1px}
+.dv .ax-col .al{font-size:8px;color:var(--mu);font-weight:600;margin-bottom:1px}
+.dv .cl{width:22px;height:12px;border-radius:1px}
+.dv .cl.dead{background:repeating-linear-gradient(45deg,#374151,#374151 2px,#4b5563 2px,#4b5563 4px)}
+.dv .cl.nd{background:#1e293b}
+.dv .dot-row{text-align:center;margin-top:3px;font-size:8px;color:var(--mu)}
+.dv .dot-row .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:middle}
 
-/* ── Center Panel ── */
-.center-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--bg1)}
-.center-hd{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel0);border-bottom:1px solid var(--stroke);flex-wrap:wrap}
-.center-hd .sel-title{font-size:14px;font-weight:800;color:#22d3ee}
-.center-hd .sel-info{font-size:11px;color:var(--mut)}
-.center-hd select,.center-hd input{background:var(--panel2);border:1px solid var(--stroke);color:var(--txt);padding:4px 8px;border-radius:4px;font-size:11px}
-.center-hd button{background:var(--panel2);border:1px solid var(--stroke);color:var(--txt);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700}
-.center-hd button:hover{border-color:var(--mut)}
-.center-body{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;overflow:auto;min-height:0}
-.ccard{background:var(--panel0);border-radius:6px;border:1px solid var(--stroke);overflow:hidden;display:flex;flex-direction:column}
-.ccard .ch{padding:6px 10px;font-size:11px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--stroke);display:flex;justify-content:space-between;align-items:center}
-.ccard .cb{flex:1;padding:4px;position:relative;min-height:0}
+/* Center */
+.cp{display:flex;flex-direction:column;overflow:hidden;background:var(--bg1)}
+.cp-hd{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--p0);border-bottom:1px solid var(--st);flex-wrap:wrap;min-height:28px}
+.cp-hd .st{font-size:12px;font-weight:800;color:#22d3ee;white-space:nowrap}
+.cp-hd .si{font-size:10px;color:var(--mu);white-space:nowrap}
+.cp-hd .sp{flex:1}
+/* Controls row */
+.ctl{display:flex;align-items:center;gap:4px;padding:3px 10px;background:var(--p0);border-bottom:1px solid var(--st);flex-wrap:wrap}
+.ctl label{font-size:9px;color:var(--mu);text-transform:uppercase}
+.ctl select,.ctl input[type=date]{background:var(--p2);border:1px solid var(--st);color:var(--tx);padding:2px 4px;border-radius:3px;font-size:10px;height:22px}
+.ctl select{min-width:60px}
+.ctl input[type=date]{width:105px}
+.ctl .btn{background:var(--p2);border:1px solid var(--st);color:var(--tx);padding:2px 10px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700;height:22px}
+.ctl .btn:hover{border-color:var(--mu)}
 
-/* ── Status Panel (right) ── */
-.status-panel{background:var(--panel0);border-left:1px solid var(--stroke);padding:12px;overflow-y:auto}
-.st-badge{text-align:center;padding:14px 10px;border-radius:8px;margin-bottom:12px;font-size:18px;font-weight:900;letter-spacing:.04em}
-.st-badge.hijau{background:rgba(34,197,94,.15);color:#22c55e;border:2px solid #22c55e}
-.st-badge.kuning{background:rgba(234,179,8,.15);color:#eab308;border:2px solid #eab308}
-.st-badge.jingga{background:rgba(249,115,22,.15);color:#f97316;border:2px solid #f97316}
-.st-badge.merah{background:rgba(239,68,68,.15);color:#ef4444;border:2px solid #ef4444}
-.st-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--stroke);font-size:12px}
-.st-row .k{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
-.st-row .v{font-weight:700;font-size:14px}
-.st-row .v.green{color:#22c55e}.st-row .v.yellow{color:#eab308}.st-row .v.orange{color:#f97316}.st-row .v.red{color:#ef4444}
-.st-section{margin-top:16px;padding-top:10px;border-top:1px solid var(--stroke)}
-.st-section h4{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+/* Chart area */
+.charts{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;padding:4px;min-height:0;overflow:hidden}
+.cc{background:var(--p0);border-radius:4px;border:1px solid var(--st);display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.cc .ch{padding:3px 8px;font-size:10px;font-weight:700;color:var(--mu);border-bottom:1px solid var(--st);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.cc .cb{flex:1;padding:2px;position:relative;min-height:0}
+.cc.wide{grid-column:1/3}
 
-.spin{width:20px;height:20px;border:2px solid var(--stroke);border-top-color:#3b82f6;border-radius:50%;animation:sp .6s linear infinite;margin:auto}
+/* Right: status */
+.rp{background:var(--p0);border-left:1px solid var(--st);padding:8px;overflow-y:auto;font-size:11px}
+.badge{text-align:center;padding:8px 6px;border-radius:6px;margin-bottom:8px;font-size:15px;font-weight:900;letter-spacing:.03em}
+.badge.hijau{background:rgba(34,197,94,.12);color:#22c55e;border:2px solid #22c55e}
+.badge.kuning{background:rgba(234,179,8,.12);color:#eab308;border:2px solid #eab308}
+.badge.jingga{background:rgba(249,115,22,.12);color:#f97316;border:2px solid #f97316}
+.badge.merah{background:rgba(239,68,68,.12);color:#ef4444;border:2px solid #ef4444}
+.sr{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--st)}
+.sr .k{color:var(--mu);font-size:9px;text-transform:uppercase;letter-spacing:.03em}
+.sr .v{font-weight:700;font-size:12px}
+.sr .v.g{color:#22c55e}.sr .v.y{color:#eab308}.sr .v.o{color:#f97316}.sr .v.r{color:#ef4444}
+.ss{margin-top:8px;padding-top:6px;border-top:1px solid var(--st)}
+.ss h4{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+
+.spin{width:18px;height:18px;border:2px solid var(--st);border-top-color:#3b82f6;border-radius:50%;animation:sp .6s linear infinite;margin:auto}
 @keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script>
 "use strict";
-const sb = GMS.sb, esc = GMS.esc;
-const GAUGE_LEN = 3000;
-const INC_NODES = [
-  {id:'108052',label:'WOC-02 INC',   sensors:9, depth:30},
-  {id:'108102',label:'WDN-2 INC-01', sensors:15,depth:51},
-  {id:'108164',label:'WDN-2 INC-02', sensors:13,depth:39},
-  {id:'108403',label:'WOC-01 INC',   sensors:5, depth:15},
+const sb=GMS.sb,esc=GMS.esc,GAUGE=3000;
+const NODES=[
+  {id:'108052',label:'WOC-02 INC',depth:30},
+  {id:'108102',label:'WDN-2 INC-01',depth:51},
+  {id:'108164',label:'WDN-2 INC-02',depth:39},
+  {id:'108403',label:'WOC-01 INC',depth:15}
 ];
+let S={sel:'108102',axis:'A',depthIdx:0,from:null,to:null};
+let D={ov:[],hm:null,ews:[],ch:{}};
+function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
+function hc(v){if(v==null)return null;const a=Math.abs(v);if(a>=20)return'#991b1b';if(a>=10)return'#ef4444';if(a>=5)return'#f97316';if(a>=2)return'#eab308';if(a>=1)return'#22c55e';return'#166534'}
+function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
+function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=l.toUpperCase();if(u==='MERAH')return{c:'merah',t:'ALARM'};if(u==='JINGGA')return{c:'jingga',t:'WARNING'};if(u==='KUNING')return{c:'kuning',t:'WATCH'};return{c:'hijau',t:'NORMAL'}}
 
-let STATE = { selected:'108102', axis:'A', depthIdx:0, from:null, to:null };
-let DATA = { overview:[], heatmap:null, ews:[], charts:{} };
-
-function dStr(off){ return new Date(Date.now()+off*86400000).toISOString().slice(0,10); }
-function hmColor(v){
-  if(v==null) return null;
-  const a=Math.abs(v);
-  if(a>=20) return '#991b1b';
-  if(a>=10) return '#ef4444';
-  if(a>=5)  return '#f97316';
-  if(a>=2)  return '#eab308';
-  if(a>=1)  return '#22c55e';
-  return '#166534';
+// Cumulative: sum incremental from deepest (bottom) upward
+function toCum(sensors,data){
+  const alive=sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+  const bks=[...new Set(data.map(d=>d.b))].sort();
+  const inc={};data.forEach(d=>{inc[d.sn+'|'+d.b]=d.v||0});
+  const cum=[];
+  bks.forEach(bk=>{let s=0;alive.forEach(sn=>{s+=inc[sn.sn+'|'+bk]||0;cum.push({sn:sn.sn,b:bk,v:Math.round(s*1000)/1000})})});
+  return cum;
 }
-function hmColorClass(v){
-  if(v==null) return '';
-  const a=Math.abs(v);
-  if(a>=10) return 'red'; if(a>=5) return 'orange'; if(a>=2) return 'yellow'; return 'green';
-}
-function trigLevel(lv){
-  if(!lv) return {cls:'hijau',txt:'NORMAL'};
-  const l=lv.toUpperCase();
-  if(l==='MERAH') return {cls:'merah',txt:'ALARM'};
-  if(l==='JINGGA') return {cls:'jingga',txt:'WARNING'};
-  if(l==='KUNING') return {cls:'kuning',txt:'WATCH'};
-  return {cls:'hijau',txt:'NORMAL'};
+function toCumOv(rows,devId){
+  const devRows=rows.filter(r=>r.device===devId).sort((a,b)=>b.depth_m-a.depth_m);
+  let cumA=0,cumB=0;
+  return devRows.map(r=>{cumA+=(r.a_mm||0);cumB+=(r.b_mm||0);return{...r,ca:Math.round(cumA*1000)/1000,cb:Math.round(cumB*1000)/1000}});
 }
 
-// ── Render Shell ──
-function renderShell(){
+function shell(){
   document.getElementById('root').innerHTML=`
   <div class="hdr">
-    <button class="back-btn" onclick="location.href='monitoring.html'">← Dashboard</button>
-    <div class="title">INCLINOMETER — REALTIME MONITORING</div>
-    <div class="stats" id="hdStats"></div>
-    <div class="legend">
+    <button class="back" onclick="location.href='monitoring.html'">&larr; Dashboard</button>
+    <div class="ttl">INCLINOMETER &mdash; REALTIME MONITORING</div>
+    <div id="hdSt"></div>
+    <div class="lg">
       <span class="sq" style="background:#166534"></span>&lt;1
       <span class="sq" style="background:#22c55e"></span>1-2
       <span class="sq" style="background:#eab308"></span>2-5
@@ -139,466 +132,242 @@ function renderShell(){
       <span class="sq" style="background:#ef4444"></span>10-20
       <span class="sq" style="background:#991b1b"></span>&ge;20
       <span class="sq" style="background:repeating-linear-gradient(45deg,#374151,#374151 2px,#4b5563 2px,#4b5563 4px)"></span>No Data
-      <span style="margin-left:4px">mm</span>
+      <span>mm</span>
     </div>
-    <div class="clock"><b id="clockLbl">—</b><span id="clockDate">—</span></div>
+    <div class="clk"><b id="ck1">—</b><span id="ck2">—</span></div>
   </div>
   <div class="wrap">
-    <div class="ov-panel" id="ovPanel"><h3>All Inclinometers</h3><div id="ovBody"><div class="spin"></div></div></div>
-    <div class="center-panel">
-      <div class="center-hd">
-        <div class="sel-title" id="selTitle">SELECTED: —</div>
-        <div class="sel-info" id="selInfo"></div>
-        <div style="flex:1"></div>
-        <label style="font-size:10px;color:var(--mut)">Axis</label>
-        <select id="axisSel" onchange="setAxis(this.value)"><option value="A">A-Axis</option><option value="B">B-Axis</option></select>
-        <label style="font-size:10px;color:var(--mut)">Depth</label>
-        <select id="depthSel" onchange="setDepth(+this.value)"></select>
-        <label style="font-size:10px;color:var(--mut)">From</label>
-        <input type="date" id="dtFrom" value="${STATE.from||dStr(-7)}"/>
-        <label style="font-size:10px;color:var(--mut)">To</label>
-        <input type="date" id="dtTo" value="${STATE.to||dStr(0)}"/>
-        <button onclick="loadSelected()">SHOW</button>
+    <div class="lp"><h3>All Inclinometer Overview (Live)</h3><div id="ovB"><div class="spin"></div></div></div>
+    <div class="cp">
+      <div class="cp-hd">
+        <span class="st" id="sT">SELECTED: —</span>
+        <span class="si" id="sI"></span>
+        <span class="sp"></span>
       </div>
-      <div class="center-body">
-        <div class="ccard"><div class="ch"><span>INCREMENTAL DISPLACEMENT PROFILE (Latest)</span></div><div class="cb"><canvas id="cvProfile"></canvas></div></div>
-        <div class="ccard"><div class="ch"><span>INCREMENTAL DISPLACEMENT vs TIME</span><span id="dispDepthLbl" style="color:#22d3ee"></span></div><div class="cb"><canvas id="cvDispTime"></canvas></div></div>
-        <div class="ccard" style="grid-column:1/3"><div class="ch"><span>DEPTH × TIME HEATMAP — <span id="hmAxisLbl">A-Axis</span></span></div><div class="cb" style="overflow:auto"><div id="hmBox"><div class="spin"></div></div></div></div>
+      <div class="ctl">
+        <label>Axis</label><select id="xAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B">B-Axis</option></select>
+        <label>Depth</label><select id="xDp" onchange="setDp(+this.value)"></select>
+        <label>From</label><input type="date" id="xF" value="${S.from||ds(-7)}"/>
+        <label>To</label><input type="date" id="xT" value="${S.to||ds(0)}"/>
+        <button class="btn" onclick="loadSel()">SHOW</button>
+      </div>
+      <div class="charts">
+        <div class="cc"><div class="ch">CUMULATIVE DISPLACEMENT PROFILE (Latest)</div><div class="cb"><canvas id="cvP"></canvas></div></div>
+        <div class="cc"><div class="ch"><span>CUMULATIVE DISPLACEMENT vs TIME</span><span id="dpL" style="color:#22d3ee"></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
+        <div class="cc wide"><div class="ch">DEPTH &times; TIME HEATMAP &mdash; <span id="axL">A-Axis</span> (Cumulative)</div><div class="cb" style="overflow:auto"><div id="hmB"><div class="spin"></div></div></div></div>
       </div>
     </div>
-    <div class="status-panel" id="statusPanel"><div class="spin"></div></div>
+    <div class="rp" id="stP"><div class="spin"></div></div>
   </div>`;
-  updateClock();
-  setInterval(updateClock,1000);
+  ckUp();setInterval(ckUp,1000);
 }
-function updateClock(){
-  const n=new Date();
-  const el=document.getElementById('clockLbl'), el2=document.getElementById('clockDate');
-  if(el) el.textContent=n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' WIB';
-  if(el2) el2.textContent=n.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+function ckUp(){const n=new Date(),e=document.getElementById('ck1'),e2=document.getElementById('ck2');if(e)e.textContent=n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' WIB';if(e2)e2.textContent=n.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}
+
+// Overview
+async function loadOv(){
+  try{const{data,error}=await sb.rpc('inc_overview_latest');if(error)throw error;D.ov=data||[]}catch(e){D.ov=[]}
+  renderOv();
+}
+function renderOv(){
+  const box=document.getElementById('ovB');if(!box)return;
+  const ewsBy={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ewsBy[e.external_device_id]=e});
+  let cn={n:0,w:0,wn:0,a:0};
+  NODES.forEach(n=>{const lv=tlv(ewsBy[n.id]?.trigger_level);if(lv.c==='merah')cn.a++;else if(lv.c==='jingga')cn.wn++;else if(lv.c==='kuning')cn.w++;else cn.n++});
+  const hs=document.getElementById('hdSt');
+  if(hs)hs.innerHTML=`<div class="st"><b>${NODES.length}</b> TOTAL</div><div class="st" style="color:#22c55e"><b>${cn.n}</b> Normal</div><div class="st" style="color:#eab308"><b>${cn.w}</b> Watch</div><div class="st" style="color:#f97316"><b>${cn.wn}</b> Warning</div><div class="st" style="color:#ef4444"><b>${cn.a}</b> Alarm</div>`;
+
+  let h='';
+  NODES.forEach(nd=>{
+    const cumRows=toCumOv(D.ov,nd.id);
+    const act=S.sel===nd.id?'act':'';
+    const ew=ewsBy[nd.id];
+    const lv=tlv(ew?.trigger_level);
+    const dc=lv.c==='hijau'?'#22c55e':lv.c==='kuning'?'#eab308':lv.c==='jingga'?'#f97316':'#ef4444';
+
+    h+=`<div class="dv ${act}" onclick="selDev('${nd.id}')"><div class="nm">${esc(nd.label)}</div><div class="ax-row">`;
+    h+=`<div class="ax-col"><div class="al">A</div>`;
+    cumRows.forEach(r=>{
+      if(r.a_mm==null&&r.ca===0)h+=`<div class="cl nd" title="${r.depth_m}m: no data"></div>`;
+      else h+=`<div class="cl" style="background:${hc(r.ca)}" title="${r.depth_m}m: ${r.ca.toFixed(1)} mm cum"></div>`;
+    });
+    h+=`</div><div class="ax-col"><div class="al">B</div>`;
+    cumRows.forEach(r=>{
+      if(r.b_mm==null&&r.cb===0)h+=`<div class="cl nd" title="${r.depth_m}m: no data"></div>`;
+      else h+=`<div class="cl" style="background:${hc(r.cb)}" title="${r.depth_m}m: ${r.cb.toFixed(1)} mm cum"></div>`;
+    });
+    h+=`</div></div><div class="dot-row"><span class="dot" style="background:${dc}"></span>${lv.t}</div></div>`;
+  });
+  box.innerHTML=h;
 }
 
-// ── Overview Panel ──
-async function loadOverview(){
+function selDev(id){S.sel=id;renderOv();loadSel()}
+function setAx(a){S.axis=a;const el=document.getElementById('axL');if(el)el.textContent=a+'-Axis';loadSel()}
+function setDp(i){S.depthIdx=i;drawDisp()}
+window.selDev=selDev;window.setAx=setAx;window.setDp=setDp;window.loadSel=loadSel;
+
+async function loadSel(){
+  const dev=S.sel,nd=NODES.find(n=>n.id===dev);
+  const el=document.getElementById('sT');if(el)el.textContent='SELECTED: '+(nd?.label||dev);
+  S.from=document.getElementById('xF')?.value||ds(-7);
+  S.to=document.getElementById('xT')?.value||ds(0);
+  const f=new Date(S.from+'T00:00:00').toISOString(),t=new Date(S.to+'T23:59:59').toISOString();
+  const dd=Math.max(1,Math.round((new Date(t)-new Date(f))/864e5));
+  const ev=dd<=3?'1 hour':dd<=7?'3 hours':dd<=30?'6 hours':'1 day';
+  const hmB=document.getElementById('hmB');if(hmB)hmB.innerHTML='<div class="spin" style="margin:12px auto"></div>';
   try{
-    const {data,error}=await sb.rpc('inc_overview_latest');
-    if(error) throw error;
-    DATA.overview=data||[];
-  }catch(e){ DATA.overview=[]; }
-  renderOverview();
-}
-function renderOverview(){
-  const box=document.getElementById('ovBody'); if(!box) return;
-  const byDev={};
-  DATA.overview.forEach(r=>{ (byDev[r.device]=byDev[r.device]||[]).push(r); });
-
-  const ewsByDev={};
-  (DATA.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ ewsByDev[e.external_device_id]=e; });
-
-  let counts={normal:0,watch:0,warning:0,alarm:0};
-  INC_NODES.forEach(n=>{
-    const ew=ewsByDev[n.id];
-    const lv=trigLevel(ew?.trigger_level);
-    if(lv.cls==='merah') counts.alarm++;
-    else if(lv.cls==='jingga') counts.warning++;
-    else if(lv.cls==='kuning') counts.watch++;
-    else counts.normal++;
-  });
-  const hs=document.getElementById('hdStats');
-  if(hs) hs.innerHTML=`
-    <div class="stat"><b>${INC_NODES.length}</b> TOTAL</div>
-    <div class="stat" style="color:#22c55e"><b>${counts.normal}</b> Normal</div>
-    <div class="stat" style="color:#eab308"><b>${counts.watch}</b> Watch</div>
-    <div class="stat" style="color:#f97316"><b>${counts.warning}</b> Warning</div>
-    <div class="stat" style="color:#ef4444"><b>${counts.alarm}</b> Alarm</div>`;
-
-  let html='';
-  INC_NODES.forEach(n=>{
-    const sensors=(byDev[n.id]||[]).sort((a,b)=>b.depth_m-a.depth_m);
-    const act=STATE.selected===n.id?'act':'';
-    const ew=ewsByDev[n.id];
-    const lv=trigLevel(ew?.trigger_level);
-
-    html+=`<div class="ov-col ${act}" onclick="selectDevice('${n.id}')">`;
-    html+=`<div style="width:100%"><div class="lbl">${esc(n.label)}</div>`;
-    html+=`<div style="display:flex;gap:2px">`;
-
-    // A-axis strip
-    html+=`<div class="ov-strip"><div class="ax-lbl">A</div>`;
-    sensors.forEach(s=>{
-      if(s.a_mm==null) html+=`<div class="ov-cell nodata" title="${s.depth_m}m: no data"></div>`;
-      else html+=`<div class="ov-cell" style="background:${hmColor(s.a_mm)}" title="${s.depth_m}m: ${s.a_mm.toFixed(1)} mm"></div>`;
-    });
-    html+=`</div>`;
-
-    // B-axis strip
-    html+=`<div class="ov-strip"><div class="ax-lbl">B</div>`;
-    sensors.forEach(s=>{
-      if(s.b_mm==null) html+=`<div class="ov-cell nodata" title="${s.depth_m}m: no data"></div>`;
-      else html+=`<div class="ov-cell" style="background:${hmColor(s.b_mm)}" title="${s.depth_m}m: ${s.b_mm.toFixed(1)} mm"></div>`;
-    });
-    html+=`</div>`;
-
-    html+=`</div>`; // flex
-    html+=`<div class="info"><div class="ov-dot" style="background:${lv.cls==='hijau'?'#22c55e':lv.cls==='kuning'?'#eab308':lv.cls==='jingga'?'#f97316':'#ef4444'}"></div>${lv.txt}</div>`;
-    html+=`</div></div>`;
-  });
-  box.innerHTML=html;
-}
-
-// ── Selected Device Detail ──
-function selectDevice(id){
-  STATE.selected=id;
-  renderOverview();
-  loadSelected();
-}
-function setAxis(a){ STATE.axis=a; document.getElementById('hmAxisLbl').textContent=a+'-Axis'; loadSelected(); }
-function setDepth(idx){ STATE.depthIdx=idx; drawDispTime(); }
-window.selectDevice=selectDevice; window.setAxis=setAxis; window.setDepth=setDepth;
-
-async function loadSelected(){
-  const dev=STATE.selected;
-  const node=INC_NODES.find(n=>n.id===dev);
-  const el=document.getElementById('selTitle');
-  if(el) el.textContent='SELECTED: '+(node?.label||dev);
-
-  STATE.from=document.getElementById('dtFrom')?.value||dStr(-7);
-  STATE.to=document.getElementById('dtTo')?.value||dStr(0);
-  const from=new Date(STATE.from+'T00:00:00').toISOString();
-  const to=new Date(STATE.to+'T23:59:59').toISOString();
-  const diffD=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000));
-  const ev=diffD<=3?'1 hour':diffD<=7?'3 hours':diffD<=30?'6 hours':'1 day';
-
-  const hmBox=document.getElementById('hmBox');
-  if(hmBox) hmBox.innerHTML='<div class="spin" style="margin:20px auto"></div>';
-
-  try{
-    const {data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:from,p_to:to,p_every:ev,p_axis:STATE.axis});
-    if(error) throw error;
-    DATA.heatmap=data;
-
-    // Populate depth selector
-    const depSel=document.getElementById('depthSel');
-    if(depSel && data?.sensors?.length){
-      const sorted=data.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
-      depSel.innerHTML=sorted.map((s,i)=>`<option value="${i}"${i===STATE.depthIdx?' selected':''}>${s.depth_m} m</option>`).join('');
+    const{data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:ev,p_axis:S.axis});
+    if(error)throw error;
+    D.hm=data;
+    // Compute cumulative
+    if(data?.sensors?.length&&data?.data?.length){
+      D.cumData=toCum(data.sensors,data.data);
+    }else{D.cumData=[];}
+    const depSel=document.getElementById('xDp');
+    if(depSel&&data?.sensors?.length){
+      const alive=data.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+      depSel.innerHTML=alive.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m} m</option>`).join('');
     }
-
-    const infoEl=document.getElementById('selInfo');
-    if(infoEl && data?.sensors) infoEl.textContent=`Depth: ${node?.depth||'?'}m · Sensors: ${data.sensors.length} · Interval: 3.0m`;
-
-    drawProfile();
-    drawDispTime();
-    drawHeatmap();
-    renderStatus();
-  }catch(e){
-    if(hmBox) hmBox.innerHTML='<div style="color:#ef4444;padding:12px">Error: '+esc(e.message||e)+'</div>';
-  }
+    const si=document.getElementById('sI');
+    if(si&&data?.sensors)si.textContent=`Depth: ${nd?.depth||'?'}m · Sensors: ${data.sensors.length} · Interval: 3.0m`;
+    drawProf();drawDisp();drawHM();renderSt();
+  }catch(e){if(hmB)hmB.innerHTML='<div style="color:#ef4444;padding:8px">Error: '+esc(e.message||e)+'</div>'}
 }
 
-// ── Profile Chart (depth vs displacement with heatmap background) ──
-function drawProfile(){
-  const cv=document.getElementById('cvProfile'); if(!cv||!DATA.heatmap) return;
-  if(DATA.charts.profile) DATA.charts.profile.destroy();
-
-  const hm=DATA.heatmap;
-  const sensors=hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>a.depth_m-b.depth_m);
-  if(!sensors.length) return;
-
-  // Get latest bucket
-  const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
-  const latestBk=buckets[buckets.length-1];
-  const lookup={};
-  hm.data.forEach(d=>{ if(d.b===latestBk) lookup[d.sn]=d.v; });
-
-  const points=sensors.map(s=>({x:lookup[s.sn]||0, y:s.depth_m}));
-  let mx=0; points.forEach(p=>{ const a=Math.abs(p.x); if(a>mx) mx=a; });
-  const xMax=Math.max(3,Math.ceil(mx*1.3));
-
-  // Heatmap background plugin
-  const hmBgPlugin={
-    id:'hmBg',
-    beforeDatasetsDraw(chart){
-      const ctx=chart.ctx, area=chart.chartArea, yScale=chart.scales.y, xScale=chart.scales.x;
-      if(!area) return;
-      sensors.forEach((s,i)=>{
-        const val=lookup[s.sn];
-        const yPx=yScale.getPixelForValue(s.depth_m);
-        const halfH=(i<sensors.length-1)?Math.abs(yScale.getPixelForValue(sensors[i+1]?.depth_m||s.depth_m+3)-yPx)/2:15;
-        const top=yPx-halfH, bot=yPx+halfH;
-        ctx.save();
-        ctx.fillStyle=val!=null?hmColor(val)+'40':'rgba(30,41,59,.3)';
-        ctx.fillRect(area.left,top,area.right-area.left,bot-top);
-        ctx.restore();
-      });
-    }
-  };
-
-  DATA.charts.profile=new Chart(cv,{type:'scatter',
-    data:{datasets:[
-      {label:'Initial (0)',data:sensors.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
-      {label:'Latest',data:points,showLine:true,borderColor:'#fff',backgroundColor:'#fff',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#fff',fill:false,tension:0}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,
-      plugins:{legend:{display:false},title:{display:true,text:'Profile — '+STATE.axis+'-Axis (Latest)',color:'#e5e7eb',font:{size:12,weight:'bold'}}},
-      scales:{
-        x:{min:-xMax,max:xMax,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.08)'}},
-        y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}
-      }},
-    plugins:[hmBgPlugin]
-  });
-}
-
-// ── Displacement vs Time Chart ──
-function drawDispTime(){
-  const cv=document.getElementById('cvDispTime'); if(!cv||!DATA.heatmap) return;
-  if(DATA.charts.disp) DATA.charts.disp.destroy();
-
-  const hm=DATA.heatmap;
-  const sensors=hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
-  if(!sensors.length) return;
-
-  const idx=Math.min(STATE.depthIdx,sensors.length-1);
-  const sel=sensors[idx];
-  const lbl=document.getElementById('dispDepthLbl');
-  if(lbl) lbl.textContent='@ '+sel.depth_m+' m';
-
-  const pts=hm.data.filter(d=>d.sn===sel.sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))
-    .map(d=>({x:new Date(d.b).getTime(),y:d.v}));
-
-  let mx=0; pts.forEach(p=>{ const a=Math.abs(p.y); if(a>mx) mx=a; });
-  const yMax=Math.max(3,Math.ceil(mx*1.3));
-  const lastPt=pts[pts.length-1];
-
-  const trigLines=[
-    {y:2,c:'rgba(234,179,8,.5)',l:'Medium 2'},   {y:-2,c:'rgba(234,179,8,.5)'},
-    {y:5,c:'rgba(249,115,22,.5)',l:'High 5'},     {y:-5,c:'rgba(249,115,22,.5)'},
-    {y:10,c:'rgba(239,68,68,.5)',l:'Very High 10'},{y:-10,c:'rgba(239,68,68,.5)'}
-  ].filter(t=>Math.abs(t.y)<=yMax*1.2);
-
-  const annotations=trigLines.map((t,i)=>({
-    type:'line',yMin:t.y,yMax:t.y,borderColor:t.c,borderWidth:1,borderDash:[4,3],
-    label:t.l?{display:true,content:t.l,position:'start',font:{size:8},color:t.c,backgroundColor:'transparent'}:undefined
-  }));
-
-  DATA.charts.disp=new Chart(cv,{type:'line',
-    data:{datasets:[{
-      label:'Displacement',data:pts,borderColor:'#3b82f6',backgroundColor:'#3b82f6',
-      borderWidth:2,pointRadius:2,pointBackgroundColor:'#3b82f6',fill:false,tension:.2,spanGaps:true
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},
-        title:{display:true,text:'Displacement vs Time — '+STATE.axis+'-Axis',color:'#e5e7eb',font:{size:12,weight:'bold'}},
-        tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}
-      },
-      scales:{
-        x:{type:'linear',ticks:{color:'#9fb3cf',font:{size:8},maxTicksLimit:8,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+new Date(v).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})},grid:{color:'rgba(148,163,184,.06)'}},
-        y:{min:-yMax,max:yMax,title:{display:true,text:'mm',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.08)'}}
-      }}
-  });
-
-  // Annotate last point value
-  if(lastPt){
-    const ctx=cv.getContext('2d');
-    const chart=DATA.charts.disp;
-    const meta=chart.getDatasetMeta(0);
-    if(meta.data.length){
-      const last=meta.data[meta.data.length-1];
-      setTimeout(()=>{
-        const cl=hmColorClass(lastPt.y);
-        const col=cl==='red'?'#ef4444':cl==='orange'?'#f97316':cl==='yellow'?'#eab308':'#22c55e';
-        const ctx2=cv.getContext('2d');
-        const px=last.x, py=last.y;
-        ctx2.save();
-        ctx2.fillStyle=col; ctx2.font='bold 10px sans-serif'; ctx2.textAlign='left'; ctx2.textBaseline='bottom';
-        ctx2.fillText(lastPt.y.toFixed(1)+' mm',px+6,py-4);
-        ctx2.restore();
-      },50);
-    }
-  }
-}
-
-// ── Heatmap (depth × time) ──
-function drawHeatmap(){
-  const box=document.getElementById('hmBox'); if(!box||!DATA.heatmap) return;
-  const hm=DATA.heatmap;
-  const sensors=hm.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m);
-  const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
-  if(!buckets.length){ box.innerHTML='<div style="color:var(--mut);padding:16px;text-align:center">No data in range</div>'; return; }
-
-  const lookup={};
-  hm.data.forEach(d=>{ lookup[d.sn+'|'+d.b]=d.v; });
-  const deadSet=new Set(sensors.filter(s=>s.is_dead).map(s=>s.sn));
-
-  const cellW=Math.max(8,Math.min(36,Math.floor(760/buckets.length)));
-  const cellH=20;
-  const mL=52,mR=12,mT=4,mB=48;
-  const w=mL+buckets.length*cellW+mR;
-  const h=mT+sensors.length*cellH+mB;
-
-  box.innerHTML='<canvas id="hmCv" width="'+w+'" height="'+h+'" style="display:block;'+(w>800?'':'width:100%;')+'"></canvas>';
-  const cv=document.getElementById('hmCv'); if(!cv) return;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,w,h);
-
-  sensors.forEach((s,yi)=>{
-    const y=mT+yi*cellH;
-    buckets.forEach((bk,xi)=>{
-      const x=mL+xi*cellW;
-      if(deadSet.has(s.sn)){
-        ctx.fillStyle='#374151'; ctx.fillRect(x,y,cellW-1,cellH-1);
-        ctx.strokeStyle='#6b7280'; ctx.lineWidth=0.5;
-        for(let d=-cellH;d<cellW;d+=4){ ctx.beginPath(); ctx.moveTo(x+d,y); ctx.lineTo(x+d+cellH,y+cellH); ctx.stroke(); }
-      } else {
-        const val=lookup[s.sn+'|'+bk];
-        if(val!=null){
-          ctx.fillStyle=hmColor(val); ctx.fillRect(x,y,cellW-1,cellH-1);
-          if(cellW>=24){ ctx.fillStyle='#000'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(val.toFixed(1),x+cellW/2,y+cellH/2); }
-        } else { ctx.fillStyle='#1e293b'; ctx.fillRect(x,y,cellW-1,cellH-1); }
-      }
+// Profile chart with heatmap background (CUMULATIVE)
+function drawProf(){
+  const cv=document.getElementById('cvP');if(!cv||!D.hm)return;
+  if(D.ch.prof)D.ch.prof.destroy();
+  const hm=D.hm,sensors=hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>a.depth_m-b.depth_m);
+  if(!sensors.length)return;
+  const bks=[...new Set(D.cumData.map(d=>d.b))].sort();
+  const latBk=bks[bks.length-1];
+  const lk={};D.cumData.forEach(d=>{if(d.b===latBk)lk[d.sn]=d.v});
+  const pts=sensors.map(s=>({x:lk[s.sn]||0,y:s.depth_m}));
+  let mx=0;pts.forEach(p=>{const a=Math.abs(p.x);if(a>mx)mx=a});
+  const xM=Math.max(3,Math.ceil(mx*1.3));
+  const bgPl={id:'hmBg',beforeDatasetsDraw(chart){
+    const ctx=chart.ctx,ar=chart.chartArea,ys=chart.scales.y;if(!ar)return;
+    sensors.forEach((s,i)=>{
+      const v=lk[s.sn],yp=ys.getPixelForValue(s.depth_m);
+      const hh=i<sensors.length-1?Math.abs(ys.getPixelForValue(sensors[i+1]?.depth_m||s.depth_m+3)-yp)/2:12;
+      ctx.save();ctx.fillStyle=v!=null?hc(v)+'50':'rgba(30,41,59,.3)';ctx.fillRect(ar.left,yp-hh,ar.right-ar.left,hh*2);ctx.restore();
     });
-  });
-
-  // Y labels
-  ctx.fillStyle='#9fb3cf'; ctx.font='10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
-  sensors.forEach((s,yi)=>{ ctx.fillText(s.depth_m+'m',mL-4,mT+yi*cellH+cellH/2); });
-
-  // X labels
-  ctx.textAlign='center'; ctx.font='9px sans-serif'; ctx.textBaseline='top';
-  const maxXL=Math.floor((w-mL-mR)/50);
-  const xStep=Math.max(1,Math.ceil(buckets.length/maxXL));
-  buckets.forEach((bk,xi)=>{
-    if(xi%xStep!==0) return;
-    const x=mL+xi*cellW+cellW/2;
-    const d=new Date(bk);
-    ctx.save(); ctx.translate(x,mT+sensors.length*cellH+4); ctx.rotate(Math.PI/5);
-    ctx.fillStyle='#9fb3cf';
-    ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),0,0);
-    ctx.restore();
-  });
+  }};
+  D.ch.prof=new Chart(cv,{type:'scatter',data:{datasets:[
+    {label:'Baseline',data:sensors.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+    {label:'Latest',data:pts,showLine:true,borderColor:'#fff',backgroundColor:'#fff',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#fff',fill:false,tension:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false},title:{display:true,text:'Profile — '+S.axis+'-Axis (Latest)',color:'#e5e7eb',font:{size:11,weight:'bold'}}},
+    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7}},grid:{color:'rgba(148,163,184,.08)'}},
+      y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}}},
+    plugins:[bgPl]});
 }
 
-// ── Status Panel ──
-function renderStatus(){
-  const panel=document.getElementById('statusPanel'); if(!panel) return;
-  const dev=STATE.selected;
-  const node=INC_NODES.find(n=>n.id===dev);
-  const hm=DATA.heatmap;
+// Cumulative displacement vs time
+function drawDisp(){
+  const cv=document.getElementById('cvD');if(!cv||!D.hm)return;
+  if(D.ch.disp)D.ch.disp.destroy();
+  const sensors=D.hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+  if(!sensors.length)return;
+  const idx=Math.min(S.depthIdx,sensors.length-1),sel=sensors[idx];
+  const lbl=document.getElementById('dpL');if(lbl)lbl.textContent='@ '+sel.depth_m+' m';
+  const pts=D.cumData.filter(d=>d.sn===sel.sn).sort((a,b)=>String(a.b).localeCompare(String(b.b))).map(d=>({x:new Date(d.b).getTime(),y:d.v}));
+  let mx=0;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});
+  const yM=Math.max(3,Math.ceil(mx*1.3));
+  D.ch.disp=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#3b82f6',backgroundColor:'#3b82f6',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#3b82f6',fill:false,tension:.2,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},title:{display:true,text:'Displacement vs Time — '+S.axis+'-Axis',color:'#e5e7eb',font:{size:11,weight:'bold'}},
+        tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}},
+      scales:{x:{type:'linear',ticks:{color:'#9fb3cf',font:{size:7},maxTicksLimit:6,callback:v=>{const d=new Date(v);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:-yM,max:yM,title:{display:true,text:'mm',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7}},grid:{color:'rgba(148,163,184,.08)'}}}}});
+  // Annotate last value
+  if(pts.length){const lp=pts[pts.length-1];const meta=D.ch.disp.getDatasetMeta(0);if(meta.data.length){
+    setTimeout(()=>{const last=meta.data[meta.data.length-1];const ctx=cv.getContext('2d');const col=vcl(lp.y)==='r'?'#ef4444':vcl(lp.y)==='o'?'#f97316':vcl(lp.y)==='y'?'#eab308':'#22c55e';
+      ctx.save();ctx.fillStyle=col;ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText(lp.y.toFixed(1)+' mm',last.x+4,last.y-3);ctx.restore()},60)}}
+}
 
-  // EWS status for this device
-  const ew=(DATA.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev);
-  const lv=trigLevel(ew?.trigger_level);
+// Heatmap (cumulative)
+function drawHM(){
+  const box=document.getElementById('hmB');if(!box||!D.hm)return;
+  const sensors=D.hm.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m);
+  const bks=[...new Set(D.cumData.map(d=>d.b))].sort();
+  if(!bks.length){box.innerHTML='<div style="color:var(--mu);padding:8px;text-align:center;font-size:10px">No data</div>';return}
+  const lk={};D.cumData.forEach(d=>{lk[d.sn+'|'+d.b]=d.v});
+  const dead=new Set(D.hm.sensors.filter(s=>s.is_dead).map(s=>s.sn));
+  const cW=Math.max(8,Math.min(34,Math.floor(680/bks.length))),cH=18;
+  const mL=42,mR=8,mT=2,mB=40;
+  const w=mL+bks.length*cW+mR,h=mT+sensors.length*cH+mB;
+  box.innerHTML='<canvas id="hmC" width="'+w+'" height="'+h+'" style="display:block;'+(w>700?'':'width:100%;')+'"></canvas>';
+  const cv=document.getElementById('hmC');if(!cv)return;
+  const ctx=cv.getContext('2d');ctx.fillStyle='#0f172a';ctx.fillRect(0,0,w,h);
+  sensors.forEach((s,yi)=>{const y=mT+yi*cH;bks.forEach((bk,xi)=>{const x=mL+xi*cW;
+    if(dead.has(s.sn)){ctx.fillStyle='#374151';ctx.fillRect(x,y,cW-1,cH-1);ctx.strokeStyle='#6b7280';ctx.lineWidth=.5;for(let d=-cH;d<cW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cH,y+cH);ctx.stroke()}}
+    else{const v=lk[s.sn+'|'+bk];if(v!=null){ctx.fillStyle=hc(v);ctx.fillRect(x,y,cW-1,cH-1);if(cW>=22){ctx.fillStyle='#000';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v.toFixed(1),x+cW/2,y+cH/2)}}
+    else{ctx.fillStyle='#1e293b';ctx.fillRect(x,y,cW-1,cH-1)}}
+  })});
+  ctx.fillStyle='#9fb3cf';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+  sensors.forEach((s,yi)=>{ctx.fillText(s.depth_m+'m',mL-3,mT+yi*cH+cH/2)});
+  ctx.textAlign='center';ctx.font='8px sans-serif';ctx.textBaseline='top';
+  const mxL=Math.floor((w-mL-mR)/46),xSt=Math.max(1,Math.ceil(bks.length/mxL));
+  bks.forEach((bk,xi)=>{if(xi%xSt!==0)return;const x=mL+xi*cW+cW/2;const d=new Date(bk);
+    ctx.save();ctx.translate(x,mT+sensors.length*cH+3);ctx.rotate(Math.PI/5);ctx.fillStyle='#9fb3cf';
+    ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),0,0);ctx.restore()});
+}
 
-  // Find max displacement from latest bucket
-  let maxAbs=0, maxDepth=0, maxVal=0;
-  if(hm?.data?.length && hm?.sensors?.length){
-    const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
-    const latestBk=buckets[buckets.length-1];
-    const sensorMap={}; hm.sensors.forEach(s=>{ sensorMap[s.sn]=s; });
-    hm.data.filter(d=>d.b===latestBk).forEach(d=>{
-      const a=Math.abs(d.v||0);
-      if(a>maxAbs){ maxAbs=a; maxDepth=sensorMap[d.sn]?.depth_m||0; maxVal=d.v; }
-    });
+// Status panel
+function renderSt(){
+  const p=document.getElementById('stP');if(!p)return;
+  const dev=S.sel,nd=NODES.find(n=>n.id===dev),hm=D.hm;
+  const ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev);
+  const lv=tlv(ew?.trigger_level);
+  let mxA=0,mxD=0,mxV=0;
+  if(D.cumData?.length&&hm?.sensors?.length){
+    const bks=[...new Set(D.cumData.map(d=>d.b))].sort();const lb=bks[bks.length-1];
+    const sm={};hm.sensors.forEach(s=>{sm[s.sn]=s});
+    D.cumData.filter(d=>d.b===lb).forEach(d=>{const a=Math.abs(d.v||0);if(a>mxA){mxA=a;mxD=sm[d.sn]?.depth_m||0;mxV=d.v}});
   }
+  let vel=0,vD=0;
+  if(D.cumData?.length){const bks=[...new Set(D.cumData.map(d=>d.b))].sort();
+    if(bks.length>=2){const b1=bks[bks.length-2],b2=bks[bks.length-1];const dt=(new Date(b2)-new Date(b1))/36e5;
+    if(dt>0){const sm={};hm.sensors.forEach(s=>{sm[s.sn]=s});const d1={},d2={};
+      D.cumData.forEach(d=>{if(d.b===b1)d1[d.sn]=d.v;if(d.b===b2)d2[d.sn]=d.v});let mv=0;
+      Object.keys(d2).forEach(sn=>{if(d1[sn]!=null&&d2[sn]!=null){const v=Math.abs(d2[sn]-d1[sn])/dt;if(v>mv){mv=v;vD=sm[+sn]?.depth_m||0}}});vel=mv}}}
+  const dir=mxV>0.5?'DOWNSLOPE':mxV<-0.5?'UPSLOPE':'STABLE';
+  const di=mxV>0.5?'↓':mxV<-0.5?'↑':'—';
+  const lu=D.cumData?.length?new Date(Math.max(...[...new Set(D.cumData.map(d=>d.b))].map(b=>new Date(b).getTime()))):null;
+  const ewsBy={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ewsBy[e.external_device_id]=e});
 
-  // Velocity: compute from last 2 buckets
-  let velocity=0, velDepth=0;
-  if(hm?.data?.length){
-    const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
-    if(buckets.length>=2){
-      const b1=buckets[buckets.length-2], b2=buckets[buckets.length-1];
-      const dt=(new Date(b2)-new Date(b1))/3600000;
-      if(dt>0){
-        const sensorMap={}; hm.sensors.forEach(s=>{ sensorMap[s.sn]=s; });
-        const d1={}, d2={};
-        hm.data.forEach(d=>{ if(d.b===b1) d1[d.sn]=d.v; if(d.b===b2) d2[d.sn]=d.v; });
-        let maxV=0;
-        Object.keys(d2).forEach(sn=>{
-          if(d1[sn]!=null && d2[sn]!=null){
-            const v=Math.abs(d2[sn]-d1[sn])/dt;
-            if(v>maxV){ maxV=v; velDepth=sensorMap[+sn]?.depth_m||0; }
-          }
-        });
-        velocity=maxV;
-      }
-    }
-  }
-
-  const direction = maxVal>0.5?'DOWNSLOPE':maxVal<-0.5?'UPSLOPE':'STABLE';
-  const dirIcon = maxVal>0.5?'↓':maxVal<-0.5?'↑':'—';
-  const dirCol = Math.abs(maxVal)<0.5?'green':Math.abs(maxVal)<5?'yellow':'red';
-
-  const lastUpdate = hm?.data?.length ? new Date(Math.max(...[...new Set(hm.data.map(d=>d.b))].map(b=>new Date(b).getTime()))) : null;
-
-  panel.innerHTML=`
-    <div class="st-badge ${lv.cls}">${lv.txt}</div>
-
-    <div class="st-row"><span class="k">Max Incremental (abs)</span></div>
-    <div class="st-row"><span class="v ${hmColorClass(maxAbs)}" style="font-size:22px">${maxAbs.toFixed(1)} mm</span><span class="k">at ${maxDepth} m</span></div>
-
-    <div class="st-row"><span class="k">Max Velocity (abs)</span></div>
-    <div class="st-row"><span class="v ${hmColorClass(velocity*24)}">${velocity.toFixed(2)} mm/hr</span><span class="k">at ${velDepth} m</span></div>
-
-    <div class="st-section">
-      <h4>Direction of Movement</h4>
-      <div style="text-align:center;padding:8px;font-size:20px;font-weight:900" class="${dirCol}">
-        <span style="font-size:28px">${dirIcon}</span> ${direction}
-      </div>
-    </div>
-
-    <div class="st-section">
-      <h4>Last Update</h4>
-      <div style="text-align:center;font-size:14px;font-weight:700;padding:4px 0">
-        ${lastUpdate?lastUpdate.toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}
-      </div>
-    </div>
-
-    <div class="st-section">
-      <h4>EWS Details</h4>
-      <div class="st-row"><span class="k">Velocity (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
-      <div class="st-row"><span class="k">Velocity (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
-      <div class="st-row"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
-      <div class="st-row"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div>
-    </div>
-
-    <div class="st-section">
-      <h4>All Devices Status</h4>
-      ${INC_NODES.map(n=>{
-        const e2=(DATA.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===n.id);
-        const l2=trigLevel(e2?.trigger_level);
-        return `<div class="st-row" style="cursor:pointer" onclick="selectDevice('${n.id}')">
-          <span class="k" style="font-size:11px">${esc(n.label)}</span>
-          <span class="v ${l2.cls==='hijau'?'green':l2.cls==='kuning'?'yellow':l2.cls==='jingga'?'orange':'red'}" style="font-size:11px">${l2.txt}</span>
-        </div>`;
-      }).join('')}
+  p.innerHTML=`
+    <div class="badge ${lv.c}">${lv.t}</div>
+    <div class="sr"><span class="k">Max Cumul. Disp. (abs)</span></div>
+    <div class="sr"><span class="v ${vcl(mxA)}" style="font-size:18px">${mxA.toFixed(1)} mm</span><span class="k">AT ${mxD} M</span></div>
+    <div class="sr"><span class="k">Max Velocity (abs)</span></div>
+    <div class="sr"><span class="v ${vcl(vel*24)}">${vel.toFixed(2)} mm/hr</span><span class="k">AT ${vD} M</span></div>
+    <div class="ss"><h4>Direction of Movement</h4>
+      <div style="text-align:center;padding:4px;font-size:16px;font-weight:900"><span style="font-size:22px">${di}</span> ${dir}</div></div>
+    <div class="ss"><h4>Last Update</h4>
+      <div style="text-align:center;font-size:12px;font-weight:700;padding:2px 0">${lu?lu.toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</div></div>
+    <div class="ss"><h4>EWS Details</h4>
+      <div class="sr"><span class="k">Velocity (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
+      <div class="sr"><span class="k">Velocity (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
+      <div class="sr"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
+      <div class="sr"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div></div>
+    <div class="ss"><h4>All Devices Status</h4>
+      ${NODES.map(n=>{const e2=ewsBy[n.id];const l2=tlv(e2?.trigger_level);
+        return`<div class="sr" style="cursor:pointer" onclick="selDev('${n.id}')"><span class="k" style="font-size:10px">${esc(n.label)}</span><span class="v ${l2.c==='hijau'?'g':l2.c==='kuning'?'y':l2.c==='jingga'?'o':'r'}" style="font-size:10px">${l2.t}</span></div>`}).join('')}
     </div>`;
 }
 
-// ── Load All ──
 async function loadAll(){
-  const [,ewsR]=await Promise.all([loadOverview(), sb.rpc('ews_device_latest')]);
-  if(ewsR.data) DATA.ews=ewsR.data;
-  renderOverview();
-  await loadSelected();
+  const[,ewsR]=await Promise.all([loadOv(),sb.rpc('ews_device_latest')]);
+  if(ewsR.data)D.ews=ewsR.data;renderOv();await loadSel();
 }
-
-// ── Init ──
 (async()=>{
-  const ok=await GMS.guard({mount:'#root'});
-  if(!ok) return;
-  renderShell();
-  await loadAll();
-
-  setInterval(()=>{
-    if(!GMS.isOnline()||document.hidden) return;
-    loadAll().catch(()=>{});
-  },120000);
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&GMS.isOnline()) loadAll().catch(()=>{}); });
+  const ok=await GMS.guard({mount:'#root'});if(!ok)return;
+  shell();await loadAll();
+  setInterval(()=>{if(!GMS.isOnline()||document.hidden)return;loadAll().catch(()=>{})},120000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&GMS.isOnline())loadAll().catch(()=>{})});
 })();
-
-window.loadSelected=loadSelected;
 </script>
 </body>
 </html>
