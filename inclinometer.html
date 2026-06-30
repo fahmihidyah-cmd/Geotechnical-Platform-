@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#071a2e"/>
+<title>Inclinometer Monitoring — Geotechnical Platform</title>
+<link rel="stylesheet" href="common.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="common.js"></script>
+<style>
+:root{
+  --bg0:#051426;--bg1:#04101f;--panel0:#0a2037;--panel1:#0b243f;--panel2:#0e2c4d;
+  --stroke:rgba(148,163,184,.16);--txt:#e5e7eb;--mut:#94a3b8;
+  --green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#ef4444;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--txt);overflow:hidden;height:100vh}
+
+/* ── Header ── */
+.hdr{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--panel0);border-bottom:1px solid var(--stroke);flex-wrap:wrap;min-height:48px}
+.hdr .title{font-size:15px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.hdr .stats{display:flex;gap:6px;flex-wrap:wrap}
+.hdr .stat{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--stroke)}
+.hdr .stat b{font-size:16px;margin-right:3px}
+.hdr .clock{margin-left:auto;text-align:right;font-size:11px;color:var(--mut);white-space:nowrap}
+.hdr .clock b{display:block;font-size:14px;color:var(--txt)}
+.hdr .legend{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--mut)}
+.hdr .legend .sq{width:14px;height:14px;border-radius:2px;display:inline-block}
+.hdr .back-btn{background:none;border:1px solid var(--stroke);color:var(--mut);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+.hdr .back-btn:hover{color:var(--txt);border-color:var(--mut)}
+
+/* ── Layout ── */
+.wrap{display:grid;grid-template-columns:220px 1fr 240px;gap:0;height:calc(100vh - 48px);overflow:hidden}
+@media(max-width:1100px){.wrap{grid-template-columns:180px 1fr 200px}}
+@media(max-width:800px){.wrap{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}}
+
+/* ── Overview Panel (left) ── */
+.ov-panel{background:var(--panel0);border-right:1px solid var(--stroke);padding:8px;overflow-y:auto}
+.ov-panel h3{font-size:11px;color:var(--mut);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em}
+.ov-col{display:flex;gap:2px;margin-bottom:10px;cursor:pointer;border-radius:6px;padding:4px;transition:background .15s}
+.ov-col:hover{background:var(--panel2)}
+.ov-col.act{background:var(--panel1);outline:2px solid #22d3ee}
+.ov-col .lbl{font-size:10px;color:var(--mut);text-align:center;margin-bottom:3px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-col .info{font-size:9px;color:var(--mut);text-align:center;margin-top:3px}
+.ov-strip{display:flex;flex-direction:column;align-items:center;flex:1}
+.ov-strip .ax-lbl{font-size:9px;color:var(--mut);margin-bottom:2px;font-weight:600}
+.ov-cell{width:100%;height:16px;min-width:20px;border-radius:1px;margin-bottom:1px;position:relative}
+.ov-cell.dead{background:repeating-linear-gradient(45deg,#374151,#374151 2px,#4b5563 2px,#4b5563 4px)}
+.ov-cell.nodata{background:#1e293b}
+.ov-dot{width:8px;height:8px;border-radius:50%;margin:3px auto 0}
+
+/* ── Center Panel ── */
+.center-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--bg1)}
+.center-hd{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel0);border-bottom:1px solid var(--stroke);flex-wrap:wrap}
+.center-hd .sel-title{font-size:14px;font-weight:800;color:#22d3ee}
+.center-hd .sel-info{font-size:11px;color:var(--mut)}
+.center-hd select,.center-hd input{background:var(--panel2);border:1px solid var(--stroke);color:var(--txt);padding:4px 8px;border-radius:4px;font-size:11px}
+.center-hd button{background:var(--panel2);border:1px solid var(--stroke);color:var(--txt);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700}
+.center-hd button:hover{border-color:var(--mut)}
+.center-body{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;overflow:auto;min-height:0}
+.ccard{background:var(--panel0);border-radius:6px;border:1px solid var(--stroke);overflow:hidden;display:flex;flex-direction:column}
+.ccard .ch{padding:6px 10px;font-size:11px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--stroke);display:flex;justify-content:space-between;align-items:center}
+.ccard .cb{flex:1;padding:4px;position:relative;min-height:0}
+
+/* ── Status Panel (right) ── */
+.status-panel{background:var(--panel0);border-left:1px solid var(--stroke);padding:12px;overflow-y:auto}
+.st-badge{text-align:center;padding:14px 10px;border-radius:8px;margin-bottom:12px;font-size:18px;font-weight:900;letter-spacing:.04em}
+.st-badge.hijau{background:rgba(34,197,94,.15);color:#22c55e;border:2px solid #22c55e}
+.st-badge.kuning{background:rgba(234,179,8,.15);color:#eab308;border:2px solid #eab308}
+.st-badge.jingga{background:rgba(249,115,22,.15);color:#f97316;border:2px solid #f97316}
+.st-badge.merah{background:rgba(239,68,68,.15);color:#ef4444;border:2px solid #ef4444}
+.st-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--stroke);font-size:12px}
+.st-row .k{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.st-row .v{font-weight:700;font-size:14px}
+.st-row .v.green{color:#22c55e}.st-row .v.yellow{color:#eab308}.st-row .v.orange{color:#f97316}.st-row .v.red{color:#ef4444}
+.st-section{margin-top:16px;padding-top:10px;border-top:1px solid var(--stroke)}
+.st-section h4{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+
+.spin{width:20px;height:20px;border:2px solid var(--stroke);border-top-color:#3b82f6;border-radius:50%;animation:sp .6s linear infinite;margin:auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+"use strict";
+const sb = GMS.sb, esc = GMS.esc;
+const GAUGE_LEN = 3000;
+const INC_NODES = [
+  {id:'108052',label:'WOC-02 INC',   sensors:9, depth:30},
+  {id:'108102',label:'WDN-2 INC-01', sensors:15,depth:51},
+  {id:'108164',label:'WDN-2 INC-02', sensors:13,depth:39},
+  {id:'108403',label:'WOC-01 INC',   sensors:5, depth:15},
+];
+
+let STATE = { selected:'108102', axis:'A', depthIdx:0, from:null, to:null };
+let DATA = { overview:[], heatmap:null, ews:[], charts:{} };
+
+function dStr(off){ return new Date(Date.now()+off*86400000).toISOString().slice(0,10); }
+function hmColor(v){
+  if(v==null) return null;
+  const a=Math.abs(v);
+  if(a>=20) return '#991b1b';
+  if(a>=10) return '#ef4444';
+  if(a>=5)  return '#f97316';
+  if(a>=2)  return '#eab308';
+  if(a>=1)  return '#22c55e';
+  return '#166534';
+}
+function hmColorClass(v){
+  if(v==null) return '';
+  const a=Math.abs(v);
+  if(a>=10) return 'red'; if(a>=5) return 'orange'; if(a>=2) return 'yellow'; return 'green';
+}
+function trigLevel(lv){
+  if(!lv) return {cls:'hijau',txt:'NORMAL'};
+  const l=lv.toUpperCase();
+  if(l==='MERAH') return {cls:'merah',txt:'ALARM'};
+  if(l==='JINGGA') return {cls:'jingga',txt:'WARNING'};
+  if(l==='KUNING') return {cls:'kuning',txt:'WATCH'};
+  return {cls:'hijau',txt:'NORMAL'};
+}
+
+// ── Render Shell ──
+function renderShell(){
+  document.getElementById('root').innerHTML=`
+  <div class="hdr">
+    <button class="back-btn" onclick="location.href='monitoring.html'">← Dashboard</button>
+    <div class="title">INCLINOMETER — REALTIME MONITORING</div>
+    <div class="stats" id="hdStats"></div>
+    <div class="legend">
+      <span class="sq" style="background:#166534"></span>&lt;1
+      <span class="sq" style="background:#22c55e"></span>1-2
+      <span class="sq" style="background:#eab308"></span>2-5
+      <span class="sq" style="background:#f97316"></span>5-10
+      <span class="sq" style="background:#ef4444"></span>10-20
+      <span class="sq" style="background:#991b1b"></span>&ge;20
+      <span class="sq" style="background:repeating-linear-gradient(45deg,#374151,#374151 2px,#4b5563 2px,#4b5563 4px)"></span>No Data
+      <span style="margin-left:4px">mm</span>
+    </div>
+    <div class="clock"><b id="clockLbl">—</b><span id="clockDate">—</span></div>
+  </div>
+  <div class="wrap">
+    <div class="ov-panel" id="ovPanel"><h3>All Inclinometers</h3><div id="ovBody"><div class="spin"></div></div></div>
+    <div class="center-panel">
+      <div class="center-hd">
+        <div class="sel-title" id="selTitle">SELECTED: —</div>
+        <div class="sel-info" id="selInfo"></div>
+        <div style="flex:1"></div>
+        <label style="font-size:10px;color:var(--mut)">Axis</label>
+        <select id="axisSel" onchange="setAxis(this.value)"><option value="A">A-Axis</option><option value="B">B-Axis</option></select>
+        <label style="font-size:10px;color:var(--mut)">Depth</label>
+        <select id="depthSel" onchange="setDepth(+this.value)"></select>
+        <label style="font-size:10px;color:var(--mut)">From</label>
+        <input type="date" id="dtFrom" value="${STATE.from||dStr(-7)}"/>
+        <label style="font-size:10px;color:var(--mut)">To</label>
+        <input type="date" id="dtTo" value="${STATE.to||dStr(0)}"/>
+        <button onclick="loadSelected()">SHOW</button>
+      </div>
+      <div class="center-body">
+        <div class="ccard"><div class="ch"><span>INCREMENTAL DISPLACEMENT PROFILE (Latest)</span></div><div class="cb"><canvas id="cvProfile"></canvas></div></div>
+        <div class="ccard"><div class="ch"><span>INCREMENTAL DISPLACEMENT vs TIME</span><span id="dispDepthLbl" style="color:#22d3ee"></span></div><div class="cb"><canvas id="cvDispTime"></canvas></div></div>
+        <div class="ccard" style="grid-column:1/3"><div class="ch"><span>DEPTH × TIME HEATMAP — <span id="hmAxisLbl">A-Axis</span></span></div><div class="cb" style="overflow:auto"><div id="hmBox"><div class="spin"></div></div></div></div>
+      </div>
+    </div>
+    <div class="status-panel" id="statusPanel"><div class="spin"></div></div>
+  </div>`;
+  updateClock();
+  setInterval(updateClock,1000);
+}
+function updateClock(){
+  const n=new Date();
+  const el=document.getElementById('clockLbl'), el2=document.getElementById('clockDate');
+  if(el) el.textContent=n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' WIB';
+  if(el2) el2.textContent=n.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+}
+
+// ── Overview Panel ──
+async function loadOverview(){
+  try{
+    const {data,error}=await sb.rpc('inc_overview_latest');
+    if(error) throw error;
+    DATA.overview=data||[];
+  }catch(e){ DATA.overview=[]; }
+  renderOverview();
+}
+function renderOverview(){
+  const box=document.getElementById('ovBody'); if(!box) return;
+  const byDev={};
+  DATA.overview.forEach(r=>{ (byDev[r.device]=byDev[r.device]||[]).push(r); });
+
+  const ewsByDev={};
+  (DATA.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ ewsByDev[e.external_device_id]=e; });
+
+  let counts={normal:0,watch:0,warning:0,alarm:0};
+  INC_NODES.forEach(n=>{
+    const ew=ewsByDev[n.id];
+    const lv=trigLevel(ew?.trigger_level);
+    if(lv.cls==='merah') counts.alarm++;
+    else if(lv.cls==='jingga') counts.warning++;
+    else if(lv.cls==='kuning') counts.watch++;
+    else counts.normal++;
+  });
+  const hs=document.getElementById('hdStats');
+  if(hs) hs.innerHTML=`
+    <div class="stat"><b>${INC_NODES.length}</b> TOTAL</div>
+    <div class="stat" style="color:#22c55e"><b>${counts.normal}</b> Normal</div>
+    <div class="stat" style="color:#eab308"><b>${counts.watch}</b> Watch</div>
+    <div class="stat" style="color:#f97316"><b>${counts.warning}</b> Warning</div>
+    <div class="stat" style="color:#ef4444"><b>${counts.alarm}</b> Alarm</div>`;
+
+  let html='';
+  INC_NODES.forEach(n=>{
+    const sensors=(byDev[n.id]||[]).sort((a,b)=>b.depth_m-a.depth_m);
+    const act=STATE.selected===n.id?'act':'';
+    const ew=ewsByDev[n.id];
+    const lv=trigLevel(ew?.trigger_level);
+
+    html+=`<div class="ov-col ${act}" onclick="selectDevice('${n.id}')">`;
+    html+=`<div style="width:100%"><div class="lbl">${esc(n.label)}</div>`;
+    html+=`<div style="display:flex;gap:2px">`;
+
+    // A-axis strip
+    html+=`<div class="ov-strip"><div class="ax-lbl">A</div>`;
+    sensors.forEach(s=>{
+      if(s.a_mm==null) html+=`<div class="ov-cell nodata" title="${s.depth_m}m: no data"></div>`;
+      else html+=`<div class="ov-cell" style="background:${hmColor(s.a_mm)}" title="${s.depth_m}m: ${s.a_mm.toFixed(1)} mm"></div>`;
+    });
+    html+=`</div>`;
+
+    // B-axis strip
+    html+=`<div class="ov-strip"><div class="ax-lbl">B</div>`;
+    sensors.forEach(s=>{
+      if(s.b_mm==null) html+=`<div class="ov-cell nodata" title="${s.depth_m}m: no data"></div>`;
+      else html+=`<div class="ov-cell" style="background:${hmColor(s.b_mm)}" title="${s.depth_m}m: ${s.b_mm.toFixed(1)} mm"></div>`;
+    });
+    html+=`</div>`;
+
+    html+=`</div>`; // flex
+    html+=`<div class="info"><div class="ov-dot" style="background:${lv.cls==='hijau'?'#22c55e':lv.cls==='kuning'?'#eab308':lv.cls==='jingga'?'#f97316':'#ef4444'}"></div>${lv.txt}</div>`;
+    html+=`</div></div>`;
+  });
+  box.innerHTML=html;
+}
+
+// ── Selected Device Detail ──
+function selectDevice(id){
+  STATE.selected=id;
+  renderOverview();
+  loadSelected();
+}
+function setAxis(a){ STATE.axis=a; document.getElementById('hmAxisLbl').textContent=a+'-Axis'; loadSelected(); }
+function setDepth(idx){ STATE.depthIdx=idx; drawDispTime(); }
+window.selectDevice=selectDevice; window.setAxis=setAxis; window.setDepth=setDepth;
+
+async function loadSelected(){
+  const dev=STATE.selected;
+  const node=INC_NODES.find(n=>n.id===dev);
+  const el=document.getElementById('selTitle');
+  if(el) el.textContent='SELECTED: '+(node?.label||dev);
+
+  STATE.from=document.getElementById('dtFrom')?.value||dStr(-7);
+  STATE.to=document.getElementById('dtTo')?.value||dStr(0);
+  const from=new Date(STATE.from+'T00:00:00').toISOString();
+  const to=new Date(STATE.to+'T23:59:59').toISOString();
+  const diffD=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000));
+  const ev=diffD<=3?'1 hour':diffD<=7?'3 hours':diffD<=30?'6 hours':'1 day';
+
+  const hmBox=document.getElementById('hmBox');
+  if(hmBox) hmBox.innerHTML='<div class="spin" style="margin:20px auto"></div>';
+
+  try{
+    const {data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:from,p_to:to,p_every:ev,p_axis:STATE.axis});
+    if(error) throw error;
+    DATA.heatmap=data;
+
+    // Populate depth selector
+    const depSel=document.getElementById('depthSel');
+    if(depSel && data?.sensors?.length){
+      const sorted=data.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+      depSel.innerHTML=sorted.map((s,i)=>`<option value="${i}"${i===STATE.depthIdx?' selected':''}>${s.depth_m} m</option>`).join('');
+    }
+
+    const infoEl=document.getElementById('selInfo');
+    if(infoEl && data?.sensors) infoEl.textContent=`Depth: ${node?.depth||'?'}m · Sensors: ${data.sensors.length} · Interval: 3.0m`;
+
+    drawProfile();
+    drawDispTime();
+    drawHeatmap();
+    renderStatus();
+  }catch(e){
+    if(hmBox) hmBox.innerHTML='<div style="color:#ef4444;padding:12px">Error: '+esc(e.message||e)+'</div>';
+  }
+}
+
+// ── Profile Chart (depth vs displacement with heatmap background) ──
+function drawProfile(){
+  const cv=document.getElementById('cvProfile'); if(!cv||!DATA.heatmap) return;
+  if(DATA.charts.profile) DATA.charts.profile.destroy();
+
+  const hm=DATA.heatmap;
+  const sensors=hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>a.depth_m-b.depth_m);
+  if(!sensors.length) return;
+
+  // Get latest bucket
+  const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
+  const latestBk=buckets[buckets.length-1];
+  const lookup={};
+  hm.data.forEach(d=>{ if(d.b===latestBk) lookup[d.sn]=d.v; });
+
+  const points=sensors.map(s=>({x:lookup[s.sn]||0, y:s.depth_m}));
+  let mx=0; points.forEach(p=>{ const a=Math.abs(p.x); if(a>mx) mx=a; });
+  const xMax=Math.max(3,Math.ceil(mx*1.3));
+
+  // Heatmap background plugin
+  const hmBgPlugin={
+    id:'hmBg',
+    beforeDatasetsDraw(chart){
+      const ctx=chart.ctx, area=chart.chartArea, yScale=chart.scales.y, xScale=chart.scales.x;
+      if(!area) return;
+      sensors.forEach((s,i)=>{
+        const val=lookup[s.sn];
+        const yPx=yScale.getPixelForValue(s.depth_m);
+        const halfH=(i<sensors.length-1)?Math.abs(yScale.getPixelForValue(sensors[i+1]?.depth_m||s.depth_m+3)-yPx)/2:15;
+        const top=yPx-halfH, bot=yPx+halfH;
+        ctx.save();
+        ctx.fillStyle=val!=null?hmColor(val)+'40':'rgba(30,41,59,.3)';
+        ctx.fillRect(area.left,top,area.right-area.left,bot-top);
+        ctx.restore();
+      });
+    }
+  };
+
+  DATA.charts.profile=new Chart(cv,{type:'scatter',
+    data:{datasets:[
+      {label:'Initial (0)',data:sensors.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+      {label:'Latest',data:points,showLine:true,borderColor:'#fff',backgroundColor:'#fff',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#fff',fill:false,tension:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},title:{display:true,text:'Profile — '+STATE.axis+'-Axis (Latest)',color:'#e5e7eb',font:{size:12,weight:'bold'}}},
+      scales:{
+        x:{min:-xMax,max:xMax,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.08)'}},
+        y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}
+      }},
+    plugins:[hmBgPlugin]
+  });
+}
+
+// ── Displacement vs Time Chart ──
+function drawDispTime(){
+  const cv=document.getElementById('cvDispTime'); if(!cv||!DATA.heatmap) return;
+  if(DATA.charts.disp) DATA.charts.disp.destroy();
+
+  const hm=DATA.heatmap;
+  const sensors=hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+  if(!sensors.length) return;
+
+  const idx=Math.min(STATE.depthIdx,sensors.length-1);
+  const sel=sensors[idx];
+  const lbl=document.getElementById('dispDepthLbl');
+  if(lbl) lbl.textContent='@ '+sel.depth_m+' m';
+
+  const pts=hm.data.filter(d=>d.sn===sel.sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))
+    .map(d=>({x:new Date(d.b).getTime(),y:d.v}));
+
+  let mx=0; pts.forEach(p=>{ const a=Math.abs(p.y); if(a>mx) mx=a; });
+  const yMax=Math.max(3,Math.ceil(mx*1.3));
+  const lastPt=pts[pts.length-1];
+
+  const trigLines=[
+    {y:2,c:'rgba(234,179,8,.5)',l:'Medium 2'},   {y:-2,c:'rgba(234,179,8,.5)'},
+    {y:5,c:'rgba(249,115,22,.5)',l:'High 5'},     {y:-5,c:'rgba(249,115,22,.5)'},
+    {y:10,c:'rgba(239,68,68,.5)',l:'Very High 10'},{y:-10,c:'rgba(239,68,68,.5)'}
+  ].filter(t=>Math.abs(t.y)<=yMax*1.2);
+
+  const annotations=trigLines.map((t,i)=>({
+    type:'line',yMin:t.y,yMax:t.y,borderColor:t.c,borderWidth:1,borderDash:[4,3],
+    label:t.l?{display:true,content:t.l,position:'start',font:{size:8},color:t.c,backgroundColor:'transparent'}:undefined
+  }));
+
+  DATA.charts.disp=new Chart(cv,{type:'line',
+    data:{datasets:[{
+      label:'Displacement',data:pts,borderColor:'#3b82f6',backgroundColor:'#3b82f6',
+      borderWidth:2,pointRadius:2,pointBackgroundColor:'#3b82f6',fill:false,tension:.2,spanGaps:true
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        title:{display:true,text:'Displacement vs Time — '+STATE.axis+'-Axis',color:'#e5e7eb',font:{size:12,weight:'bold'}},
+        tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}}
+      },
+      scales:{
+        x:{type:'linear',ticks:{color:'#9fb3cf',font:{size:8},maxTicksLimit:8,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+new Date(v).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})},grid:{color:'rgba(148,163,184,.06)'}},
+        y:{min:-yMax,max:yMax,title:{display:true,text:'mm',color:'#9fb3cf',font:{size:9}},ticks:{color:'#9fb3cf',font:{size:8}},grid:{color:'rgba(148,163,184,.08)'}}
+      }}
+  });
+
+  // Annotate last point value
+  if(lastPt){
+    const ctx=cv.getContext('2d');
+    const chart=DATA.charts.disp;
+    const meta=chart.getDatasetMeta(0);
+    if(meta.data.length){
+      const last=meta.data[meta.data.length-1];
+      setTimeout(()=>{
+        const cl=hmColorClass(lastPt.y);
+        const col=cl==='red'?'#ef4444':cl==='orange'?'#f97316':cl==='yellow'?'#eab308':'#22c55e';
+        const ctx2=cv.getContext('2d');
+        const px=last.x, py=last.y;
+        ctx2.save();
+        ctx2.fillStyle=col; ctx2.font='bold 10px sans-serif'; ctx2.textAlign='left'; ctx2.textBaseline='bottom';
+        ctx2.fillText(lastPt.y.toFixed(1)+' mm',px+6,py-4);
+        ctx2.restore();
+      },50);
+    }
+  }
+}
+
+// ── Heatmap (depth × time) ──
+function drawHeatmap(){
+  const box=document.getElementById('hmBox'); if(!box||!DATA.heatmap) return;
+  const hm=DATA.heatmap;
+  const sensors=hm.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m);
+  const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
+  if(!buckets.length){ box.innerHTML='<div style="color:var(--mut);padding:16px;text-align:center">No data in range</div>'; return; }
+
+  const lookup={};
+  hm.data.forEach(d=>{ lookup[d.sn+'|'+d.b]=d.v; });
+  const deadSet=new Set(sensors.filter(s=>s.is_dead).map(s=>s.sn));
+
+  const cellW=Math.max(8,Math.min(36,Math.floor(760/buckets.length)));
+  const cellH=20;
+  const mL=52,mR=12,mT=4,mB=48;
+  const w=mL+buckets.length*cellW+mR;
+  const h=mT+sensors.length*cellH+mB;
+
+  box.innerHTML='<canvas id="hmCv" width="'+w+'" height="'+h+'" style="display:block;'+(w>800?'':'width:100%;')+'"></canvas>';
+  const cv=document.getElementById('hmCv'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,w,h);
+
+  sensors.forEach((s,yi)=>{
+    const y=mT+yi*cellH;
+    buckets.forEach((bk,xi)=>{
+      const x=mL+xi*cellW;
+      if(deadSet.has(s.sn)){
+        ctx.fillStyle='#374151'; ctx.fillRect(x,y,cellW-1,cellH-1);
+        ctx.strokeStyle='#6b7280'; ctx.lineWidth=0.5;
+        for(let d=-cellH;d<cellW;d+=4){ ctx.beginPath(); ctx.moveTo(x+d,y); ctx.lineTo(x+d+cellH,y+cellH); ctx.stroke(); }
+      } else {
+        const val=lookup[s.sn+'|'+bk];
+        if(val!=null){
+          ctx.fillStyle=hmColor(val); ctx.fillRect(x,y,cellW-1,cellH-1);
+          if(cellW>=24){ ctx.fillStyle='#000'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(val.toFixed(1),x+cellW/2,y+cellH/2); }
+        } else { ctx.fillStyle='#1e293b'; ctx.fillRect(x,y,cellW-1,cellH-1); }
+      }
+    });
+  });
+
+  // Y labels
+  ctx.fillStyle='#9fb3cf'; ctx.font='10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  sensors.forEach((s,yi)=>{ ctx.fillText(s.depth_m+'m',mL-4,mT+yi*cellH+cellH/2); });
+
+  // X labels
+  ctx.textAlign='center'; ctx.font='9px sans-serif'; ctx.textBaseline='top';
+  const maxXL=Math.floor((w-mL-mR)/50);
+  const xStep=Math.max(1,Math.ceil(buckets.length/maxXL));
+  buckets.forEach((bk,xi)=>{
+    if(xi%xStep!==0) return;
+    const x=mL+xi*cellW+cellW/2;
+    const d=new Date(bk);
+    ctx.save(); ctx.translate(x,mT+sensors.length*cellH+4); ctx.rotate(Math.PI/5);
+    ctx.fillStyle='#9fb3cf';
+    ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),0,0);
+    ctx.restore();
+  });
+}
+
+// ── Status Panel ──
+function renderStatus(){
+  const panel=document.getElementById('statusPanel'); if(!panel) return;
+  const dev=STATE.selected;
+  const node=INC_NODES.find(n=>n.id===dev);
+  const hm=DATA.heatmap;
+
+  // EWS status for this device
+  const ew=(DATA.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev);
+  const lv=trigLevel(ew?.trigger_level);
+
+  // Find max displacement from latest bucket
+  let maxAbs=0, maxDepth=0, maxVal=0;
+  if(hm?.data?.length && hm?.sensors?.length){
+    const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
+    const latestBk=buckets[buckets.length-1];
+    const sensorMap={}; hm.sensors.forEach(s=>{ sensorMap[s.sn]=s; });
+    hm.data.filter(d=>d.b===latestBk).forEach(d=>{
+      const a=Math.abs(d.v||0);
+      if(a>maxAbs){ maxAbs=a; maxDepth=sensorMap[d.sn]?.depth_m||0; maxVal=d.v; }
+    });
+  }
+
+  // Velocity: compute from last 2 buckets
+  let velocity=0, velDepth=0;
+  if(hm?.data?.length){
+    const buckets=[...new Set(hm.data.map(d=>d.b))].sort();
+    if(buckets.length>=2){
+      const b1=buckets[buckets.length-2], b2=buckets[buckets.length-1];
+      const dt=(new Date(b2)-new Date(b1))/3600000;
+      if(dt>0){
+        const sensorMap={}; hm.sensors.forEach(s=>{ sensorMap[s.sn]=s; });
+        const d1={}, d2={};
+        hm.data.forEach(d=>{ if(d.b===b1) d1[d.sn]=d.v; if(d.b===b2) d2[d.sn]=d.v; });
+        let maxV=0;
+        Object.keys(d2).forEach(sn=>{
+          if(d1[sn]!=null && d2[sn]!=null){
+            const v=Math.abs(d2[sn]-d1[sn])/dt;
+            if(v>maxV){ maxV=v; velDepth=sensorMap[+sn]?.depth_m||0; }
+          }
+        });
+        velocity=maxV;
+      }
+    }
+  }
+
+  const direction = maxVal>0.5?'DOWNSLOPE':maxVal<-0.5?'UPSLOPE':'STABLE';
+  const dirIcon = maxVal>0.5?'↓':maxVal<-0.5?'↑':'—';
+  const dirCol = Math.abs(maxVal)<0.5?'green':Math.abs(maxVal)<5?'yellow':'red';
+
+  const lastUpdate = hm?.data?.length ? new Date(Math.max(...[...new Set(hm.data.map(d=>d.b))].map(b=>new Date(b).getTime()))) : null;
+
+  panel.innerHTML=`
+    <div class="st-badge ${lv.cls}">${lv.txt}</div>
+
+    <div class="st-row"><span class="k">Max Incremental (abs)</span></div>
+    <div class="st-row"><span class="v ${hmColorClass(maxAbs)}" style="font-size:22px">${maxAbs.toFixed(1)} mm</span><span class="k">at ${maxDepth} m</span></div>
+
+    <div class="st-row"><span class="k">Max Velocity (abs)</span></div>
+    <div class="st-row"><span class="v ${hmColorClass(velocity*24)}">${velocity.toFixed(2)} mm/hr</span><span class="k">at ${velDepth} m</span></div>
+
+    <div class="st-section">
+      <h4>Direction of Movement</h4>
+      <div style="text-align:center;padding:8px;font-size:20px;font-weight:900" class="${dirCol}">
+        <span style="font-size:28px">${dirIcon}</span> ${direction}
+      </div>
+    </div>
+
+    <div class="st-section">
+      <h4>Last Update</h4>
+      <div style="text-align:center;font-size:14px;font-weight:700;padding:4px 0">
+        ${lastUpdate?lastUpdate.toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}
+      </div>
+    </div>
+
+    <div class="st-section">
+      <h4>EWS Details</h4>
+      <div class="st-row"><span class="k">Velocity (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
+      <div class="st-row"><span class="k">Velocity (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
+      <div class="st-row"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
+      <div class="st-row"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div>
+    </div>
+
+    <div class="st-section">
+      <h4>All Devices Status</h4>
+      ${INC_NODES.map(n=>{
+        const e2=(DATA.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===n.id);
+        const l2=trigLevel(e2?.trigger_level);
+        return `<div class="st-row" style="cursor:pointer" onclick="selectDevice('${n.id}')">
+          <span class="k" style="font-size:11px">${esc(n.label)}</span>
+          <span class="v ${l2.cls==='hijau'?'green':l2.cls==='kuning'?'yellow':l2.cls==='jingga'?'orange':'red'}" style="font-size:11px">${l2.txt}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── Load All ──
+async function loadAll(){
+  const [,ewsR]=await Promise.all([loadOverview(), sb.rpc('ews_device_latest')]);
+  if(ewsR.data) DATA.ews=ewsR.data;
+  renderOverview();
+  await loadSelected();
+}
+
+// ── Init ──
+(async()=>{
+  const ok=await GMS.guard({mount:'#root'});
+  if(!ok) return;
+  renderShell();
+  await loadAll();
+
+  setInterval(()=>{
+    if(!GMS.isOnline()||document.hidden) return;
+    loadAll().catch(()=>{});
+  },120000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&GMS.isOnline()) loadAll().catch(()=>{}); });
+})();
+
+window.loadSelected=loadSelected;
+</script>
+</body>
+</html>

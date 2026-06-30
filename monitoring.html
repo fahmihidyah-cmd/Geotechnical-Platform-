@@ -1019,7 +1019,7 @@
 
             <div class="nav">
               ${nav.map(([k,n])=>`
-                <button class="${STATE.view===k?'act':''}" onclick="setView('${k}')">
+                <button class="${STATE.view===k?'act':''}" onclick="${k==='inclinometer'?"location.href='inclinometer.html'":"setView('"+k+"')"}">
                   <span class="ico">${k==='overview'?'▣':k==='trends'?'◫':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':'⚙'}</span>
                   <span>${esc(n)}</span>
                 </button>`).join('')}
