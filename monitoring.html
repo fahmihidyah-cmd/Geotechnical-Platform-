@@ -1917,7 +1917,10 @@
           <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfB"></canvas></div></div>
         </div>
 
-        <div class="card" style="margin-top:8px;overflow:hidden"><div class="card-bd" style="height:260px;padding:6px"><canvas id="incCombined"></canvas></div></div>
+        <div class="card" style="margin-top:8px;overflow:hidden">
+          <div class="card-hd"><div class="t">Incremental Displacement Heatmap — A-Axis (from baseline)</div></div>
+          <div class="card-bd" style="padding:6px"><div id="incHeatmapBox" style="overflow-x:auto"><div style="color:#9fb3cf;padding:20px;text-align:center">Loading heatmap…</div></div></div>
+        </div>
 
         <details style="margin-top:8px">
           <summary style="cursor:pointer;color:#9fb3cf;font-size:12px;font-weight:700;padding:4px 0">RAW DATA</summary>
@@ -1943,7 +1946,107 @@
       const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
       drawProfileChart('incProfA',nd,'a',lbl+' — A-Axis');
       drawProfileChart('incProfB',nd,'b',lbl+' — B-Axis');
-      drawCombinedIncChart(incData);
+      drawIncHeatmap(nodeId);
+    }
+
+    async function drawIncHeatmap(deviceId){
+      const box=document.getElementById('incHeatmapBox'); if(!box) return;
+      const nodeLabel=(INC_NODES.find(n=>n.id===deviceId)||{}).label||deviceId;
+      const from=STATE.incFrom?new Date(STATE.incFrom+'T00:00:00').toISOString():'2020-01-01T00:00:00Z';
+      const to=STATE.incTo?new Date(STATE.incTo+'T23:59:59').toISOString():new Date().toISOString();
+      const diffD=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000));
+      const ev=diffD<=7?'3 hours':diffD<=30?'6 hours':'1 day';
+      box.innerHTML='<div style="display:flex;justify-content:center;padding:20px"><div class="spin"></div></div>';
+      try{
+        const {data,error}=await sb.rpc('inc_heatmap_series',{p_device:deviceId,p_from:from,p_to:to,p_every:ev});
+        if(error) throw error;
+        if(!data||!data.sensors||!data.sensors.length){
+          box.innerHTML='<div style="color:#9fb3cf;padding:20px;text-align:center">No baseline data for '+esc(nodeLabel)+'</div>';
+          return;
+        }
+        renderHeatmapCanvas(box,data,nodeLabel);
+      }catch(e){
+        box.innerHTML='<div style="color:#ef4444;padding:10px">Heatmap error: '+esc(e.message||String(e))+'</div>';
+      }
+    }
+
+    function hmTriggerColor(v){
+      const a=Math.abs(v);
+      if(a>=10) return '#ef4444';
+      if(a>=5)  return '#f97316';
+      if(a>=2)  return '#eab308';
+      return '#22c55e';
+    }
+
+    function renderHeatmapCanvas(container,data,title){
+      const sensors=data.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m);
+      const buckets=[...new Set(data.data.map(d=>d.b))].sort();
+      if(!buckets.length){
+        container.innerHTML='<div style="color:#9fb3cf;padding:20px;text-align:center">No readings in selected range</div>';
+        return;
+      }
+      const lookup={};
+      data.data.forEach(d=>{lookup[d.sn+'|'+d.b]=d.v;});
+      const deadSet=new Set(sensors.filter(s=>s.is_dead).map(s=>s.sn));
+
+      const cellW=Math.max(8,Math.min(36,Math.floor(760/buckets.length)));
+      const cellH=22;
+      const mL=56,mR=16,mT=8,mB=52;
+      const w=mL+buckets.length*cellW+mR;
+      const h=mT+sensors.length*cellH+mB;
+
+      container.innerHTML=
+        '<canvas id="hmCanvas" width="'+w+'" height="'+h+'" style="display:block;'+(w>800?'':'width:100%;')+'"></canvas>'+
+        '<div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:6px;font-size:11px;color:#9fb3cf;flex-wrap:wrap">'+
+        '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#22c55e;border-radius:2px"></span>&lt;2 mm</span>'+
+        '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#eab308;border-radius:2px"></span>2–5 mm</span>'+
+        '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#f97316;border-radius:2px"></span>5–10 mm</span>'+
+        '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#ef4444;border-radius:2px"></span>&ge;10 mm</span>'+
+        '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#4b5563;border-radius:2px"></span>Dead / No Data</span>'+
+        '</div>';
+
+      const cv=document.getElementById('hmCanvas'); if(!cv) return;
+      const ctx=cv.getContext('2d');
+      ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,w,h);
+
+      sensors.forEach((s,yi)=>{
+        const y=mT+yi*cellH;
+        buckets.forEach((bk,xi)=>{
+          const x=mL+xi*cellW;
+          if(deadSet.has(s.sn)){
+            ctx.fillStyle='#374151'; ctx.fillRect(x,y,cellW-1,cellH-1);
+            ctx.strokeStyle='#6b7280'; ctx.lineWidth=0.5;
+            for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke();}
+          } else {
+            const val=lookup[s.sn+'|'+bk];
+            if(val!=null){
+              ctx.fillStyle=hmTriggerColor(val); ctx.fillRect(x,y,cellW-1,cellH-1);
+              if(cellW>=26){ctx.fillStyle='#000';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(val.toFixed(1),x+cellW/2,y+cellH/2);}
+            } else {
+              ctx.fillStyle='#1e293b'; ctx.fillRect(x,y,cellW-1,cellH-1);
+            }
+          }
+        });
+      });
+
+      ctx.fillStyle='#9fb3cf'; ctx.font='10px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+      sensors.forEach((s,yi)=>{
+        const y=mT+yi*cellH+cellH/2;
+        ctx.fillText(s.depth_m+'m'+(deadSet.has(s.sn)?' ✗':''),mL-4,y);
+      });
+
+      ctx.textAlign='center'; ctx.font='9px sans-serif'; ctx.textBaseline='top';
+      const maxXL=Math.floor((w-mL-mR)/50);
+      const xStep=Math.max(1,Math.ceil(buckets.length/maxXL));
+      buckets.forEach((bk,xi)=>{
+        if(xi%xStep!==0) return;
+        const x=mL+xi*cellW+cellW/2;
+        const d=new Date(bk);
+        ctx.save(); ctx.translate(x,mT+sensors.length*cellH+4); ctx.rotate(Math.PI/5);
+        ctx.fillStyle='#9fb3cf';
+        ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),0,0);
+        ctx.restore();
+      });
     }
 
     // ===================== VWP TAB =====================
