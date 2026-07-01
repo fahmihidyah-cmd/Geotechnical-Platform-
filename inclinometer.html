@@ -50,7 +50,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ctl .btn:hover{background:#0e7490}
 .ctl .note{margin-left:auto;font-size:9px;color:var(--mu)}
 
-.main{flex:1;display:grid;grid-template-columns:344px 1fr 208px;min-height:0;overflow:hidden}
+.main{flex:1;display:grid;grid-template-columns:344px 1fr 186px;min-height:0;overflow:hidden}
 .pnl{background:var(--pnl);overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .pnl.l{border-right:1px solid var(--st)}
 .pnl.r{border-left:1px solid var(--st);padding:7px}
@@ -58,7 +58,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ph small{font-weight:600;color:var(--mu);font-size:9px}
 .ph .cy{color:var(--cy)}
 
-.cwrap{flex:1;display:grid;grid-template-columns:minmax(210px,1fr) 1.08fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-height:0;overflow:hidden}
+.cwrap{flex:1;display:grid;grid-template-columns:minmax(240px,1.15fr) 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-height:0;overflow:hidden}
 .card{background:var(--p0);border:1px solid var(--st);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .card .ch{padding:4px 9px;font-size:10px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--st);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
 .card .ch small{color:var(--mu);font-weight:500;font-size:9px}
@@ -67,7 +67,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .card.tall{grid-row:1/3}
 .ovbody{flex:1;position:relative;min-height:0;padding:4px}
 
-.badge{text-align:center;padding:8px 6px;border-radius:7px;margin-bottom:7px;font-size:15px;font-weight:900;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0}
+.badge{text-align:center;padding:8px 6px;border-radius:7px;margin-bottom:7px;font-size:14px;font-weight:900;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0}
 .badge.hijau{background:rgba(34,197,94,.13);color:#22c55e;border:1.5px solid #22c55e}
 .badge.kuning{background:rgba(234,179,8,.13);color:#eab308;border:1.5px solid #eab308}
 .badge.jingga{background:rgba(249,115,22,.13);color:#f97316;border:1.5px solid #f97316}
@@ -75,10 +75,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .mrow{padding:5px 0;border-bottom:1px solid var(--st)}
 .mrow .k{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
 .mrow .line{display:flex;justify-content:space-between;align-items:baseline;margin-top:2px}
-.mrow .big{font-size:19px;font-weight:900;line-height:1}
-.mrow .at{font-size:9px;color:var(--mu)}
+.mrow .big{font-size:17px;font-weight:900;line-height:1}
+.mrow .at{font-size:8px;color:var(--mu)}
 .mrow .big.g{color:#22c55e}.mrow .big.y{color:#eab308}.mrow .big.o{color:#f97316}.mrow .big.r{color:#ef4444}.mrow .big.p{color:#a855f7}
-.dir{display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:900;padding:2px 0}
+.dir{display:flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:900;padding:2px 0}
 .sec{margin-top:6px;padding-top:5px;border-top:1px solid var(--st)}
 .sec h4{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .sr{display:flex;justify-content:space-between;padding:2px 0;font-size:10px}
@@ -88,7 +88,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .dvrow:hover{background:rgba(56,189,248,.08)}
 .dvrow.on{background:rgba(56,189,248,.12)}
 
-/* playback */
 .pb{display:flex;align-items:center;gap:9px;padding:0 14px;height:44px;flex-shrink:0;background:linear-gradient(180deg,#071224,#0a1830);border-top:1px solid var(--st)}
 .pb .lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
 .pb button{width:28px;height:28px;border-radius:50%;background:#134e6b;border:1px solid #38bdf855;color:#e0f2fe;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -119,8 +118,8 @@ const NODES=[
 ];
 // Sensor mati permanen (laporan operator: casing shear/pergeseran) → dipaksa NO-DATA.
 const DEAD_OVERRIDE={'108102':[9]};
-let S={sel:'108102',axis:'B',from:null,to:null,depthIdx:0,pbIdx:0,playing:false,speed:2};
-let D={hm:null,hmA:null,hmB:null,ews:[],bks:[],cum:{},cumA:{},cumB:{},cumYMax:10,cumAbsMax:10,maxDepth:51,ch:{}};
+let S={sel:'108102',from:null,to:null,depthIdx:-1,pbIdx:0,playing:false,speed:2};
+let D={hm:null,hmA:null,hmB:null,ews:[],bks:[],cumA:{},cumB:{},cumAbsMax:10,maxDepth:51,gov:null,ch:{}};
 let pbTimer=null;
 
 function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
@@ -128,7 +127,6 @@ function isOverrideDead(dev,sn){return (DEAD_OVERRIDE[dev]||[]).includes(sn)}
 function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=20)return'p';if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
 function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'ALARM'};if(u==='JINGGA')return{c:'jingga',t:'WARNING'};if(u==='KUNING')return{c:'kuning',t:'WATCH'};return{c:'hijau',t:'NORMAL'}}
 function fmtB(b){const d=new Date(b);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
-// relative heatmap ramp (cumulative normalized to device max)
 function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,197,94]],[.38,[234,179,8]],[.58,[249,115,22]],[.78,[239,68,68]],[.9,[185,28,28]],[1,[168,85,247]]];
   for(let i=1;i<st.length;i++){if(t<=st[i][0]){const a=st[i-1],b=st[i],f=(t-a[0])/(b[0]-a[0]);return`rgb(${a[1].map((c,j)=>Math.round(c+(b[1][j]-c)*f)).join(',')})`}}return'rgb(168,85,247)'}
 function hcCum(v){if(v==null)return null;return ramp(Math.abs(v)/(D.cumAbsMax||1))}
@@ -150,23 +148,23 @@ function shell(){
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
-    <label>Axis (detail)</label><select id="cAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B"${S.axis==='B'?' selected':''}>B-Axis</option></select>
     <label>From</label><input type="date" id="cF" value="${S.from||ds(-7)}"/>
     <label>To</label><input type="date" id="cT" value="${S.to||ds(0)}"/>
     <button class="btn" onclick="loadSel()">SHOW</button>
-    <span class="note">Overview = cumulative depth&times;time (A atas, B bawah) · warna relatif thd max device</span>
+    <span class="note">Overview & cumulative: Axis A &amp; B tampil semua · time-series ikut sensor governing</span>
   </div>
   <div class="main">
     <div class="pnl l">
-      <div class="ph"><span>OVERVIEW &mdash; <span class="cy" id="ovDev">—</span></span><small>Cumulative heatmap</small></div>
+      <div class="ph"><span>OVERVIEW &mdash; <span class="cy" id="ovDev">—</span></span><small>Cumulative heatmap · A atas / B bawah</small></div>
       <div class="ovbody"><canvas id="cvO"></canvas><div class="msg" id="ovMsg" style="display:none"></div></div>
       <div id="ovTip" style="display:none"></div>
     </div>
     <div class="pnl">
       <div class="ph"><span class="cy" id="selT">SELECTED: —</span><small id="selI"></small></div>
       <div class="cwrap">
-        <div class="card tall"><div class="ch"><span>CUMULATIVE DISPLACEMENT (bottom&rarr;up)</span><small id="cumAt"></small></div><div class="cb"><canvas id="cvC"></canvas></div></div>
-        <div class="card"><div class="ch"><span>INCR. DISPLACEMENT vs TIME</span><span><small>Depth</small> <select id="cDp" onchange="setDp(+this.value)"></select></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
+        <div class="card tall"><div class="ch"><span>CUMULATIVE DISPLACEMENT (bottom&rarr;up) &mdash; A | B</span><small id="cumAt"></small></div>
+          <div class="cb" style="display:flex;gap:3px"><div style="flex:1;position:relative"><canvas id="cvCA"></canvas></div><div style="flex:1;position:relative;border-left:1px solid var(--st)"><canvas id="cvCB"></canvas></div></div></div>
+        <div class="card"><div class="ch"><span>INCR. DISPLACEMENT vs TIME</span><span><small>Depth</small> <select id="cDp" onchange="setDp(this.value)"></select></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
         <div class="card"><div class="ch"><span>VELOCITY vs TIME</span><small id="velAt">@ —</small></div><div class="cb"><canvas id="cvV"></canvas></div></div>
       </div>
     </div>
@@ -187,9 +185,8 @@ function ckUp(){const n=new Date(),e=document.getElementById('ck'),e2=document.g
 
 function setDev(id){S.sel=id;const e=document.getElementById('cDev');if(e)e.value=id;loadSel()}
 function selDev(id){setDev(id)}
-function setAx(a){S.axis=a;if(D.hmA&&D.hmB){D.hm=a==='A'?D.hmA:D.hmB;D.cum=a==='A'?D.cumA:D.cumB;drawCum();drawDisp();drawVel();renderSt();}else loadSel()}
-function setDp(i){S.depthIdx=i;drawDisp();drawVel();renderSt()}
-window.setDev=setDev;window.selDev=selDev;window.setAx=setAx;window.setDp=setDp;window.loadSel=loadSel;
+function setDp(v){S.depthIdx=parseInt(v,10);drawDisp();drawVel();renderSt()}
+window.setDev=setDev;window.selDev=selDev;window.setDp=setDp;window.loadSel=loadSel;
 window.togglePlay=togglePlay;window.onScrub=onScrub;window.goLive=goLive;
 
 function renderStats(){
@@ -201,7 +198,6 @@ function renderStats(){
 }
 
 function alive(){return (D.hm?.sensors||[]).filter(s=>!s.is_dead)}
-function selSensor(){const a=alive().sort((x,y)=>y.depth_m-x.depth_m);return a[Math.min(S.depthIdx,Math.max(0,a.length-1))]}
 function curB(){return D.bks[Math.min(S.pbIdx,D.bks.length-1)]}
 
 function computeCum(hm){
@@ -215,6 +211,12 @@ function computeCum(hm){
     al.forEach(sn=>{m[sn.sn]=Math.round((m[sn.sn]-base)*1000)/1000;if(Math.abs(m[sn.sn])>mx)mx=Math.abs(m[sn.sn])});
     cum[b]=m;});
   return {cum,maxAbs:mx,bks};
+}
+function computeGov(){ // governing = (axis,sensor) with largest |incremental| over the loaded range
+  let mv=0,sn=null,ax='B';
+  ['A','B'].forEach(a=>{(D['hm'+a]?.data||[]).forEach(d=>{const v=Math.abs(d.v||0);if(v>mv){mv=v;sn=d.sn;ax=a}})});
+  const s=(D.hm?.sensors||[]).find(x=>x.sn===sn);
+  D.gov=sn!=null?{sn,ax,depth:s?.depth_m||0}:null;
 }
 
 async function loadSel(){
@@ -234,25 +236,22 @@ async function loadSel(){
     if(rA.error)throw rA.error;if(rB.error)throw rB.error;
     const ov=DEAD_OVERRIDE[dev]||[];
     [rA.data,rB.data].forEach(dt=>{if(dt?.sensors)dt.sensors.forEach(s=>{if(ov.includes(s.sn))s.is_dead=true});if(dt?.data)dt.data=dt.data.filter(d=>!ov.includes(d.sn))});
-    D.hmA=rA.data;D.hmB=rB.data;D.hm=S.axis==='A'?D.hmA:D.hmB;
+    D.hmA=rA.data;D.hmB=rB.data;D.hm=D.hmA;
     const A=computeCum(D.hmA),B=computeCum(D.hmB);
-    D.cumA=A.cum;D.cumB=B.cum;D.cum=S.axis==='A'?A.cum:B.cum;
-    D.bks=(S.axis==='A'?A.bks:B.bks);
-    D.cumYMax=Math.ceil((S.axis==='A'?A.maxAbs:B.maxAbs)*1.15);
-    D.cumAbsMax=Math.max(A.maxAbs,B.maxAbs);
-    D.maxDepth=Math.max(3,...alive().map(s=>s.depth_m));
+    D.cumA=A.cum;D.cumB=B.cum;D.bks=A.bks.length?A.bks:B.bks;
+    D.cumAbsMax=Math.max(A.maxAbs,B.maxAbs);D.maxDepth=Math.max(3,...alive().map(s=>s.depth_m));
+    computeGov();
     const lgm=document.getElementById('lgm');if(lgm)lgm.textContent='≥'+Math.round(D.cumAbsMax)+' mm';
     const al=alive().sort((a,b)=>b.depth_m-a.depth_m);
-    if(S.depthIdx>=al.length)S.depthIdx=0;
     const dp=document.getElementById('cDp');
-    if(dp)dp.innerHTML=al.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m}.0 m</option>`).join('');
+    if(dp)dp.innerHTML='<option value="-1"'+(S.depthIdx<0?' selected':'')+'>Auto (Max)</option>'+al.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m}.0 m</option>`).join('');
     document.getElementById('selI').textContent=`Depth ${nd?.depth||'?'}.0m · Sensor ${D.hm?.sensors?.length||0} · Int 3.0m`;
     S.pbIdx=D.bks.length-1;
     const rng=document.getElementById('pbRng');if(rng){rng.max=Math.max(0,D.bks.length-1);rng.value=S.pbIdx}
     document.getElementById('pbA').textContent=D.bks.length?fmtB(D.bks[0]):'—';
     document.getElementById('pbB').textContent=D.bks.length?fmtB(D.bks[D.bks.length-1]):'—';
     if(!D.bks.length&&ovMsg){ovMsg.style.display='block';ovMsg.textContent='Tidak ada data pada rentang ini'}
-    drawOv();drawCum();drawDisp();drawVel();updateCur();renderSt();
+    drawOv();drawCumBoth();drawDisp();drawVel();updateCur();renderSt();
   }catch(e){console.warn(e);if(ovMsg){ovMsg.style.display='block';ovMsg.textContent='Error memuat data'}}
 }
 
@@ -270,7 +269,7 @@ function drawOv(){
   const cursorX=LBL+(S.pbIdx+0.5)*cellW;
   [['A',D.cumA,0],['B',D.cumB,GH+hmH]].forEach(([ax,cum,oy])=>{
     ctx.fillStyle=ax==='A'?'#38bdf8':'#a855f7';ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
-    ctx.fillText('AXIS '+ax+(ax===S.axis?'  (detail)':''),2,oy+GH/2);
+    ctx.fillText('AXIS '+ax,2,oy+GH/2);
     const top=oy+GH;
     sensors.forEach((s,yi)=>{const y=top+yi*cellH;
       D.bks.forEach((bk,xi)=>{const x=LBL+xi*cellW;
@@ -278,14 +277,11 @@ function drawOv(){
         else{const v=cum[bk]?.[s.sn];ctx.fillStyle=v!=null?hcCum(v):'#132132';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5)}
       });
     });
-    // depth labels
     ctx.fillStyle='#8ba0bd';ctx.font='7px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
     const step=cellH<11?Math.ceil(11/cellH):1;
     sensors.forEach((s,yi)=>{if(yi%step&&yi!==ns-1)return;ctx.fillText(s.depth_m+'m',LBL-2,top+yi*cellH+cellH/2)});
-    // cursor
     ctx.strokeStyle='#e0f2fe';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(cursorX,top);ctx.lineTo(cursorX,top+hmH);ctx.stroke();
   });
-  // time axis
   ctx.fillStyle='#8ba0bd';ctx.font='8px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   const mxL=Math.floor((W-LBL)/70),xst=Math.max(1,Math.ceil(nb/Math.max(1,mxL)));
   D.bks.forEach((bk,xi)=>{if(xi%xst)return;const x=LBL+(xi+0.5)*cellW,d=new Date(bk);ctx.fillText(d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}),x,H-TAX+2)});
@@ -308,42 +304,50 @@ function ovHover(ev){
   tip.style.left=tx+'px';tip.style.top=ty+'px';
 }
 
-// ---------- Center cumulative profile: Y=depth, X=cumulative ----------
-function cumPts(b){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);return al.map(s=>({x:(D.cum[b]?.[s.sn])??0,y:s.depth_m}))}
-function drawCum(){
-  const cv=document.getElementById('cvC');if(!cv)return;if(D.ch.cum){D.ch.cum.destroy();D.ch.cum=null}
+// ---------- Center cumulative profiles: A (left) | B (right), Y=depth, X=cumulative ----------
+function cumPtsAx(b,ax){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);const cum=ax==='A'?D.cumA:D.cumB;return al.map(s=>({x:(cum[b]?.[s.sn])??0,y:s.depth_m}))}
+function drawCumAxis(ax,id,showY){
+  const cv=document.getElementById(id);if(!cv)return;const key='cum'+ax;if(D.ch[key]){D.ch[key].destroy();D.ch[key]=null}
   if(!D.bks.length)return;
-  const b=curB(),pts=cumPts(b),xM=D.cumYMax,md=D.maxDepth;
-  const at=document.getElementById('cumAt');if(at)at.textContent=S.axis+'-Axis · '+fmtB(b);
-  D.ch.cum=new Chart(cv,{type:'scatter',data:{datasets:[
+  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(3,Math.ceil(D.cumAbsMax*1.15)),md=D.maxDepth;
+  D.ch[key]=new Chart(cv,{type:'scatter',data:{datasets:[
     {data:alive().sort((a,b)=>a.depth_m-b.depth_m).map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
-    {data:pts,showLine:true,borderColor:'#38bdf8',backgroundColor:'#38bdf8',borderWidth:2,pointRadius:2.6,pointBackgroundColor:'#38bdf8',tension:.1}
+    {data:pts,showLine:true,borderColor:ax==='A'?'#38bdf8':'#a855f7',backgroundColor:ax==='A'?'#38bdf8':'#a855f7',borderWidth:2,pointRadius:2.3,pointBackgroundColor:ax==='A'?'#38bdf8':'#a855f7',tension:.1}
   ]},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
-    plugins:{legend:{display:false},title:{display:true,text:S.axis+'-Axis @ '+fmtB(b),color:'#e5edf7',font:{size:10,weight:'bold'}},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
-    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Cumulative displacement (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}},
-      y:{reverse:true,min:0,max:md+1.5,title:{display:true,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}}}}});
+    plugins:{legend:{display:false},title:{display:true,text:ax+'-Axis',color:ax==='A'?'#7dd3fc':'#c4b5fd',font:{size:10,weight:'bold'}},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
+    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Cumulative (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:5},grid:{color:'rgba(120,150,190,.08)'}},
+      y:{reverse:true,min:0,max:md+1.5,title:{display:showY,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{display:showY,color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}}}}});
 }
+function drawCumBoth(){drawCumAxis('A','cvCA',true);drawCumAxis('B','cvCB',false);const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?fmtB(curB()):''}
 
-// ---------- time-series @ selected depth (selected axis, incremental) ----------
+// ---------- time-series @ governing (or manual) sensor ----------
+function selTarget(){
+  const al=alive().sort((a,b)=>b.depth_m-a.depth_m);if(!al.length)return null;
+  if(S.depthIdx<0)return D.gov||{sn:al[0].sn,ax:'B',depth:al[0].depth_m};
+  const s=al[Math.min(S.depthIdx,al.length-1)],lb=D.bks[D.bks.length-1];
+  const va=Math.abs((D.hmA?.data||[]).find(d=>d.b===lb&&d.sn===s.sn)?.v||0),vb=Math.abs((D.hmB?.data||[]).find(d=>d.b===lb&&d.sn===s.sn)?.v||0);
+  return {sn:s.sn,ax:va>=vb?'A':'B',depth:s.depth_m};
+}
+function seriesFor(sn,ax){return ((ax==='A'?D.hmA:D.hmB)?.data||[]).filter(d=>d.sn===sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))}
 function pbCursorPlugin(){return {id:'cur',afterDatasetsDraw(c){if(!D.bks.length)return;const x=new Date(curB()).getTime(),xs=c.scales.x,ar=c.chartArea;if(!ar)return;const px=xs.getPixelForValue(x);if(px<ar.left||px>ar.right)return;const ctx=c.ctx;ctx.save();ctx.strokeStyle='rgba(224,242,254,.9)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(px,ar.top);ctx.lineTo(px,ar.bottom);ctx.stroke();ctx.restore()}}}
-function seriesFor(sn){return (D.hm?.data||[]).filter(d=>d.sn===sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))}
+function tgtLabel(t){return '@ '+t.depth+'.0 m · Axis '+t.ax+(S.depthIdx<0?' (gov)':'')}
 function drawDisp(){
   const cv=document.getElementById('cvD');if(!cv||!D.hm)return;if(D.ch.disp){D.ch.disp.destroy();D.ch.disp=null}
-  const s=selSensor();if(!s)return;
-  const pts=seriesFor(s.sn).map(d=>({x:new Date(d.b).getTime(),y:d.v}));
+  const t=selTarget();if(!t)return;
+  const pts=seriesFor(t.sn,t.ax).map(d=>({x:new Date(d.b).getTime(),y:d.v}));
   let mx=0;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});const yM=Math.max(5,Math.ceil(mx*1.3));
-  const thr={id:'thr',beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,ys=c.scales.y;if(!ar)return;[[10,'#f97316'],[20,'#ef4444']].forEach(([lv,cl])=>{[lv,-lv].forEach(t=>{const yp=ys.getPixelForValue(t);if(yp<ar.top||yp>ar.bottom)return;ctx.save();ctx.strokeStyle=cl+'88';ctx.setLineDash([5,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ar.left,yp);ctx.lineTo(ar.right,yp);ctx.stroke();ctx.restore()})})}};
+  const thr={id:'thr',beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,ys=c.scales.y;if(!ar)return;[[10,'#f97316'],[20,'#ef4444']].forEach(([lv,cl])=>{[lv,-lv].forEach(v=>{const yp=ys.getPixelForValue(v);if(yp<ar.top||yp>ar.bottom)return;ctx.save();ctx.strokeStyle=cl+'88';ctx.setLineDash([5,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ar.left,yp);ctx.lineTo(ar.right,yp);ctx.stroke();ctx.restore()})})}};
   D.ch.disp=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#38bdf8',backgroundColor:'#38bdf8',borderWidth:1.5,pointRadius:1.6,pointBackgroundColor:'#38bdf8',tension:.2,spanGaps:true}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it.length?fmtB(it[0].parsed.x):'',label:c=>c.parsed.y.toFixed(1)+' mm'}}},
+      plugins:{legend:{display:false},title:{display:true,text:tgtLabel(t),color:'#8ba0bd',font:{size:9}},tooltip:{callbacks:{title:it=>it.length?fmtB(it[0].parsed.x):'',label:c=>c.parsed.y.toFixed(1)+' mm'}}},
       scales:{x:{type:'linear',ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:6,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})},grid:{color:'rgba(120,150,190,.06)'}},
         y:{min:-yM,max:yM,title:{display:true,text:'incr. mm',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},plugins:[thr,pbCursorPlugin()]});
 }
 function drawVel(){
   const cv=document.getElementById('cvV');if(!cv||!D.hm)return;if(D.ch.vel){D.ch.vel.destroy();D.ch.vel=null}
-  const s=selSensor();if(!s)return;
-  const at=document.getElementById('velAt');if(at)at.textContent='@ '+s.depth_m+'.0 m';
-  const raw=seriesFor(s.sn),pts=[];
+  const t=selTarget();if(!t)return;
+  const at=document.getElementById('velAt');if(at)at.textContent=tgtLabel(t);
+  const raw=seriesFor(t.sn,t.ax),pts=[];
   for(let i=1;i<raw.length;i++){const dt=(new Date(raw[i].b)-new Date(raw[i-1].b))/36e5;if(dt>0)pts.push({x:new Date(raw[i].b).getTime(),y:(raw[i].v-raw[i-1].v)/dt})}
   let mx=.5;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});const yM=Math.ceil(mx*1.3*100)/100;
   D.ch.vel=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.12)',borderWidth:1.5,pointRadius:1.6,pointBackgroundColor:'#a855f7',tension:.25,fill:true,spanGaps:true}]},
@@ -358,7 +362,8 @@ function updateCur(){const b=D.bks.length?curB():null;const el=document.getEleme
   const live=document.getElementById('pbLive');if(live)live.classList.toggle('on',D.bks.length&&S.pbIdx===D.bks.length-1)}
 function refreshAtCursor(){
   drawOv();
-  if(D.ch.cum){const b=curB();D.ch.cum.data.datasets[1].data=cumPts(b);D.ch.cum.options.plugins.title.text=S.axis+'-Axis @ '+fmtB(b);D.ch.cum.update('none');const at=document.getElementById('cumAt');if(at)at.textContent=S.axis+'-Axis · '+fmtB(b)}
+  ['A','B'].forEach(ax=>{const ch=D.ch['cum'+ax];if(ch){ch.data.datasets[1].data=cumPtsAx(curB(),ax);ch.update('none')}});
+  const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?fmtB(curB()):'';
   if(D.ch.disp)D.ch.disp.update('none');
   if(D.ch.vel)D.ch.vel.update('none');
   updateCur();renderSt();
@@ -374,30 +379,31 @@ function stopPlay(){S.playing=false;clearInterval(pbTimer);const b=document.getE
 function renderSt(){
   const p=document.getElementById('stP');if(!p)return;
   const dev=S.sel,ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev),lv=tlv(ew?.trigger_level);
-  const b=D.bks.length?curB():null;let mxA=0,mxD=0,mxV=0,mxC=0,mxCD=0;
-  const incB={};(D.hm?.data||[]).forEach(d=>{if(d.b===b)incB[d.sn]=d.v});
-  if(b)alive().forEach(s=>{const iv=incB[s.sn];if(iv!=null&&Math.abs(iv)>mxA){mxA=Math.abs(iv);mxV=iv;mxD=s.depth_m}
-    const cv=D.cum[b]?.[s.sn];if(cv!=null&&Math.abs(cv)>mxC){mxC=Math.abs(cv);mxCD=s.depth_m}});
-  let vel=0,vD=0;
-  if(b&&S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;const pv={};(D.hm?.data||[]).forEach(d=>{if(d.b===b1)pv[d.sn]=d.v});
-    if(dt>0)alive().forEach(s=>{const a=pv[s.sn],c=incB[s.sn];if(a!=null&&c!=null){const v=Math.abs(c-a)/dt;if(v>vel){vel=v;vD=s.depth_m}}})}
+  const b=D.bks.length?curB():null;
+  let mxA=0,mxD=0,mxV=0,mxAx='',mxC=0,mxCD=0,mxCax='',vel=0,vD=0,vAx='';
+  if(b){['A','B'].forEach(ax=>{
+    const dat=D['hm'+ax]?.data||[],cum=ax==='A'?D.cumA:D.cumB;
+    dat.forEach(d=>{if(d.b!==b)return;const s=alive().find(x=>x.sn===d.sn);if(!s)return;const a=Math.abs(d.v||0);if(a>mxA){mxA=a;mxV=d.v;mxD=s.depth_m;mxAx=ax}});
+    alive().forEach(s=>{const cv=cum[b]?.[s.sn];if(cv!=null&&Math.abs(cv)>mxC){mxC=Math.abs(cv);mxCD=s.depth_m;mxCax=ax}});
+  });
+  if(S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;if(dt>0)['A','B'].forEach(ax=>{const dat=D['hm'+ax]?.data||[],pv={},cv2={};dat.forEach(d=>{if(d.b===b1)pv[d.sn]=d.v;if(d.b===b)cv2[d.sn]=d.v});alive().forEach(s=>{if(pv[s.sn]!=null&&cv2[s.sn]!=null){const v=Math.abs(cv2[s.sn]-pv[s.sn])/dt;if(v>vel){vel=v;vD=s.depth_m;vAx=ax}}})})}}
   const dir=mxV>0.3?'DOWNWARD':mxV<-0.3?'UPWARD':'STABLE',dcol=mxV>0.3?'#ef4444':mxV<-0.3?'#eab308':'#22c55e',di=mxV>0.3?'&darr;':mxV<-0.3?'&uarr;':'&rarr;';
   const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
   p.innerHTML=`
     <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
-    <div class="mrow"><div class="k">Max Cumulative (abs)</div><div class="line"><span class="big ${vcl(mxC)}">${mxC.toFixed(1)} mm</span><span class="at">AT ${mxCD}.0 M</span></div></div>
-    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}.0 M</span></div></div>
-    <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:11px"> mm/hr</span></span><span class="at">AT ${vD}.0 M</span></div></div>
-    <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:19px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
-    <div class="mrow" style="border-bottom:none"><div class="k">Cursor Time</div><div style="font-weight:800;font-size:12px;margin-top:2px">${b?fmtB(b):'—'}</div></div>
+    <div class="mrow"><div class="k">Max Cumulative (abs)</div><div class="line"><span class="big ${vcl(mxC)}">${mxC.toFixed(1)} mm</span><span class="at">AT ${mxCD}m · ${mxCax}</span></div></div>
+    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
+    <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:10px"> mm/hr</span></span><span class="at">AT ${vD}m · ${vAx}</span></div></div>
+    <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:18px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
+    <div class="mrow" style="border-bottom:none"><div class="k">Cursor Time</div><div style="font-weight:800;font-size:11px;margin-top:2px">${b?fmtB(b):'—'}</div></div>
     <div class="sec"><h4>EWS Details</h4>
-      <div class="sr"><span class="k">Velocity (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
-      <div class="sr"><span class="k">Velocity (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
+      <div class="sr"><span class="k">Vel. (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
+      <div class="sr"><span class="k">Vel. (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
       <div class="sr"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
       <div class="sr"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div></div>
     <div class="sec"><h4>All Devices Status</h4>
       ${NODES.map(n=>{const l2=tlv(by[n.id]?.trigger_level),on=S.sel===n.id;
-        return`<div class="dvrow ${on?'on':''}" onclick="selDev('${n.id}')"><span class="k" style="${on?'color:#38bdf8;font-weight:700':''}">${esc(n.label)}</span><span class="v ${l2.c==='hijau'?'g':l2.c==='kuning'?'y':l2.c==='jingga'?'o':'r'}">&#9679; ${l2.t}</span></div>`}).join('')}
+        return`<div class="dvrow ${on?'on':''}" onclick="selDev('${n.id}')"><span class="k" style="${on?'color:#38bdf8;font-weight:700':''}">${esc(n.short)}</span><span class="v ${l2.c==='hijau'?'g':l2.c==='kuning'?'y':l2.c==='jingga'?'o':'r'}">&#9679; ${l2.t}</span></div>`}).join('')}
     </div>`;
 }
 
@@ -406,7 +412,7 @@ async function loadAll(){
   renderStats();await loadSel();
   const cv=document.getElementById('cvO');if(cv&&!cv._b){cv._b=1;cv.style.cursor='crosshair';cv.addEventListener('click',ovClick);cv.addEventListener('mousemove',ovHover);cv.addEventListener('mouseleave',()=>{const t=document.getElementById('ovTip');if(t)t.style.display='none'})}
 }
-let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawOv();drawCum();drawDisp();drawVel();},180)});
+let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawOv();drawCumBoth();drawDisp();drawVel();},180)});
 (async()=>{
   const ok=await GMS.guard({mount:'#root'});if(!ok)return;
   shell();await loadAll();
