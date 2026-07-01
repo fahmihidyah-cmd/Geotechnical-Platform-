@@ -3,83 +3,96 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta name="theme-color" content="#071a2e"/>
-<title>Inclinometer Monitoring — Geotechnical Platform</title>
+<meta name="theme-color" content="#020814"/>
+<title>Inplace Inclinometer — Realtime Monitoring</title>
 <link rel="stylesheet" href="common.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="common.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg0:#051426;--bg1:#04101f;--p0:#0a2037;--p1:#0b243f;--p2:#0e2c4d;--st:rgba(148,163,184,.16);--tx:#e5e7eb;--mu:#94a3b8;--cy:#22d3ee;--grn:#22c55e;--yel:#eab308;--org:#f97316;--red:#ef4444}
+:root{--bg0:#020814;--bg1:#050f1f;--p0:#0a1830;--p1:#0c1e3a;--p2:#102a44;--pnl:#081627;--st:rgba(120,150,190,.14);--tx:#e5edf7;--mu:#8ba0bd;--cy:#38bdf8;--grn:#22c55e;--yel:#eab308;--org:#f97316;--red:#ef4444;--pur:#a855f7}
 html,body{height:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg0);color:var(--tx);overflow:hidden}
+#root{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* Header */
-.hdr{display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--p0);border-bottom:1px solid var(--st);height:34px;flex-shrink:0}
-.hdr .back{background:none;border:1px solid var(--st);color:var(--mu);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;white-space:nowrap}
-.hdr .back:hover{color:var(--tx)}
-.hdr .ttl{font-size:13px;font-weight:800;letter-spacing:.03em;white-space:nowrap}
-.hdr .chips{display:flex;gap:5px}
-.hdr .chip{padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;background:var(--p2);border:1px solid var(--st);white-space:nowrap}
-.hdr .chip b{font-size:12px;margin-right:3px}
-.hdr .lg{display:flex;gap:3px;align-items:center;font-size:9px;color:var(--mu);margin-left:auto}
-.hdr .lg .sq{width:12px;height:11px;border-radius:2px;display:inline-block}
-.hdr .clk{text-align:right;font-size:9px;color:var(--mu);white-space:nowrap;line-height:1.15}
-.hdr .clk b{display:block;font-size:12px;color:var(--tx)}
+.hdr{display:flex;align-items:center;gap:10px;padding:0 14px;height:36px;flex-shrink:0;background:linear-gradient(180deg,#0a1830,#071224);border-bottom:1px solid var(--st)}
+.hdr .ttl{font-size:14px;font-weight:800;letter-spacing:.04em}
+.hdr .nav{margin-left:auto;display:flex;gap:6px}
+.hdr .nav a,.hdr .nav button{display:flex;align-items:center;gap:5px;background:#0e2240;border:1px solid var(--st);color:var(--mu);padding:3px 10px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;text-decoration:none}
+.hdr .nav .on{background:#134e6b;border-color:#38bdf866;color:#e0f2fe}
+.hdr .nav a:hover,.hdr .nav button:hover{color:var(--tx)}
+
+/* Stats bar */
+.stats{display:flex;align-items:stretch;gap:8px;padding:5px 14px;height:52px;flex-shrink:0;background:var(--bg1);border-bottom:1px solid var(--st)}
+.stbox{display:flex;flex-direction:column;justify-content:center;padding:0 12px;border-right:1px solid var(--st)}
+.stbox .k{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em}
+.stbox .v{font-size:19px;font-weight:800;line-height:1.05}
+.stbox .v small{font-size:10px;font-weight:600;opacity:.8}
+.stbox.g .v{color:var(--grn)}.stbox.y .v{color:var(--yel)}.stbox.o .v{color:var(--org)}.stbox.r .v{color:var(--red)}
+.stbox.time{border-right:1px solid var(--st)}
+.stbox .live{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--grn);font-weight:700}
+.stbox .live .d{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.leg{margin-left:auto;display:flex;flex-direction:column;justify-content:center;min-width:280px}
+.leg .lt{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;text-align:center;margin-bottom:3px}
+.leg .bar{height:12px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#22c55e 12%,#eab308 38%,#f97316 58%,#ef4444 78%,#b91c1c 90%,#a855f7)}
+.leg .sc{display:flex;justify-content:space-between;font-size:8px;color:var(--mu);margin-top:1px}
 
 /* Controls */
-.ctl{display:flex;align-items:center;gap:5px;padding:0 12px;background:var(--p0);border-bottom:1px solid var(--st);height:32px;flex-shrink:0;flex-wrap:nowrap;overflow:hidden}
-.ctl label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.03em}
-.ctl select,.ctl input[type=date]{background:var(--p2);border:1px solid var(--st);color:var(--tx);padding:2px 5px;border-radius:3px;font-size:10px;height:22px}
-.ctl select{cursor:pointer}
-.ctl #cDev{min-width:140px;font-weight:700;color:var(--cy)}
-.ctl input[type=date]{width:118px}
-.ctl .btn{background:#155e75;border:1px solid #22d3ee55;color:#e0f2fe;padding:2px 12px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700;height:22px}
+.ctl{display:flex;align-items:center;gap:6px;padding:0 14px;height:30px;flex-shrink:0;background:var(--p0);border-bottom:1px solid var(--st)}
+.ctl label{font-size:9px;color:var(--mu);text-transform:uppercase}
+.ctl select,.ctl input[type=date]{background:#0e2240;border:1px solid var(--st);color:var(--tx);padding:2px 6px;border-radius:4px;font-size:10px;height:22px}
+.ctl select{cursor:pointer}.ctl #cDev{font-weight:700;color:var(--cy);min-width:150px}
+.ctl input[type=date]{width:120px}
+.ctl .btn{background:#155e75;border:1px solid #38bdf855;color:#e0f2fe;padding:2px 14px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;height:22px}
 .ctl .btn:hover{background:#0e7490}
-.ctl .sel{margin-left:auto;font-size:10px;color:var(--mu);white-space:nowrap}
-.ctl .sel b{color:var(--cy)}
+.ctl .note{margin-left:auto;font-size:9px;color:var(--mu)}
 
-/* Layout */
-.wrap{display:grid;grid-template-columns:232px 1fr 214px;height:calc(100vh - 66px);overflow:hidden}
+/* Main 3-col */
+.main{flex:1;display:grid;grid-template-columns:320px 1fr 216px;min-height:0;overflow:hidden}
+.pnl{background:var(--pnl);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.pnl.l{border-right:1px solid var(--st)}
+.pnl.r{border-left:1px solid var(--st);padding:8px}
+.ph{padding:5px 10px;font-size:11px;font-weight:800;letter-spacing:.02em;border-bottom:1px solid var(--st);flex-shrink:0;display:flex;justify-content:space-between;align-items:center}
+.ph small{font-weight:600;color:var(--mu);font-size:9px}
+.ph .cy{color:var(--cy)}
 
-/* Left overview */
-.lp{background:var(--p0);border-right:1px solid var(--st);display:flex;flex-direction:column;overflow:hidden;padding:6px}
-.lp h3{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;line-height:1.2}
-.lp .ovsub{font-size:9px;color:var(--mu);margin-bottom:5px}
-.lp .ovsub b{color:var(--cy)}
-.lp .ovcard{flex:1;background:var(--bg1);border:1px solid var(--st);border-radius:5px;position:relative;min-height:0;padding:3px}
-.lp .ovstat{margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.lp .ovstat .b{background:var(--bg1);border:1px solid var(--st);border-radius:4px;padding:4px 5px}
-.lp .ovstat .b .k{font-size:8px;color:var(--mu);text-transform:uppercase}
-.lp .ovstat .b .v{font-size:13px;font-weight:800}
+/* Overview canvas */
+.ovwrap{flex:1;position:relative;min-height:0;padding:4px}
+.ovhint{font-size:8px;color:var(--mu);text-align:center;padding:2px;flex-shrink:0}
 
 /* Center */
-.cp{display:flex;flex-direction:column;overflow:hidden;background:var(--bg1)}
-.charts{flex:1;display:grid;grid-template-rows:1fr 1.05fr;gap:5px;padding:5px;min-height:0;overflow:hidden}
-.row1{display:grid;grid-template-columns:1fr 1fr;gap:5px;min-height:0}
-.cc{background:var(--p0);border-radius:5px;border:1px solid var(--st);display:flex;flex-direction:column;overflow:hidden;min-height:0}
-.cc .ch{padding:3px 8px;font-size:10px;font-weight:700;color:var(--mu);border-bottom:1px solid var(--st);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-.cc .ch .hl{color:var(--cy)}
-.cc .cb{flex:1;position:relative;min-height:0;padding:2px}
+.cwrap{flex:1;display:grid;grid-template-columns:minmax(230px,1fr) 1.15fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-height:0;overflow:hidden}
+.card{background:var(--p0);border:1px solid var(--st);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.card .ch{padding:4px 9px;font-size:10px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--st);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.card .ch small{color:var(--mu);font-weight:500;font-size:9px}
+.card .ch select{background:#0e2240;border:1px solid var(--st);color:var(--tx);font-size:9px;border-radius:3px;height:19px;padding:0 3px}
+.card .cb{flex:1;position:relative;min-height:0;padding:3px}
+.card.prof{grid-row:1/3}
 
 /* Right status */
-.rp{background:var(--p0);border-left:1px solid var(--st);padding:7px;overflow:hidden;font-size:11px;display:flex;flex-direction:column}
-.badge{text-align:center;padding:7px 6px;border-radius:6px;margin-bottom:6px;font-size:15px;font-weight:900;letter-spacing:.04em;flex-shrink:0}
-.badge.hijau{background:rgba(34,197,94,.12);color:#22c55e;border:2px solid #22c55e}
-.badge.kuning{background:rgba(234,179,8,.12);color:#eab308;border:2px solid #eab308}
-.badge.jingga{background:rgba(249,115,22,.12);color:#f97316;border:2px solid #f97316}
-.badge.merah{background:rgba(239,68,68,.12);color:#ef4444;border:2px solid #ef4444}
-.sr{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--st)}
-.sr .k{color:var(--mu);font-size:9px;text-transform:uppercase;letter-spacing:.02em}
-.sr .v{font-weight:700;font-size:12px}
+.badge{text-align:center;padding:9px 6px;border-radius:7px;margin-bottom:8px;font-size:16px;font-weight:900;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0}
+.badge.hijau{background:rgba(34,197,94,.13);color:#22c55e;border:1.5px solid #22c55e}
+.badge.kuning{background:rgba(234,179,8,.13);color:#eab308;border:1.5px solid #eab308}
+.badge.jingga{background:rgba(249,115,22,.13);color:#f97316;border:1.5px solid #f97316}
+.badge.merah{background:rgba(239,68,68,.13);color:#ef4444;border:1.5px solid #ef4444}
+.mrow{padding:6px 0;border-bottom:1px solid var(--st)}
+.mrow .k{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
+.mrow .line{display:flex;justify-content:space-between;align-items:baseline;margin-top:2px}
+.mrow .big{font-size:20px;font-weight:900;line-height:1}
+.mrow .at{font-size:9px;color:var(--mu)}
+.mrow .big.g{color:#22c55e}.mrow .big.y{color:#eab308}.mrow .big.o{color:#f97316}.mrow .big.r{color:#ef4444}.mrow .big.p{color:#a855f7}
+.dir{display:flex;align-items:center;justify-content:center;gap:6px;font-size:16px;font-weight:900;padding:3px 0}
+.sec{margin-top:7px;padding-top:5px;border-top:1px solid var(--st)}
+.sec h4{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.sr{display:flex;justify-content:space-between;padding:2px 0;font-size:10px}
+.sr .k{color:var(--mu)}.sr .v{font-weight:700}
 .sr .v.g{color:#22c55e}.sr .v.y{color:#eab308}.sr .v.o{color:#f97316}.sr .v.r{color:#ef4444}
-.ss{margin-top:5px;padding-top:4px;border-top:1px solid var(--st)}
-.ss h4{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-.bigv{font-size:18px;font-weight:900;line-height:1}
-
-.spin{width:18px;height:18px;border:2px solid var(--st);border-top-color:#3b82f6;border-radius:50%;animation:sp .6s linear infinite;position:absolute;top:50%;left:50%;margin:-9px}
-@keyframes sp{to{transform:rotate(360deg)}}
+.dvrow{display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-radius:4px;cursor:pointer;font-size:10px}
+.dvrow:hover{background:rgba(56,189,248,.08)}
+.dvrow.on{background:rgba(56,189,248,.12)}
 .msg{color:var(--mu);font-size:10px;text-align:center;position:absolute;top:50%;left:0;right:0;transform:translateY(-50%)}
 </style>
 </head>
@@ -87,280 +100,255 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div id="root"></div>
 <script>
 "use strict";
+if(window.CanvasRenderingContext2D&&!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){this.beginPath();this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this};}
 const sb=GMS.sb,esc=GMS.esc;
 const NODES=[
-  {id:'108052',label:'WOC-02 INC',depth:30},
-  {id:'108102',label:'WDN-2 INC-01',depth:51},
-  {id:'108164',label:'WDN-2 INC-02',depth:39},
-  {id:'108403',label:'WOC-01 INC',depth:15}
+  {id:'108052',label:'WOC-02 INC',short:'WOC-02',depth:30},
+  {id:'108102',label:'WDN-2 INC-01',short:'WDN-01',depth:51},
+  {id:'108164',label:'WDN-2 INC-02',short:'WDN-02',depth:39},
+  {id:'108403',label:'WOC-01 INC',short:'WOC-01',depth:15}
 ];
-let S={sel:'108102',axis:'B',depthIdx:0,from:null,to:null};
-let D={hm:null,cumData:[],ews:[],ch:{}};
+// Sensor mati permanen (laporan operator: casing shear/pergeseran) — dipaksa NO-DATA.
+// 108102: sn 1-8 sudah nol otomatis; sn 9 (27m) masih kirim data tapi fisiknya mati → override.
+const DEAD_OVERRIDE={'108102':[9]};
+let S={sel:'108102',axis:'B',from:null,to:null,depthIdx:0};
+let D={ov:[],hm:null,ews:[],ch:{}};
 
 function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
-function hc(v){if(v==null)return null;const a=Math.abs(v);if(a>=20)return'#991b1b';if(a>=10)return'#ef4444';if(a>=5)return'#f97316';if(a>=2)return'#eab308';if(a>=1)return'#22c55e';return'#166534'}
-function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
+function depthsOf(dev){const n=NODES.find(x=>x.id===dev);const a=[];for(let d=3;d<=(n?.depth||0);d+=3)a.push(d);return a}
+function isOverrideDead(dev,sn){return (DEAD_OVERRIDE[dev]||[]).includes(sn)}
+// incremental color scale
+function hc(v){if(v==null)return null;const a=Math.abs(v);if(a>=30)return'#a855f7';if(a>=20)return'#b91c1c';if(a>=10)return'#ef4444';if(a>=5)return'#f97316';if(a>=2)return'#eab308';if(a>=1)return'#22c55e';return'#16a34a'}
+function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=20)return'p';if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
 function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'ALARM'};if(u==='JINGGA')return{c:'jingga',t:'WARNING'};if(u==='KUNING')return{c:'kuning',t:'WATCH'};return{c:'hijau',t:'NORMAL'}}
-
-// Cumulative: sum incremental from deepest (bottom) upward
-function toCum(sensors,data){
-  const alive=sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
-  const bks=[...new Set(data.map(d=>d.b))].sort();
-  const inc={};data.forEach(d=>{inc[d.sn+'|'+d.b]=d.v||0});
-  const cum=[];
-  bks.forEach(bk=>{let s=0;alive.forEach(sn=>{s+=inc[sn.sn+'|'+bk]||0;cum.push({sn:sn.sn,b:bk,v:Math.round(s*1000)/1000})})});
-  return cum;
-}
 
 function shell(){
   document.getElementById('root').innerHTML=`
   <div class="hdr">
-    <button class="back" onclick="location.href='monitoring.html'">&larr; Dashboard</button>
-    <div class="ttl">INCLINOMETER &mdash; REALTIME MONITORING</div>
-    <div class="chips" id="hdC"></div>
-    <div class="lg">
-      <span class="sq" style="background:#166534"></span>&lt;1
-      <span class="sq" style="background:#22c55e"></span>1-2
-      <span class="sq" style="background:#eab308"></span>2-5
-      <span class="sq" style="background:#f97316"></span>5-10
-      <span class="sq" style="background:#ef4444"></span>10-20
-      <span class="sq" style="background:#991b1b"></span>&ge;20
-      <span style="margin-right:6px">mm</span>
+    <div class="ttl">INPLACE INCLINOMETER &mdash; REALTIME MONITORING</div>
+    <div class="nav">
+      <button class="on">&#9636; DASHBOARD</button>
+      <a href="monitoring.html">&#9639; DASHBOARD UTAMA</a>
     </div>
-    <div class="clk"><b id="ck1">—</b><span id="ck2">—</span></div>
+  </div>
+  <div class="stats">
+    <div class="stbox"><div class="k">Total Inclinometer</div><div class="v">${NODES.length} <small>UNIT</small></div></div>
+    <div class="stbox g"><div class="k">Normal</div><div class="v" id="sN">0 <small></small></div></div>
+    <div class="stbox y"><div class="k">Watch</div><div class="v" id="sW">0 <small></small></div></div>
+    <div class="stbox o"><div class="k">Warning</div><div class="v" id="sWn">0 <small></small></div></div>
+    <div class="stbox r"><div class="k">Alarm</div><div class="v" id="sA">0 <small></small></div></div>
+    <div class="stbox time"><div class="k">Time (WIB)</div><div class="v" id="ck" style="font-size:16px">—</div><div class="live"><span class="d"></span>LIVE &middot; <span id="ckd">—</span></div></div>
+    <div class="leg"><div class="lt">Incremental Displacement (mm)</div><div class="bar"></div><div class="sc"><span>0</span><span>2</span><span>5</span><span>10</span><span>20</span><span>&ge;30</span></div></div>
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
-    <label>Axis</label><select id="cAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B"${S.axis==='B'?' selected':''}>B-Axis</option></select>
-    <label>Depth</label><select id="cDp" onchange="setDp(+this.value)"></select>
+    <label>Axis (detail)</label><select id="cAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B"${S.axis==='B'?' selected':''}>B-Axis</option></select>
     <label>From</label><input type="date" id="cF" value="${S.from||ds(-7)}"/>
     <label>To</label><input type="date" id="cT" value="${S.to||ds(0)}"/>
     <button class="btn" onclick="loadSel()">SHOW</button>
-    <span class="sel" id="cSel"></span>
+    <span class="note">Overview = incremental terkini (Axis A atas, Axis B bawah)</span>
   </div>
-  <div class="wrap">
-    <div class="lp">
-      <h3>Overview &mdash; Incremental 1 Hari</h3>
-      <div class="ovsub">Rata-rata/jam &middot; <b id="ovDev">—</b></div>
-      <div class="ovcard"><canvas id="cvO"></canvas><div class="msg" id="ovMsg" style="display:none"></div></div>
-      <div class="ovstat">
-        <div class="b"><div class="k">Avg Terkini</div><div class="v" id="ovNow">—</div></div>
-        <div class="b"><div class="k">Avg 24 Jam</div><div class="v" id="ovMax">—</div></div>
+  <div class="main">
+    <div class="pnl l">
+      <div class="ph">ALL INCLINOMETER OVERVIEW <small>(Live)</small></div>
+      <div class="ovwrap"><canvas id="ovC"></canvas><div class="msg" id="ovMsg" style="display:none"></div></div>
+      <div class="ovhint">Klik strip untuk pilih inclinometer &middot; X = kedalaman (m)</div>
+    </div>
+    <div class="pnl">
+      <div class="ph"><span><span class="cy" id="selT">SELECTED: —</span></span><small id="selI"></small></div>
+      <div class="cwrap">
+        <div class="card prof"><div class="ch"><span>INCREMENTAL DISPLACEMENT PROFILE</span><small>Latest</small></div><div class="cb"><canvas id="cvP"></canvas></div></div>
+        <div class="card"><div class="ch"><span>INCR. DISPLACEMENT vs TIME</span><span><small>Depth</small> <select id="cDp" onchange="setDp(+this.value)"></select></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
+        <div class="card"><div class="ch"><span>VELOCITY vs TIME</span><small id="velAt">@ —</small></div><div class="cb"><canvas id="cvV"></canvas></div></div>
       </div>
     </div>
-    <div class="cp">
-      <div class="charts">
-        <div class="row1">
-          <div class="cc"><div class="ch">CUMULATIVE DISPLACEMENT PROFILE (Latest)</div><div class="cb"><canvas id="cvP"></canvas></div></div>
-          <div class="cc"><div class="ch"><span>CUMULATIVE DISPLACEMENT vs TIME</span><span class="hl" id="dpL"></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
-        </div>
-        <div class="cc"><div class="ch">DEPTH &times; TIME HEATMAP &mdash; <span class="hl" id="axL">B-Axis</span> (Cumulative)</div><div class="cb" id="hmWrap"><canvas id="hmC"></canvas><div class="msg" id="hmMsg" style="display:none"></div></div></div>
-      </div>
-    </div>
-    <div class="rp" id="stP"></div>
+    <div class="pnl r" id="stP"></div>
   </div>`;
   ckUp();setInterval(ckUp,1000);
 }
-function ckUp(){const n=new Date(),e=document.getElementById('ck1'),e2=document.getElementById('ck2');if(e)e.textContent=n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' WIB';if(e2)e2.textContent=n.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}
+function ckUp(){const n=new Date(),e=document.getElementById('ck'),e2=document.getElementById('ckd');if(e)e.textContent=n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});if(e2)e2.textContent=n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}
 
-function renderHdr(){
-  const ewsBy={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ewsBy[e.external_device_id]=e});
-  let w=0,wn=0,a=0;
-  NODES.forEach(n=>{const c=tlv(ewsBy[n.id]?.trigger_level).c;if(c==='merah')a++;else if(c==='jingga')wn++;else if(c==='kuning')w++});
-  const el=document.getElementById('hdC');if(el)el.innerHTML=
-    `<div class="chip" style="color:#eab308"><b>${w}</b>Watch</div><div class="chip" style="color:#f97316"><b>${wn}</b>Warning</div><div class="chip" style="color:#ef4444"><b>${a}</b>Alarm</div>`;
-}
-
-function setDev(id){S.sel=id;const e=document.getElementById('cDev');if(e)e.value=id;loadSel();loadOv1d()}
+function setDev(id){S.sel=id;const e=document.getElementById('cDev');if(e)e.value=id;drawOverview();loadSel()}
 function selDev(id){setDev(id)}
-function setAx(a){S.axis=a;const el=document.getElementById('axL');if(el)el.textContent=a+'-Axis';loadSel();loadOv1d()}
-function setDp(i){S.depthIdx=i;drawDisp()}
+function setAx(a){S.axis=a;loadSel()}
+function setDp(i){S.depthIdx=i;drawDisp();drawVel();renderSt()}
 window.setDev=setDev;window.selDev=selDev;window.setAx=setAx;window.setDp=setDp;window.loadSel=loadSel;
 
-// ---- Left overview: incremental, 1 day, hourly-averaged across alive sensors ----
-async function loadOv1d(){
-  const dev=S.sel,nd=NODES.find(n=>n.id===dev);
-  const el=document.getElementById('ovDev');if(el)el.textContent=(nd?.label||dev)+' · '+S.axis;
-  const f=new Date(Date.now()-864e5).toISOString(),t=new Date().toISOString();
-  try{
-    const{data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:'1 hour',p_axis:S.axis});
-    if(error)throw error;
-    const alive=new Set((data?.sensors||[]).filter(s=>!s.is_dead).map(s=>s.sn));
-    const byB={};(data?.data||[]).forEach(d=>{if(!alive.has(d.sn)||d.v==null)return;(byB[d.b]=byB[d.b]||[]).push(d.v)});
-    const pts=Object.keys(byB).sort().map(b=>{const ar=byB[b];return{x:new Date(b).getTime(),y:Math.round(ar.reduce((s,c)=>s+c,0)/ar.length*1000)/1000}});
-    drawOv1d(pts);
-  }catch(e){drawOv1d([])}
-}
-function drawOv1d(pts){
-  const cv=document.getElementById('cvO'),msg=document.getElementById('ovMsg');
-  const now=document.getElementById('ovNow'),mx=document.getElementById('ovMax');
-  if(D.ch.ov){D.ch.ov.destroy();D.ch.ov=null}
-  if(!pts.length){if(msg){msg.style.display='block';msg.textContent='Tidak ada data 24 jam terakhir'}if(cv)cv.style.display='none';if(now)now.textContent='—';if(mx)mx.textContent='—';return}
-  if(msg)msg.style.display='none';if(cv)cv.style.display='block';
-  const last=pts[pts.length-1].y;let pk=0;pts.forEach(p=>{if(Math.abs(p.y)>Math.abs(pk))pk=p.y});
-  if(now){now.textContent=last.toFixed(2)+' mm';now.className='v '+(vcl(last)||'g')}
-  if(mx){mx.textContent=pk.toFixed(2)+' mm';mx.className='v '+(vcl(pk)||'g')}
-  let m=0;pts.forEach(p=>{const a=Math.abs(p.y);if(a>m)m=a});const yM=Math.max(2,Math.ceil(m*1.3));
-  D.ch.ov=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',borderWidth:1.6,pointRadius:1.5,pointBackgroundColor:'#22d3ee',fill:true,tension:.25,spanGaps:true}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'',label:c=>c.parsed.y.toFixed(2)+' mm'}}},
-      scales:{x:{type:'linear',ticks:{color:'#9fb3cf',font:{size:7},maxTicksLimit:5,callback:v=>new Date(v).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})},grid:{color:'rgba(148,163,184,.06)'}},
-        y:{min:-yM,max:yM,title:{display:true,text:'incr. mm',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7}},grid:{color:'rgba(148,163,184,.08)'}}}}});
+// ---------- stats + overview ----------
+function renderStats(){
+  const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
+  let n=0,w=0,wn=0,a=0;
+  NODES.forEach(d=>{const c=tlv(by[d.id]?.trigger_level).c;if(c==='merah')a++;else if(c==='jingga')wn++;else if(c==='kuning')w++;else n++});
+  const T=NODES.length,pct=x=>T?Math.round(x/T*100):0;
+  const set=(id,v,p)=>{const el=document.getElementById(id);if(el)el.innerHTML=v+' <small>('+p+'%)</small>'};
+  set('sN',n,pct(n));set('sW',w,pct(w));set('sWn',wn,pct(wn));set('sA',a,pct(a));
 }
 
-// ---- Center: load selected device (user range), cumulative ----
+// overview: latest incremental per sensor, Axis A group (top) + Axis B group (bottom)
+let OVHIT=[];
+function drawOverview(){
+  const cv=document.getElementById('ovC'),wrap=cv?.parentElement,msg=document.getElementById('ovMsg');if(!cv||!wrap)return;
+  const byDev={};(D.ov||[]).forEach(r=>{(byDev[r.device]=byDev[r.device]||{})[r.depth_m]={a:r.a_mm,b:r.b_mm,sn:r.sn}});
+  if(!D.ov||!D.ov.length){if(msg){msg.style.display='block';msg.textContent='Memuat…'}return}
+  if(msg)msg.style.display='none';
+  const W=Math.max(240,wrap.clientWidth-8),H=Math.max(160,wrap.clientHeight-8);
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  const LBL=58,RPAD=6,XAX=15,GH=13;
+  const maxCols=Math.max(...NODES.map(n=>n.depth/3));
+  const cellW=(W-LBL-RPAD)/maxCols;
+  const bodyH=H-XAX-2*GH;const stripH=bodyH/(NODES.length*2);
+  OVHIT=[];
+  let y=0;
+  [['A','a','AXIS A'],['B','b','AXIS B']].forEach(([ax,fld,glabel])=>{
+    ctx.fillStyle=ax==='A'?'#38bdf8':'#a855f7';ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(glabel,4,y+GH/2);y+=GH;
+    NODES.forEach(nd=>{
+      const sel=S.sel===nd.id,map=byDev[nd.id]||{};
+      const y0=y,rowY=y+stripH/2;
+      if(sel){ctx.fillStyle='rgba(56,189,248,.10)';ctx.fillRect(0,y0,W,stripH)}
+      ctx.fillStyle=sel?'#e0f2fe':'#cbd5e1';ctx.font=(sel?'bold ':'')+'9px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+      ctx.fillText(nd.short,4,rowY);
+      depthsOf(nd.id).forEach(dp=>{
+        const idx=dp/3-1,x=LBL+idx*cellW,cell=map[dp];
+        const dead=!cell||cell[fld]==null||isOverrideDead(nd.id,cell.sn);
+        if(dead){ctx.fillStyle='#2a3646';ctx.fillRect(x,y0+1,cellW-1,stripH-2);ctx.strokeStyle='#465063';ctx.lineWidth=.5;ctx.beginPath();for(let d=-stripH;d<cellW;d+=4){ctx.moveTo(x+d,y0);ctx.lineTo(x+d+stripH,y0+stripH)}ctx.save();ctx.rect(x,y0+1,cellW-1,stripH-2);ctx.clip();ctx.stroke();ctx.restore()}
+        else{ctx.fillStyle=hc(cell[fld]);ctx.fillRect(x,y0+1,cellW-1,stripH-2)}
+      });
+      if(sel){ctx.strokeStyle='#38bdf8';ctx.lineWidth=1.4;ctx.strokeRect(LBL-1,y0+.5,W-LBL-RPAD+1,stripH-1)}
+      OVHIT.push({y0,y1:y0+stripH,dev:nd.id});
+      y+=stripH;
+    });
+  });
+  // depth axis
+  ctx.fillStyle='#8ba0bd';ctx.font='7px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  for(let dp=6;dp<=maxCols*3;dp+=6){const x=LBL+(dp/3-1)*cellW+cellW/2;ctx.fillText(dp,x,y+3)}
+  ctx.textAlign='left';ctx.fillText('m',W-RPAD-6,y+3);
+}
+function ovClick(ev){const cv=document.getElementById('ovC');if(!cv)return;const r=cv.getBoundingClientRect();const y=ev.clientY-r.top;const h=OVHIT.find(o=>y>=o.y0&&y<o.y1);if(h)setDev(h.dev)}
+
+// ---------- selected device detail ----------
 async function loadSel(){
   const dev=S.sel,nd=NODES.find(n=>n.id===dev);
-  S.from=document.getElementById('cF')?.value||ds(-7);
-  S.to=document.getElementById('cT')?.value||ds(0);
+  document.getElementById('selT').textContent='SELECTED: '+(nd?.label||dev);
+  S.from=document.getElementById('cF')?.value||ds(-7);S.to=document.getElementById('cT')?.value||ds(0);
   const f=new Date(S.from+'T00:00:00').toISOString(),t=new Date(S.to+'T23:59:59').toISOString();
   const dd=Math.max(1,Math.round((new Date(t)-new Date(f))/864e5));
   const ev=dd<=2?'1 hour':dd<=7?'3 hours':dd<=30?'6 hours':'1 day';
-  const hmMsg=document.getElementById('hmMsg');if(hmMsg)hmMsg.style.display='none';
   try{
     const{data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:ev,p_axis:S.axis});
     if(error)throw error;
+    // apply override: force listed sensors dead + drop their data
+    const ov=DEAD_OVERRIDE[dev]||[];
+    if(data?.sensors)data.sensors.forEach(s=>{if(ov.includes(s.sn))s.is_dead=true});
+    if(data?.data)data.data=data.data.filter(d=>!ov.includes(d.sn));
     D.hm=data;
-    D.cumData=(data?.sensors?.length&&data?.data?.length)?toCum(data.sensors,data.data):[];
-    const dpSel=document.getElementById('cDp');
-    if(dpSel&&data?.sensors?.length){
-      const alive=data.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
-      if(S.depthIdx>=alive.length)S.depthIdx=0;
-      dpSel.innerHTML=alive.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m} m</option>`).join('');
-    }
-    const sel=document.getElementById('cSel');
-    if(sel)sel.innerHTML=`SELECTED: <b>${esc(nd?.label||dev)}</b> · Depth ${nd?.depth||'?'}m · Sensors ${data?.sensors?.length||0} · Interval 3.0m`;
-    drawProf();drawDisp();drawHM();renderSt();
-  }catch(e){const m=document.getElementById('hmMsg');if(m){m.style.display='block';m.textContent='Error: '+esc(e.message||e)}}
+    const alive=(data?.sensors||[]).filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
+    if(S.depthIdx>=alive.length)S.depthIdx=0;
+    const dp=document.getElementById('cDp');
+    if(dp)dp.innerHTML=alive.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m}.0 m</option>`).join('');
+    document.getElementById('selI').textContent=`Depth: ${nd?.depth||'?'}.0 m · Sensor: ${data?.sensors?.length||0} · Interval: 3.0 m`;
+    drawProf();drawDisp();drawVel();renderSt();
+  }catch(e){console.warn(e)}
 }
+function alive(){return (D.hm?.sensors||[]).filter(s=>!s.is_dead)}
+function latestBk(){return [...new Set((D.hm?.data||[]).map(d=>d.b))].sort().pop()}
 
-// Profile with heatmap background (cumulative)
+// profile: heatmap background bands (by |incr|) + white profile line, x=mm y=depth
 function drawProf(){
-  const cv=document.getElementById('cvP');if(!cv||!D.hm)return;
-  if(D.ch.prof){D.ch.prof.destroy();D.ch.prof=null}
-  const sensors=D.hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>a.depth_m-b.depth_m);
-  if(!sensors.length)return;
-  const bks=[...new Set(D.cumData.map(d=>d.b))].sort();const latBk=bks[bks.length-1];
-  const lk={};D.cumData.forEach(d=>{if(d.b===latBk)lk[d.sn]=d.v});
-  const pts=sensors.map(s=>({x:lk[s.sn]||0,y:s.depth_m}));
-  let mx=0;pts.forEach(p=>{const a=Math.abs(p.x);if(a>mx)mx=a});const xM=Math.max(3,Math.ceil(mx*1.3));
-  const bgPl={id:'hmBg',beforeDatasetsDraw(chart){
-    const ctx=chart.ctx,ar=chart.chartArea,ys=chart.scales.y;if(!ar)return;
+  const cv=document.getElementById('cvP');if(!cv||!D.hm)return;if(D.ch.prof){D.ch.prof.destroy();D.ch.prof=null}
+  const sensors=alive().sort((a,b)=>a.depth_m-b.depth_m);if(!sensors.length)return;
+  const lb=latestBk(),lk={};(D.hm.data||[]).forEach(d=>{if(d.b===lb)lk[d.sn]=d.v});
+  const pts=sensors.map(s=>({x:lk[s.sn]??0,y:s.depth_m}));
+  let mx=0;pts.forEach(p=>{const a=Math.abs(p.x);if(a>mx)mx=a});const xM=Math.max(10,Math.ceil(mx*1.25));
+  const bg={id:'bg',beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,ys=c.scales.y;if(!ar)return;
     sensors.forEach((s,i)=>{const v=lk[s.sn],yp=ys.getPixelForValue(s.depth_m);
-      const hh=i<sensors.length-1?Math.abs(ys.getPixelForValue(sensors[i+1].depth_m)-yp)/2:12;
-      ctx.save();ctx.fillStyle=v!=null?hc(v)+'4d':'rgba(30,41,59,.3)';ctx.fillRect(ar.left,yp-hh,ar.right-ar.left,hh*2);ctx.restore()})}};
+      const up=i>0?(yp+ys.getPixelForValue(sensors[i-1].depth_m))/2:ar.top;
+      const dn=i<sensors.length-1?(yp+ys.getPixelForValue(sensors[i+1].depth_m))/2:ar.bottom;
+      ctx.fillStyle=v!=null?hc(v)+'66':'rgba(40,50,66,.5)';ctx.fillRect(ar.left,up,ar.right-ar.left,dn-up)})}};
   D.ch.prof=new Chart(cv,{type:'scatter',data:{datasets:[
-    {label:'Baseline',data:sensors.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.4)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
-    {label:'Latest',data:pts,showLine:true,borderColor:'#fff',backgroundColor:'#fff',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#fff',fill:false,tension:0}
+    {data:sensors.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
+    {data:pts,showLine:true,borderColor:'#fff',borderWidth:2,pointRadius:2.5,pointBackgroundColor:'#fff',tension:0}
   ]},options:{responsive:true,maintainAspectRatio:false,animation:false,
-    plugins:{legend:{display:false},title:{display:true,text:'Profile — '+S.axis+'-Axis (Latest)',color:'#e5e7eb',font:{size:11,weight:'bold'}},
-      tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
-    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Displacement (mm)',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7}},grid:{color:'rgba(148,163,184,.08)'}},
-      y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7},stepSize:3},grid:{color:'rgba(148,163,184,.08)'}}}},
-    plugins:[bgPl]});
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
+    scales:{x:{min:-xM,max:xM,title:{display:true,text:'mm',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}},
+      y:{reverse:true,title:{display:true,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},stepSize:3},grid:{color:'rgba(120,150,190,.06)'}}}},plugins:[bg]});
 }
 
-// Cumulative vs time @ selected depth
+function selSensor(){const a=alive().sort((x,y)=>y.depth_m-x.depth_m);return a[Math.min(S.depthIdx,a.length-1)]}
+function seriesFor(sn){return (D.hm?.data||[]).filter(d=>d.sn===sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))}
+
+// incremental vs time @ selected depth, with threshold lines + end tag
 function drawDisp(){
-  const cv=document.getElementById('cvD');if(!cv||!D.hm)return;
-  if(D.ch.disp){D.ch.disp.destroy();D.ch.disp=null}
-  const sensors=D.hm.sensors.filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m);
-  if(!sensors.length)return;
-  const idx=Math.min(S.depthIdx,sensors.length-1),sel=sensors[idx];
-  const lbl=document.getElementById('dpL');if(lbl)lbl.textContent='@ '+sel.depth_m+' m';
-  const pts=D.cumData.filter(d=>d.sn===sel.sn).sort((a,b)=>String(a.b).localeCompare(String(b.b))).map(d=>({x:new Date(d.b).getTime(),y:d.v}));
-  let mx=0;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});const yM=Math.max(3,Math.ceil(mx*1.3));
-  D.ch.disp=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#3b82f6',backgroundColor:'#3b82f6',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#3b82f6',fill:false,tension:.2,spanGaps:true}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},title:{display:true,text:'Displacement vs Time — '+S.axis+'-Axis',color:'#e5e7eb',font:{size:11,weight:'bold'}},
-        tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'',label:c=>c.parsed.y.toFixed(1)+' mm'}}},
-      scales:{x:{type:'linear',ticks:{color:'#9fb3cf',font:{size:7},maxTicksLimit:6,callback:v=>{const d=new Date(v);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}},grid:{color:'rgba(148,163,184,.06)'}},
-        y:{min:-yM,max:yM,title:{display:true,text:'mm',color:'#9fb3cf',font:{size:8}},ticks:{color:'#9fb3cf',font:{size:7}},grid:{color:'rgba(148,163,184,.08)'}}}}});
+  const cv=document.getElementById('cvD');if(!cv||!D.hm)return;if(D.ch.disp){D.ch.disp.destroy();D.ch.disp=null}
+  const s=selSensor();if(!s)return;
+  const pts=seriesFor(s.sn).map(d=>({x:new Date(d.b).getTime(),y:d.v}));
+  let mx=0;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});const yM=Math.max(10,Math.ceil(mx*1.3));
+  const last=pts.length?pts[pts.length-1]:null;
+  const tag={id:'tag',afterDatasetsDraw(c){if(!last)return;const m=c.getDatasetMeta(0),el=m.data[m.data.length-1];if(!el)return;const ctx=c.ctx,txt=last.y.toFixed(1)+' mm',col=hc(last.y);
+    ctx.save();ctx.font='bold 9px sans-serif';const w=ctx.measureText(txt).width+8;ctx.fillStyle=col;ctx.beginPath();ctx.roundRect(Math.min(el.x+6,c.chartArea.right-w-2),el.y-8,w,15,3);ctx.fill();ctx.fillStyle='#fff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,Math.min(el.x+10,c.chartArea.right-w+2),el.y);ctx.restore()}};
+  const thr={id:'thr',beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,ys=c.scales.y;if(!ar)return;[[10,'#f97316'],[20,'#ef4444']].forEach(([lv,cl])=>{[lv,-lv].forEach(t=>{const yp=ys.getPixelForValue(t);if(yp<ar.top||yp>ar.bottom)return;ctx.save();ctx.strokeStyle=cl+'99';ctx.setLineDash([5,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ar.left,yp);ctx.lineTo(ar.right,yp);ctx.stroke();ctx.restore()})})}};
+  D.ch.disp=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#38bdf8',backgroundColor:'#38bdf8',borderWidth:1.6,pointRadius:1.8,pointBackgroundColor:'#38bdf8',tension:.2,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},layout:{padding:{right:12}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'',label:c=>c.parsed.y.toFixed(1)+' mm'}}},
+      scales:{x:{type:'linear',ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:6,callback:v=>{const d=new Date(v);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+'\n'+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}},grid:{color:'rgba(120,150,190,.06)'}},
+        y:{min:-yM,max:yM,title:{display:true,text:'mm',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},plugins:[thr,tag]});
 }
 
-// Heatmap (cumulative) — fit container, no scroll
-function drawHM(){
-  const cv=document.getElementById('hmC'),wrap=document.getElementById('hmWrap'),msg=document.getElementById('hmMsg');if(!cv||!wrap||!D.hm)return;
-  const sensors=D.hm.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m);
-  const bks=[...new Set(D.cumData.map(d=>d.b))].sort();
-  if(!bks.length||!sensors.length){if(msg){msg.style.display='block';msg.textContent='Tidak ada data'}cv.style.display='none';return}
-  if(msg)msg.style.display='none';cv.style.display='block';
-  const lk={};D.cumData.forEach(d=>{lk[d.sn+'|'+d.b]=d.v});
-  const dead=new Set(D.hm.sensors.filter(s=>s.is_dead).map(s=>s.sn));
-  const availW=Math.max(220,wrap.clientWidth-6),availH=Math.max(120,wrap.clientHeight-6);
-  const mL=38,mR=6,mT=4,mB=30;
-  const cW=Math.max(3,Math.floor((availW-mL-mR)/bks.length)),cH=Math.max(8,Math.floor((availH-mT-mB)/sensors.length));
-  const w=mL+bks.length*cW+mR,h=mT+sensors.length*cH+mB;
-  const dpr=window.devicePixelRatio||1;
-  cv.width=w*dpr;cv.height=h*dpr;cv.style.width=w+'px';cv.style.height=h+'px';
-  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,w,h);
-  const showNum=cW>=22&&cH>=13;
-  sensors.forEach((s,yi)=>{const y=mT+yi*cH;bks.forEach((bk,xi)=>{const x=mL+xi*cW;
-    if(dead.has(s.sn)){ctx.fillStyle='#374151';ctx.fillRect(x,y,cW-1,cH-1);ctx.strokeStyle='#586271';ctx.lineWidth=.5;ctx.beginPath();for(let d=-cH;d<cW;d+=4){ctx.moveTo(x+d,y);ctx.lineTo(x+d+cH,y+cH)}ctx.stroke()}
-    else{const v=lk[s.sn+'|'+bk];if(v!=null){ctx.fillStyle=hc(v);ctx.fillRect(x,y,cW-1,cH-1);if(showNum){ctx.fillStyle='#000';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v.toFixed(1),x+cW/2,y+cH/2)}}
-    else{ctx.fillStyle='#1e293b';ctx.fillRect(x,y,cW-1,cH-1)}}})});
-  ctx.fillStyle='#9fb3cf';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
-  const yStep=cH<13?Math.ceil(13/cH):1;
-  sensors.forEach((s,yi)=>{if(yi%yStep!==0&&yi!==sensors.length-1)return;ctx.fillText(s.depth_m+'m',mL-3,mT+yi*cH+cH/2)});
-  ctx.textAlign='center';ctx.font='8px sans-serif';ctx.textBaseline='top';
-  const xStep=Math.max(1,Math.ceil(bks.length/Math.floor((w-mL-mR)/52)));
-  bks.forEach((bk,xi)=>{if(xi%xStep!==0)return;const x=mL+xi*cW+cW/2,d=new Date(bk);
-    ctx.save();ctx.translate(x,mT+sensors.length*cH+3);ctx.rotate(Math.PI/6);ctx.fillStyle='#9fb3cf';
-    ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'}),0,0);ctx.restore()});
+// velocity vs time @ selected depth (mm/hr) = d(incr)/dt
+function drawVel(){
+  const cv=document.getElementById('cvV');if(!cv||!D.hm)return;if(D.ch.vel){D.ch.vel.destroy();D.ch.vel=null}
+  const s=selSensor();if(!s)return;
+  const at=document.getElementById('velAt');if(at)at.textContent='@ '+s.depth_m+'.0 m';
+  const raw=seriesFor(s.sn),pts=[];
+  for(let i=1;i<raw.length;i++){const dt=(new Date(raw[i].b)-new Date(raw[i-1].b))/36e5;if(dt>0)pts.push({x:new Date(raw[i].b).getTime(),y:(raw[i].v-raw[i-1].v)/dt})}
+  let mx=.5;pts.forEach(p=>{const a=Math.abs(p.y);if(a>mx)mx=a});const yM=Math.ceil(mx*1.3*100)/100;
+  const last=pts.length?pts[pts.length-1]:null;
+  const tag={id:'tag2',afterDatasetsDraw(c){if(!last)return;const m=c.getDatasetMeta(0),el=m.data[m.data.length-1];if(!el)return;const ctx=c.ctx,txt=last.y.toFixed(2)+' mm/hr';ctx.save();ctx.font='bold 9px sans-serif';const w=ctx.measureText(txt).width+8;ctx.fillStyle='#a855f7';ctx.beginPath();ctx.roundRect(Math.min(el.x+6,c.chartArea.right-w-2),el.y-8,w,15,3);ctx.fill();ctx.fillStyle='#fff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(txt,Math.min(el.x+10,c.chartArea.right-w+2),el.y);ctx.restore()}};
+  D.ch.vel=new Chart(cv,{type:'line',data:{datasets:[{data:pts,borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.12)',borderWidth:1.6,pointRadius:1.8,pointBackgroundColor:'#a855f7',tension:.25,fill:true,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},layout:{padding:{right:12}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it.length?new Date(it[0].parsed.x).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'',label:c=>c.parsed.y.toFixed(2)+' mm/hr'}}},
+      scales:{x:{type:'linear',ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:6,callback:v=>{const d=new Date(v);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+'\n'+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}},grid:{color:'rgba(120,150,190,.06)'}},
+        y:{min:-yM,max:yM,title:{display:true,text:'mm/hr',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},plugins:[tag]});
 }
 
-// Right status panel
 function renderSt(){
   const p=document.getElementById('stP');if(!p)return;
-  const dev=S.sel,hm=D.hm;
-  const ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev);
-  const lv=tlv(ew?.trigger_level);
-  let mxA=0,mxD=0,mxV=0;
-  if(D.cumData?.length&&hm?.sensors?.length){
-    const bks=[...new Set(D.cumData.map(d=>d.b))].sort(),lb=bks[bks.length-1];
-    const sm={};hm.sensors.forEach(s=>{sm[s.sn]=s});
-    D.cumData.filter(d=>d.b===lb).forEach(d=>{const a=Math.abs(d.v||0);if(a>mxA){mxA=a;mxD=sm[d.sn]?.depth_m||0;mxV=d.v}});
-  }
-  let vel=0,vD=0;
-  if(D.cumData?.length&&hm?.sensors?.length){const bks=[...new Set(D.cumData.map(d=>d.b))].sort();
-    if(bks.length>=2){const b1=bks[bks.length-2],b2=bks[bks.length-1],dt=(new Date(b2)-new Date(b1))/36e5;
-      if(dt>0){const sm={};hm.sensors.forEach(s=>{sm[s.sn]=s});const d1={},d2={};
-        D.cumData.forEach(d=>{if(d.b===b1)d1[d.sn]=d.v;if(d.b===b2)d2[d.sn]=d.v});let mv=0;
-        Object.keys(d2).forEach(sn=>{if(d1[sn]!=null&&d2[sn]!=null){const v=Math.abs(d2[sn]-d1[sn])/dt;if(v>mv){mv=v;vD=sm[+sn]?.depth_m||0}}});vel=mv}}}
-  const dir=mxV>0.5?'DOWNSLOPE':mxV<-0.5?'UPSLOPE':'STABLE',di=mxV>0.5?'&darr;':mxV<-0.5?'&uarr;':'&mdash;';
-  const lu=D.cumData?.length?new Date(Math.max(...[...new Set(D.cumData.map(d=>d.b))].map(b=>new Date(b).getTime()))):null;
-  const ewsBy={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{ewsBy[e.external_device_id]=e});
+  const dev=S.sel,ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev),lv=tlv(ew?.trigger_level);
+  const lb=latestBk();let mxA=0,mxD=0,mxV=0;
+  if(lb){(D.hm.data||[]).filter(d=>d.b===lb).forEach(d=>{const a=Math.abs(d.v||0);if(a>mxA){mxA=a;mxV=d.v;const s=alive().find(x=>x.sn===d.sn);mxD=s?.depth_m||0}})}
+  // max velocity across sensors (last two buckets)
+  const bks=[...new Set((D.hm?.data||[]).map(d=>d.b))].sort();let vel=0,vD=0;
+  if(bks.length>=2){const b1=bks[bks.length-2],b2=bks[bks.length-1],dt=(new Date(b2)-new Date(b1))/36e5;
+    if(dt>0){const m1={},m2={};(D.hm.data||[]).forEach(d=>{if(d.b===b1)m1[d.sn]=d.v;if(d.b===b2)m2[d.sn]=d.v});
+      alive().forEach(s=>{if(m1[s.sn]!=null&&m2[s.sn]!=null){const v=Math.abs(m2[s.sn]-m1[s.sn])/dt;if(v>vel){vel=v;vD=s.depth_m}}})}}
+  const dir=mxV>0.3?'DOWNWARD':mxV<-0.3?'UPWARD':'STABLE',dc=mxV>0.3?'r':mxV<-0.3?'y':'g',di=mxV>0.3?'&darr;':mxV<-0.3?'&uarr;':'&rarr;';
+  const lu=lb?new Date(lb):null;
+  const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
   p.innerHTML=`
-    <div class="badge ${lv.c}">${lv.t}</div>
-    <div class="sr"><span class="k">Max Cumul. Disp. (abs)</span></div>
-    <div class="sr"><span class="bigv ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="k">AT ${mxD} M</span></div>
-    <div class="sr"><span class="k">Max Velocity (abs)</span></div>
-    <div class="sr"><span class="v ${vcl(vel*24)}">${vel.toFixed(2)} mm/hr</span><span class="k">AT ${vD} M</span></div>
-    <div class="ss"><h4>Direction of Movement</h4>
-      <div style="text-align:center;padding:3px;font-size:15px;font-weight:900"><span style="font-size:20px">${di}</span> ${dir}</div></div>
-    <div class="ss"><h4>Last Update</h4>
-      <div style="text-align:center;font-size:12px;font-weight:700;padding:1px 0">${lu?lu.toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</div></div>
-    <div class="ss"><h4>EWS Details</h4>
+    <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
+    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}.0 M</span></div></div>
+    <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:11px"> mm/hr</span></span><span class="at">AT ${vD}.0 M</span></div></div>
+    <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span class="${dc==='r'?'':''}" style="color:${dc==='r'?'#ef4444':dc==='y'?'#eab308':'#22c55e'};font-size:20px">${di}</span> <span style="color:${dc==='r'?'#ef4444':dc==='y'?'#eab308':'#22c55e'}">${dir}</span></div></div>
+    <div class="mrow" style="border-bottom:none"><div class="k">Last Update</div><div style="font-weight:800;font-size:13px;margin-top:2px">${lu?lu.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})+' · '+lu.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}):'—'}</div></div>
+    <div class="sec"><h4>EWS Details</h4>
       <div class="sr"><span class="k">Velocity (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
       <div class="sr"><span class="k">Velocity (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
       <div class="sr"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
       <div class="sr"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div></div>
-    <div class="ss"><h4>All Devices Status</h4>
-      ${NODES.map(n=>{const l2=tlv(ewsBy[n.id]?.trigger_level),a=S.sel===n.id;
-        return`<div class="sr" style="cursor:pointer;${a?'background:rgba(34,211,238,.08)':''}" onclick="selDev('${n.id}')"><span class="k" style="font-size:10px;${a?'color:#22d3ee':''}">${esc(n.label)}</span><span class="v ${l2.c==='hijau'?'g':l2.c==='kuning'?'y':l2.c==='jingga'?'o':'r'}" style="font-size:10px">${l2.t}</span></div>`}).join('')}
+    <div class="sec"><h4>All Devices Status</h4>
+      ${NODES.map(n=>{const l2=tlv(by[n.id]?.trigger_level),on=S.sel===n.id;
+        return`<div class="dvrow ${on?'on':''}" onclick="selDev('${n.id}')"><span class="k" style="${on?'color:#38bdf8;font-weight:700':''}">${esc(n.label)}</span><span class="v ${l2.c==='hijau'?'g':l2.c==='kuning'?'y':l2.c==='jingga'?'o':'r'}">&#9679; ${l2.t}</span></div>`}).join('')}
     </div>`;
 }
 
 async function loadAll(){
-  try{const{data}=await sb.rpc('ews_device_latest');if(data)D.ews=data}catch(e){}
-  renderHdr();
-  await Promise.all([loadSel(),loadOv1d()]);
+  try{const[ewsR,ovR]=await Promise.all([sb.rpc('ews_device_latest'),sb.rpc('inc_overview_latest')]);
+    if(ewsR.data)D.ews=ewsR.data;if(ovR.data)D.ov=ovR.data;}catch(e){console.warn(e)}
+  renderStats();drawOverview();await loadSel();
+  const cv=document.getElementById('ovC');if(cv&&!cv._b){cv._b=1;cv.style.cursor='pointer';cv.addEventListener('click',ovClick)}
 }
-
-let rzT;
-window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(D.hm)drawHM()},180)});
-
+let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawOverview()},160)});
 (async()=>{
   const ok=await GMS.guard({mount:'#root'});if(!ok)return;
   shell();await loadAll();
