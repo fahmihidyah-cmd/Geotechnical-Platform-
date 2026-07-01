@@ -166,7 +166,7 @@ function shell(){
     <div class="pnl">
       <div class="ph"><span class="cy" id="selT">SELECTED: —</span><small id="selI"></small></div>
       <div class="cwrap">
-        <div class="card tall"><div class="ch"><span>CUMULATIVE DISPLACEMENT (bottom&rarr;up) &mdash; A | B · latar heatmap EWS</span><small id="cumAt"></small></div>
+        <div class="card tall"><div class="ch"><span>CUMULATIVE HEATMAP &mdash; depth &times; waktu &middot; A | B (warna EWS)</span><small id="cumAt"></small></div>
           <div class="cb" style="display:flex;gap:3px"><div style="flex:1;position:relative"><canvas id="cvCA"></canvas></div><div style="flex:1;position:relative;border-left:1px solid var(--st)"><canvas id="cvCB"></canvas></div></div></div>
         <div class="card"><div class="ch"><span>INCR. DISPLACEMENT vs TIME</span><span><small>Depth</small> <select id="cDp" onchange="setDp(this.value)"></select></span></div><div class="cb"><canvas id="cvD"></canvas></div></div>
         <div class="card"><div class="ch"><span>VELOCITY vs TIME</span><small id="velAt">@ —</small></div><div class="cb"><canvas id="cvV"></canvas></div></div>
@@ -309,57 +309,49 @@ function ovHover(ev){
   tip.style.left=tx+'px';tip.style.top=ty+'px';
 }
 
-// ---------- Center cumulative profiles: A (left) | B (right), Y=depth, X=cumulative ----------
-function cumPtsAx(b,ax){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);const cum=ax==='A'?D.cumA:D.cumB;return al.map(s=>({x:(cum[b]?.[s.sn])??0,y:s.depth_m}))}
+// ---------- Center A|B: HEATMAP depth × WAKTU (cumulative, warna EWS), sumbu waktu di atas ----------
 function drawCumAxis(ax,id,showY){
-  const cv=document.getElementById(id);if(!cv)return;const key='cum'+ax;if(D.ch[key]){D.ch[key].destroy();D.ch[key]=null}
+  const cv=document.getElementById(id),wrap=cv?.parentElement;if(!cv||!wrap)return;
+  if(D.ch['cum'+ax]){try{D.ch['cum'+ax].destroy()}catch(e){}D.ch['cum'+ax]=null}
   if(!D.bks.length)return;
-  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(100,Math.ceil(D.cumAbsMax*1.1)),md=D.maxDepth;
-  const per=D.bks.length?fmtD(D.bks[0])+' – '+fmtD(D.bks[D.bks.length-1]):'';
-  const allS=(D.hm?.sensors||[]).slice().sort((a,b)=>a.depth_m-b.depth_m); // SEMUA sensor (3 m), mati = no-data
-  // latar heatmap: pita per-kedalaman |cumulative| skala EWS; sensor mati = arsir no-data
-  const band={id:'band'+ax,beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,ys=c.scales.y;if(!ar)return;
-    const bb=curB(),cum=ax==='A'?D.cumA:D.cumB;
-    allS.forEach((s,i)=>{const yp=ys.getPixelForValue(s.depth_m),
-      up=i>0?(yp+ys.getPixelForValue(allS[i-1].depth_m))/2:ar.top,dn=i<allS.length-1?(yp+ys.getPixelForValue(allS[i+1].depth_m))/2:ar.bottom;
-      const v=s.is_dead?null:cum[bb]?.[s.sn];
-      ctx.fillStyle=v!=null?hcCum(v,0.5):'rgba(40,50,66,.55)';ctx.fillRect(ar.left,up,ar.right-ar.left,dn-up);
-      if(s.is_dead){ctx.strokeStyle='rgba(96,112,132,.35)';ctx.lineWidth=.5;ctx.save();ctx.beginPath();ctx.rect(ar.left,up,ar.right-ar.left,dn-up);ctx.clip();for(let x=ar.left-(dn-up);x<ar.right;x+=5){ctx.beginPath();ctx.moveTo(x,dn);ctx.lineTo(x+(dn-up),up);ctx.stroke()}ctx.restore()}})}};
-  D.ch[key]=new Chart(cv,{type:'scatter',data:{datasets:[
-    {data:allS.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(255,255,255,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
-    {data:pts,showLine:true,borderColor:'#fff',backgroundColor:'#fff',borderWidth:1.8,pointRadius:1.6,pointBackgroundColor:'#fff',tension:.1}
-  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
-    plugins:{legend:{display:false},tooltip:{enabled:false},
-      title:{display:true,text:ax+'-Axis · '+fmtB(b),color:ax==='A'?'#7dd3fc':'#c4b5fd',font:{size:10,weight:'bold'}},
-      subtitle:{display:true,text:'Periode: '+per,color:'#8ba0bd',font:{size:8},padding:{bottom:3}}},
-    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Displacement (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#cdd8e6',font:{size:7},maxTicksLimit:5},grid:{color:'rgba(230,240,250,.14)'}},
-      y:{reverse:true,min:0,max:md+1.5,title:{display:showY,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{display:showY,color:'#cdd8e6',font:{size:6},stepSize:3,autoSkip:false},grid:{color:'rgba(230,240,250,.1)'}}}},plugins:[band]});
+  const W=Math.max(150,wrap.clientWidth),H=Math.max(130,wrap.clientHeight);
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';cv.style.display='block';
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  const sensors=(D.hm?.sensors||[]).slice().sort((a,b)=>a.depth_m-b.depth_m),cum=ax==='A'?D.cumA:D.cumB,nb=D.bks.length,ns=sensors.length;
+  const TAX=24,LBL=showY?30:6,RPAD=5,BPAD=4,gx0=LBL,gy0=TAX,gw=W-LBL-RPAD,gh=H-TAX-BPAD,cellW=gw/nb,cellH=gh/Math.max(1,ns);
+  D['geo'+ax]={gx0,gy0,gw,gh,cellW,cellH,nb,ns,sensors};
+  sensors.forEach((s,yi)=>{const y=gy0+yi*cellH;D.bks.forEach((bk,xi)=>{const x=gx0+xi*cellW;
+    if(s.is_dead){ctx.fillStyle='#22303f';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH));ctx.strokeStyle='rgba(96,112,132,.3)';ctx.lineWidth=.4;ctx.save();ctx.beginPath();ctx.rect(x,y,cellW,cellH);ctx.clip();for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke()}ctx.restore()}
+    else{const v=cum[bk]?.[s.sn];ctx.fillStyle=v!=null?hcCum(v,1):'#132132';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH))}})});
+  if(showY){ctx.fillStyle='#8ba0bd';ctx.font='7px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';const step=cellH<10?Math.ceil(10/cellH):1;
+    sensors.forEach((s,yi)=>{if(yi%step&&yi!==ns-1)return;ctx.fillText(s.depth_m+'m',gx0-3,gy0+yi*cellH+cellH/2)})}
+  // sumbu WAKTU di atas: gridline vertikal + label tanggal & jam (menggantikan teks "Periode")
+  ctx.strokeStyle='rgba(230,240,250,.16)';ctx.lineWidth=.5;ctx.fillStyle='#cdd8e6';ctx.font='7px sans-serif';ctx.textAlign='center';
+  const mxL=Math.max(2,Math.floor(gw/54)),xst=Math.max(1,Math.ceil(nb/mxL));
+  D.bks.forEach((bk,xi)=>{if(xi%xst)return;const x=gx0+(xi+0.5)*cellW,d=new Date(bk);
+    ctx.beginPath();ctx.moveTo(x,gy0);ctx.lineTo(x,gy0+gh);ctx.stroke();
+    ctx.textBaseline='bottom';ctx.fillText(d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}),x,gy0-8);ctx.fillText(d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),x,gy0-1)});
+  ctx.fillStyle=ax==='A'?'#7dd3fc':'#c4b5fd';ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText(ax+'-Axis',2,1);
+  const cxp=gx0+(Math.min(S.pbIdx,nb-1)+0.5)*cellW;ctx.strokeStyle='#fff';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(cxp,gy0);ctx.lineTo(cxp,gy0+gh);ctx.stroke();
 }
-function drawCumBoth(){drawCumAxis('A','cvCA',true);drawCumAxis('B','cvCB',false);const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?fmtB(curB()):''}
-// hover: label beda untuk GARIS (cumulative titik) vs HEATMAP (latar EWS per kedalaman)
+function drawCumBoth(){drawCumAxis('A','cvCA',true);drawCumAxis('B','cvCB',false);const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?'Kursor: '+fmtB(curB()):''}
+// hover di heatmap depth×waktu → info (kedalaman, waktu, cumulative, level EWS)
 function cumHover(ev){
-  const cv=ev.currentTarget,ax=cv.id==='cvCA'?'A':'B',ch=D.ch['cum'+ax],tip=document.getElementById('cumTip');
-  if(!ch||!tip||!D.bks.length){if(tip)tip.style.display='none';return}
-  const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top,ar=ch.chartArea;
-  if(!ar||mx<ar.left||mx>ar.right||my<ar.top||my>ar.bottom){tip.style.display='none';return}
-  const depthV=ch.scales.y.getValueForPixel(my),dispV=ch.scales.x.getValueForPixel(mx);
-  const s=(D.hm?.sensors||[]).slice().sort((a,b)=>Math.abs(a.depth_m-depthV)-Math.abs(b.depth_m-depthV))[0];
-  if(!s){tip.style.display='none';return}
-  const b=curB(),cum=s.is_dead?null:(ax==='A'?D.cumA:D.cumB)[b]?.[s.sn];
-  const nearLine=cum!=null&&Math.abs(dispV-cum)<=Math.max(6,ch.scales.x.max*0.07);
-  let html;
-  if(nearLine){
-    html=`<b style="color:#fff">&#9650; GARIS &middot; Cumulative</b><br>Axis ${ax} &middot; Depth ${s.depth_m} m<br>${fmtB(b)}<br>Cumulative: <b>${(cum>=0?'+':'')+cum.toFixed(1)} mm</b>`;
-  }else{
-    const lvl=s.is_dead||cum==null?'No Data':(Math.abs(cum)>=150?'Very High':Math.abs(cum)>=100?'High':Math.abs(cum)>=50?'Medium':'Low');
-    const col=lvl==='High'||lvl==='Very High'?'#ef4444':lvl==='Medium'?'#f97316':lvl==='Low'?'#22c55e':'#8ba0bd';
-    html=`<b style="color:${col}">&#9632; HEATMAP &middot; EWS</b><br>Axis ${ax} &middot; Depth ${s.depth_m} m<br>${fmtB(b)}<br>|Cumulative|: <b>${s.is_dead||cum==null?'No Data':Math.abs(cum).toFixed(1)+' mm'}</b><br>Level: <b style="color:${col}">${lvl}</b>`;
-  }
-  tip.innerHTML=html;tip.style.display='block';
+  const cv=ev.currentTarget,ax=cv.id==='cvCA'?'A':'B',g=D['geo'+ax],tip=document.getElementById('cumTip');
+  if(!g||!tip||!D.bks.length){if(tip)tip.style.display='none';return}
+  const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;
+  if(mx<g.gx0||mx>g.gx0+g.gw||my<g.gy0||my>g.gy0+g.gh){tip.style.display='none';return}
+  const xi=Math.max(0,Math.min(g.nb-1,Math.floor((mx-g.gx0)/g.cellW))),yi=Math.max(0,Math.min(g.ns-1,Math.floor((my-g.gy0)/g.cellH)));
+  const s=g.sensors[yi],bk=D.bks[xi],v=s.is_dead?null:(ax==='A'?D.cumA:D.cumB)[bk]?.[s.sn];
+  const lvl=s.is_dead||v==null?'No Data':(Math.abs(v)>=150?'Very High':Math.abs(v)>=100?'High':Math.abs(v)>=50?'Medium':'Low');
+  const col=lvl==='High'||lvl==='Very High'?'#ef4444':lvl==='Medium'?'#f97316':lvl==='Low'?'#22c55e':'#8ba0bd';
+  tip.innerHTML=`<b style="color:${col}">&#9632; HEATMAP &middot; Axis ${ax}</b><br>Depth ${s.depth_m} m &middot; ${fmtB(bk)}<br>Cumulative: <b>${s.is_dead||v==null?'No Data':(v>=0?'+':'')+v.toFixed(1)+' mm'}</b><br>Level: <b style="color:${col}">${lvl}</b>`;
+  tip.style.display='block';
   let tx=ev.clientX+14,ty=ev.clientY+14;const tw=tip.offsetWidth,th=tip.offsetHeight;
   if(tx+tw>innerWidth)tx=ev.clientX-tw-14;if(ty+th>innerHeight)ty=ev.clientY-th-14;
   tip.style.left=tx+'px';tip.style.top=ty+'px';
 }
+function cumClick(ev){const cv=ev.currentTarget,ax=cv.id==='cvCA'?'A':'B',g=D['geo'+ax];if(!g||!D.bks.length)return;const r=cv.getBoundingClientRect();let xi=Math.floor((ev.clientX-r.left-g.gx0)/g.cellW);xi=Math.max(0,Math.min(D.bks.length-1,xi));S.pbIdx=xi;const rng=document.getElementById('pbRng');if(rng)rng.value=xi;stopPlay();refreshAtCursor()}
 
 // ---------- time-series @ governing (or manual) sensor ----------
 function selTarget(){
@@ -404,8 +396,8 @@ function drawVel(){
 function updateCur(){const b=D.bks.length?curB():null;const el=document.getElementById('pbCur');if(el)el.textContent=b?fmtB(b):'—';
   const live=document.getElementById('pbLive');if(live)live.classList.toggle('on',D.bks.length&&S.pbIdx===D.bks.length-1)}
 function refreshAtCursor(){
-  ['A','B'].forEach(ax=>{const ch=D.ch['cum'+ax];if(ch){ch.data.datasets[1].data=cumPtsAx(curB(),ax);ch.options.plugins.title.text=ax+'-Axis · '+fmtB(curB());ch.update('none')}});
-  const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?fmtB(curB()):'';
+  drawCumAxis('A','cvCA',true);drawCumAxis('B','cvCB',false);
+  const at=document.getElementById('cumAt');if(at)at.textContent=D.bks.length?'Kursor: '+fmtB(curB()):'';
   if(D.ch.disp)D.ch.disp.update('none');
   if(D.ch.vel)D.ch.vel.update('none');
   updateCur();renderSt();
@@ -452,7 +444,7 @@ function renderSt(){
 async function loadAll(){
   try{const{data}=await sb.rpc('ews_device_latest');if(data)D.ews=data}catch(e){console.warn(e)}
   renderStats();await loadSel();
-  ['cvCA','cvCB'].forEach(id=>{const c=document.getElementById(id);if(c&&!c._h){c._h=1;c.style.cursor='crosshair';c.addEventListener('mousemove',cumHover);c.addEventListener('mouseleave',()=>{const t=document.getElementById('cumTip');if(t)t.style.display='none'})}});
+  ['cvCA','cvCB'].forEach(id=>{const c=document.getElementById(id);if(c&&!c._h){c._h=1;c.style.cursor='crosshair';c.addEventListener('mousemove',cumHover);c.addEventListener('click',cumClick);c.addEventListener('mouseleave',()=>{const t=document.getElementById('cumTip');if(t)t.style.display='none'})}});
 }
 let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawCumBoth();drawDisp();drawVel();},180)});
 (async()=>{
