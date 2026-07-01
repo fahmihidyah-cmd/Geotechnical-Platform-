@@ -125,7 +125,7 @@ let pbTimer=null;
 function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
 function isOverrideDead(dev,sn){return (DEAD_OVERRIDE[dev]||[]).includes(sn)}
 function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=20)return'p';if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
-function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'ALARM'};if(u==='JINGGA')return{c:'jingga',t:'WARNING'};if(u==='KUNING')return{c:'kuning',t:'WATCH'};return{c:'hijau',t:'NORMAL'}}
+function tlv(l){if(!l)return{c:'hijau',t:'LOW'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'VERY HIGH'};if(u==='JINGGA')return{c:'jingga',t:'HIGH'};if(u==='KUNING')return{c:'kuning',t:'MEDIUM'};return{c:'hijau',t:'LOW'}}
 function fmtB(b){const d=new Date(b);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
 function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,197,94]],[.38,[234,179,8]],[.58,[249,115,22]],[.78,[239,68,68]],[.9,[185,28,28]],[1,[168,85,247]]];
   for(let i=1;i<st.length;i++){if(t<=st[i][0]){const a=st[i-1],b=st[i],f=(t-a[0])/(b[0]-a[0]);return`rgb(${a[1].map((c,j)=>Math.round(c+(b[1][j]-c)*f)).join(',')})`}}return'rgb(168,85,247)'}
@@ -142,10 +142,10 @@ function shell(){
   </div>
   <div class="stats">
     <div class="stbox"><div class="k">Total Inclinometer</div><div class="v">${NODES.length} <small>UNIT</small></div></div>
-    <div class="stbox g"><div class="k">Normal</div><div class="v" id="sN">0</div></div>
-    <div class="stbox y"><div class="k">Watch</div><div class="v" id="sW">0</div></div>
-    <div class="stbox o"><div class="k">Warning</div><div class="v" id="sWn">0</div></div>
-    <div class="stbox r"><div class="k">Alarm</div><div class="v" id="sA">0</div></div>
+    <div class="stbox g"><div class="k">Low</div><div class="v" id="sN">0</div></div>
+    <div class="stbox y"><div class="k">Medium</div><div class="v" id="sW">0</div></div>
+    <div class="stbox o"><div class="k">High</div><div class="v" id="sWn">0</div></div>
+    <div class="stbox r"><div class="k">Very High</div><div class="v" id="sA">0</div></div>
     <div class="stbox"><div class="k">Time (WIB)</div><div class="v" id="ck" style="font-size:15px">—</div><div class="live"><span class="d"></span>LIVE &middot; <span id="ckd">—</span></div></div>
     <div class="leg"><div class="lt">Incremental (mm) = (current &minus; initial) &times; 3000</div><div class="row"><div class="grad"><div class="bar"></div><div class="sc"><span>0</span><span>50</span><span>100</span><span>&ge;150</span></div></div><div class="nd"><span class="sw"></span>No Data</div></div></div>
   </div>
