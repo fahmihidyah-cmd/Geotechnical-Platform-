@@ -133,11 +133,11 @@ function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,
 // 0 hijau tua · 25 hijau muda · 50 kuning (Medium) · 75 oranye · 100 merah (High) · 150 ungu.
 // Nilai absolut (tidak dinormalisasi) → warna selalu bermakna sama, gradasi halus supaya
 // awal pergerakan (nilai kecil) tetap terlihat.
-function hcCum(v){if(v==null)return null;const a=Math.abs(v);
+function hcCum(v,al){if(v==null)return null;const a=Math.abs(v),A=al==null?1:al;
   const st=[[0,[22,101,52]],[25,[132,204,22]],[50,[234,179,8]],[75,[249,115,22]],[100,[239,68,68]],[150,[168,85,247]]];
-  if(a>=150)return'rgb(168,85,247)';
-  for(let i=1;i<st.length;i++){if(a<=st[i][0]){const p=st[i-1],q=st[i],f=(a-p[0])/(q[0]-p[0]);return`rgb(${p[1].map((c,j)=>Math.round(c+(q[1][j]-c)*f)).join(',')})`}}
-  return'rgb(168,85,247)'}
+  let rgb=[168,85,247];
+  if(a<150)for(let i=1;i<st.length;i++){if(a<=st[i][0]){const p=st[i-1],q=st[i],f=(a-p[0])/(q[0]-p[0]);rgb=p[1].map((c,j)=>Math.round(c+(q[1][j]-c)*f));break}}
+  return`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${A})`}
 function fmtD(b){return new Date(b).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})}
 
 function shell(){
@@ -323,7 +323,7 @@ function drawCumAxis(ax,id,showY){
     allS.forEach((s,i)=>{const yp=ys.getPixelForValue(s.depth_m),
       up=i>0?(yp+ys.getPixelForValue(allS[i-1].depth_m))/2:ar.top,dn=i<allS.length-1?(yp+ys.getPixelForValue(allS[i+1].depth_m))/2:ar.bottom;
       const v=s.is_dead?null:cum[bb]?.[s.sn];
-      ctx.fillStyle=v!=null?hcCum(v)+'66':'rgba(40,50,66,.55)';ctx.fillRect(ar.left,up,ar.right-ar.left,dn-up);
+      ctx.fillStyle=v!=null?hcCum(v,0.5):'rgba(40,50,66,.55)';ctx.fillRect(ar.left,up,ar.right-ar.left,dn-up);
       if(s.is_dead){ctx.strokeStyle='rgba(96,112,132,.35)';ctx.lineWidth=.5;ctx.save();ctx.beginPath();ctx.rect(ar.left,up,ar.right-ar.left,dn-up);ctx.clip();for(let x=ar.left-(dn-up);x<ar.right;x+=5){ctx.beginPath();ctx.moveTo(x,dn);ctx.lineTo(x+(dn-up),up);ctx.stroke()}ctx.restore()}})}};
   D.ch[key]=new Chart(cv,{type:'scatter',data:{datasets:[
     {data:allS.map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(255,255,255,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
