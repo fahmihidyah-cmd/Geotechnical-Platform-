@@ -36,7 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .leg .lt{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;text-align:center;margin-bottom:3px}
 .leg .row{display:flex;align-items:center;gap:9px}
 .leg .grad{flex:1}
-.leg .bar{height:11px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#22c55e 12%,#eab308 38%,#f97316 58%,#ef4444 78%,#b91c1c 90%,#a855f7)}
+.leg .bar{height:11px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#22c55e 16%,#eab308 30%,#f97316 33%,#f97316 63%,#ef4444 66%,#ef4444 96%,#a855f7)}
 .leg .sc{display:flex;justify-content:space-between;font-size:8px;color:var(--mu);margin-top:1px}
 .leg .nd{display:flex;align-items:center;gap:4px;font-size:8px;color:var(--mu);white-space:nowrap}
 .leg .nd .sw{width:16px;height:12px;border-radius:2px;border:1px solid var(--st);background:repeating-linear-gradient(45deg,#22303f,#22303f 2px,#3c4a5c 2px,#3c4a5c 4px)}
@@ -129,7 +129,10 @@ function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=String(l).toUpperCase
 function fmtB(b){const d=new Date(b);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
 function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,197,94]],[.38,[234,179,8]],[.58,[249,115,22]],[.78,[239,68,68]],[.9,[185,28,28]],[1,[168,85,247]]];
   for(let i=1;i<st.length;i++){if(t<=st[i][0]){const a=st[i-1],b=st[i],f=(t-a[0])/(b[0]-a[0]);return`rgb(${a[1].map((c,j)=>Math.round(c+(b[1][j]-c)*f)).join(',')})`}}return'rgb(168,85,247)'}
-function hcCum(v){if(v==null)return null;return ramp(Math.abs(v)/(D.cumAbsMax||1))}
+// ABSOLUTE cumulative color scale (mm) selaras ambang EWS/TARP kita:
+// <50 Low (hijau) · ≥50 Medium (oranye) · ≥100 High (merah) · ≥150 sangat tinggi (ungu).
+// Warna selalu bermakna sama & tidak berubah antar-load.
+function hcCum(v){if(v==null)return null;const a=Math.abs(v);if(a>=150)return'#a855f7';if(a>=100)return'#ef4444';if(a>=50)return'#f97316';if(a>=25)return'#eab308';if(a>=10)return'#22c55e';return'#16a34a'}
 
 function shell(){
   document.getElementById('root').innerHTML=`
@@ -144,7 +147,7 @@ function shell(){
     <div class="stbox o"><div class="k">Warning</div><div class="v" id="sWn">0</div></div>
     <div class="stbox r"><div class="k">Alarm</div><div class="v" id="sA">0</div></div>
     <div class="stbox"><div class="k">Time (WIB)</div><div class="v" id="ck" style="font-size:15px">—</div><div class="live"><span class="d"></span>LIVE &middot; <span id="ckd">—</span></div></div>
-    <div class="leg"><div class="lt">Cumulative Displacement (mm · relatif)</div><div class="row"><div class="grad"><div class="bar"></div><div class="sc"><span>0</span><span id="lgm">max</span></div></div><div class="nd"><span class="sw"></span>No Data</div></div></div>
+    <div class="leg"><div class="lt">Cumulative (mm) &mdash; EWS: 50 Medium · 100 High</div><div class="row"><div class="grad"><div class="bar"></div><div class="sc"><span>0</span><span>50</span><span>100</span><span>&ge;150</span></div></div><div class="nd"><span class="sw"></span>No Data</div></div></div>
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
@@ -241,7 +244,6 @@ async function loadSel(){
     D.cumA=A.cum;D.cumB=B.cum;D.bks=A.bks.length?A.bks:B.bks;
     D.cumAbsMax=Math.max(A.maxAbs,B.maxAbs);D.maxDepth=Math.max(3,...alive().map(s=>s.depth_m));
     computeGov();
-    const lgm=document.getElementById('lgm');if(lgm)lgm.textContent='≥'+Math.round(D.cumAbsMax)+' mm';
     const al=alive().sort((a,b)=>b.depth_m-a.depth_m);
     const dp=document.getElementById('cDp');
     if(dp)dp.innerHTML='<option value="-1"'+(S.depthIdx<0?' selected':'')+'>Auto (Max)</option>'+al.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m}.0 m</option>`).join('');
@@ -309,12 +311,12 @@ function cumPtsAx(b,ax){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);const 
 function drawCumAxis(ax,id,showY){
   const cv=document.getElementById(id);if(!cv)return;const key='cum'+ax;if(D.ch[key]){D.ch[key].destroy();D.ch[key]=null}
   if(!D.bks.length)return;
-  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(3,Math.ceil(D.cumAbsMax*1.15)),md=D.maxDepth;
+  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(100,Math.ceil(D.cumAbsMax*1.1)),md=D.maxDepth;
   D.ch[key]=new Chart(cv,{type:'scatter',data:{datasets:[
     {data:alive().sort((a,b)=>a.depth_m-b.depth_m).map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
     {data:pts,showLine:true,borderColor:ax==='A'?'#38bdf8':'#a855f7',backgroundColor:ax==='A'?'#38bdf8':'#a855f7',borderWidth:2,pointRadius:2.3,pointBackgroundColor:ax==='A'?'#38bdf8':'#a855f7',tension:.1}
-  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
-    plugins:{legend:{display:false},title:{display:true,text:ax+'-Axis',color:ax==='A'?'#7dd3fc':'#c4b5fd',font:{size:10,weight:'bold'}},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
+  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,interaction:{mode:'nearest',intersect:false,axis:'y'},
+    plugins:{legend:{display:false},title:{display:true,text:ax+'-Axis',color:ax==='A'?'#7dd3fc':'#c4b5fd',font:{size:10,weight:'bold'}},tooltip:{callbacks:{title:c=>c.length?'Depth '+c[0].parsed.y+' m':'',label:c=>'Cumulative '+ax+': '+c.parsed.x.toFixed(1)+' mm'}}},
     scales:{x:{min:-xM,max:xM,title:{display:true,text:'Cumulative (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:5},grid:{color:'rgba(120,150,190,.08)'}},
       y:{reverse:true,min:0,max:md+1.5,title:{display:showY,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{display:showY,color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}}}}});
 }
