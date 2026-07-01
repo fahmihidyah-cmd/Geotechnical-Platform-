@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .stbox .live{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--grn);font-weight:700}
 .stbox .live .d{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.leg{margin-left:auto;display:flex;flex-direction:column;justify-content:center;min-width:270px}
+.leg{margin-left:auto;display:flex;flex-direction:column;justify-content:center;min-width:250px}
 .leg .lt{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;text-align:center;margin-bottom:3px}
 .leg .bar{height:11px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#22c55e 12%,#eab308 38%,#f97316 58%,#ef4444 78%,#b91c1c 90%,#a855f7)}
 .leg .sc{display:flex;justify-content:space-between;font-size:8px;color:var(--mu);margin-top:1px}
@@ -46,7 +46,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ctl .btn:hover{background:#0e7490}
 .ctl .note{margin-left:auto;font-size:9px;color:var(--mu)}
 
-.main{flex:1;display:grid;grid-template-columns:308px 1fr 208px;min-height:0;overflow:hidden}
+.main{flex:1;display:grid;grid-template-columns:344px 1fr 208px;min-height:0;overflow:hidden}
 .pnl{background:var(--pnl);overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .pnl.l{border-right:1px solid var(--st)}
 .pnl.r{border-left:1px solid var(--st);padding:7px}
@@ -54,7 +54,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ph small{font-weight:600;color:var(--mu);font-size:9px}
 .ph .cy{color:var(--cy)}
 
-.cwrap{flex:1;display:grid;grid-template-columns:minmax(220px,1fr) 1.1fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-height:0;overflow:hidden}
+.cwrap{flex:1;display:grid;grid-template-columns:minmax(210px,1fr) 1.08fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-height:0;overflow:hidden}
 .card{background:var(--p0);border:1px solid var(--st);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .card .ch{padding:4px 9px;font-size:10px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--st);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
 .card .ch small{color:var(--mu);font-weight:500;font-size:9px}
@@ -85,15 +85,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .dvrow.on{background:rgba(56,189,248,.12)}
 
 /* playback */
-.pb{display:flex;align-items:center;gap:10px;padding:0 16px;height:42px;flex-shrink:0;background:linear-gradient(180deg,#071224,#0a1830);border-top:1px solid var(--st)}
+.pb{display:flex;align-items:center;gap:9px;padding:0 14px;height:44px;flex-shrink:0;background:linear-gradient(180deg,#071224,#0a1830);border-top:1px solid var(--st)}
 .pb .lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
-.pb button{width:28px;height:28px;border-radius:50%;background:#134e6b;border:1px solid #38bdf855;color:#e0f2fe;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.pb button{width:28px;height:28px;border-radius:50%;background:#134e6b;border:1px solid #38bdf855;color:#e0f2fe;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .pb button:hover{background:#0e7490}
-.pb .cur{font-size:12px;font-weight:800;color:var(--cy);background:#0e2240;border:1px solid var(--st);border-radius:4px;padding:3px 8px;white-space:nowrap;min-width:118px;text-align:center}
-.pb .tk{font-size:9px;color:var(--mu);white-space:nowrap}
-.pb input[type=range]{flex:1;accent-color:#38bdf8;height:5px}
-.pb select{background:#0e2240;border:1px solid var(--st);color:var(--tx);font-size:10px;border-radius:4px;height:22px}
-.pb .live{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--grn);font-weight:700;cursor:pointer}
+.pb .cur{font-size:11px;font-weight:800;color:var(--cy);background:#0e2240;border:1px solid var(--st);border-radius:4px;padding:3px 6px;white-space:nowrap;min-width:96px;text-align:center;flex-shrink:0}
+.pb .tk{font-size:8px;color:var(--mu);white-space:nowrap;flex-shrink:0}
+.pb input[type=range]{flex:1 1 auto;min-width:120px;accent-color:#38bdf8;height:14px;cursor:pointer}
+.pb select{background:#0e2240;border:1px solid var(--st);color:var(--tx);font-size:9px;border-radius:4px;height:21px;width:46px;flex-shrink:0}
+.pb .live{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--grn);font-weight:700;cursor:pointer;flex-shrink:0}
 .pb .live .d{width:7px;height:7px;border-radius:50%;background:#334155}
 .pb .live.on .d{background:var(--grn);animation:pulse 1.4s infinite}
 
@@ -114,15 +114,18 @@ const NODES=[
 // Sensor mati permanen (laporan operator: casing shear/pergeseran) → dipaksa NO-DATA.
 const DEAD_OVERRIDE={'108102':[9]};
 let S={sel:'108102',axis:'B',from:null,to:null,depthIdx:0,pbIdx:0,playing:false,speed:2};
-let D={hm:null,ews:[],bks:[],inc:{},cum:{},incYMax:10,cumYMax:10,maxDepth:51,ch:{}};
+let D={hm:null,hmA:null,hmB:null,ews:[],bks:[],cum:{},cumA:{},cumB:{},cumYMax:10,cumAbsMax:10,maxDepth:51,ch:{}};
 let pbTimer=null;
 
 function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
 function isOverrideDead(dev,sn){return (DEAD_OVERRIDE[dev]||[]).includes(sn)}
-function hc(v){if(v==null)return null;const a=Math.abs(v);if(a>=30)return'#a855f7';if(a>=20)return'#b91c1c';if(a>=10)return'#ef4444';if(a>=5)return'#f97316';if(a>=2)return'#eab308';if(a>=1)return'#22c55e';return'#16a34a'}
 function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=20)return'p';if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
 function tlv(l){if(!l)return{c:'hijau',t:'NORMAL'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'ALARM'};if(u==='JINGGA')return{c:'jingga',t:'WARNING'};if(u==='KUNING')return{c:'kuning',t:'WATCH'};return{c:'hijau',t:'NORMAL'}}
 function fmtB(b){const d=new Date(b);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
+// relative heatmap ramp (cumulative normalized to device max)
+function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,197,94]],[.38,[234,179,8]],[.58,[249,115,22]],[.78,[239,68,68]],[.9,[185,28,28]],[1,[168,85,247]]];
+  for(let i=1;i<st.length;i++){if(t<=st[i][0]){const a=st[i-1],b=st[i],f=(t-a[0])/(b[0]-a[0]);return`rgb(${a[1].map((c,j)=>Math.round(c+(b[1][j]-c)*f)).join(',')})`}}return'rgb(168,85,247)'}
+function hcCum(v){if(v==null)return null;return ramp(Math.abs(v)/(D.cumAbsMax||1))}
 
 function shell(){
   document.getElementById('root').innerHTML=`
@@ -137,19 +140,19 @@ function shell(){
     <div class="stbox o"><div class="k">Warning</div><div class="v" id="sWn">0</div></div>
     <div class="stbox r"><div class="k">Alarm</div><div class="v" id="sA">0</div></div>
     <div class="stbox"><div class="k">Time (WIB)</div><div class="v" id="ck" style="font-size:15px">—</div><div class="live"><span class="d"></span>LIVE &middot; <span id="ckd">—</span></div></div>
-    <div class="leg"><div class="lt">Incremental Displacement (mm)</div><div class="bar"></div><div class="sc"><span>0</span><span>2</span><span>5</span><span>10</span><span>20</span><span>&ge;30</span></div></div>
+    <div class="leg"><div class="lt">Cumulative Displacement (relatif)</div><div class="bar"></div><div class="sc"><span>0</span><span id="lgm">max</span></div></div>
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
-    <label>Axis</label><select id="cAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B"${S.axis==='B'?' selected':''}>B-Axis</option></select>
+    <label>Axis (detail)</label><select id="cAx" onchange="setAx(this.value)"><option value="A">A-Axis</option><option value="B"${S.axis==='B'?' selected':''}>B-Axis</option></select>
     <label>From</label><input type="date" id="cF" value="${S.from||ds(-7)}"/>
     <label>To</label><input type="date" id="cT" value="${S.to||ds(0)}"/>
     <button class="btn" onclick="loadSel()">SHOW</button>
-    <span class="note">Overview = incremental (heatmap) · Tengah = cumulative bottom&rarr;up</span>
+    <span class="note">Overview = cumulative depth&times;time (A atas, B bawah) · warna relatif thd max device</span>
   </div>
   <div class="main">
     <div class="pnl l">
-      <div class="ph"><span>OVERVIEW &mdash; <span class="cy" id="ovDev">—</span></span><small>Incremental · heatmap</small></div>
+      <div class="ph"><span>OVERVIEW &mdash; <span class="cy" id="ovDev">—</span></span><small>Cumulative heatmap</small></div>
       <div class="ovbody"><canvas id="cvO"></canvas><div class="msg" id="ovMsg" style="display:none"></div></div>
     </div>
     <div class="pnl">
@@ -163,14 +166,12 @@ function shell(){
     <div class="pnl r" id="stP"></div>
   </div>
   <div class="pb">
-    <span class="lbl">Playback</span>
     <button id="pbBtn" onclick="togglePlay()">&#9654;</button>
     <span class="cur" id="pbCur">—</span>
     <span class="tk" id="pbA">—</span>
     <input type="range" id="pbRng" min="0" max="0" value="0" oninput="onScrub(+this.value)"/>
     <span class="tk" id="pbB">—</span>
-    <span class="lbl">Speed</span>
-    <select id="pbSpd" onchange="S.speed=+this.value"><option value="1">1&times;</option><option value="2" selected>2&times;</option><option value="4">4&times;</option><option value="8">8&times;</option></select>
+    <select id="pbSpd" onchange="S.speed=+this.value" title="Speed"><option value="1">1&times;</option><option value="2" selected>2&times;</option><option value="4">4&times;</option><option value="8">8&times;</option></select>
     <span class="live on" id="pbLive" onclick="goLive()"><span class="d"></span>LIVE</span>
   </div>`;
   ckUp();setInterval(ckUp,1000);
@@ -179,7 +180,7 @@ function ckUp(){const n=new Date(),e=document.getElementById('ck'),e2=document.g
 
 function setDev(id){S.sel=id;const e=document.getElementById('cDev');if(e)e.value=id;loadSel()}
 function selDev(id){setDev(id)}
-function setAx(a){S.axis=a;loadSel()}
+function setAx(a){S.axis=a;if(D.hmA&&D.hmB){D.hm=a==='A'?D.hmA:D.hmB;D.cum=a==='A'?D.cumA:D.cumB;drawCum();drawDisp();drawVel();renderSt();}else loadSel()}
 function setDp(i){S.depthIdx=i;drawDisp();drawVel();renderSt()}
 window.setDev=setDev;window.selDev=selDev;window.setAx=setAx;window.setDp=setDp;window.loadSel=loadSel;
 window.togglePlay=togglePlay;window.onScrub=onScrub;window.goLive=goLive;
@@ -196,10 +197,18 @@ function alive(){return (D.hm?.sensors||[]).filter(s=>!s.is_dead)}
 function selSensor(){const a=alive().sort((x,y)=>y.depth_m-x.depth_m);return a[Math.min(S.depthIdx,Math.max(0,a.length-1))]}
 function curB(){return D.bks[Math.min(S.pbIdx,D.bks.length-1)]}
 
-// ---------- load ----------
+function computeCum(hm){
+  const cum={},bks=[...new Set((hm?.data||[]).map(d=>d.b))].sort(),inc={};
+  (hm?.data||[]).forEach(d=>{(inc[d.b]=inc[d.b]||{})[d.sn]=d.v});
+  const al=(hm?.sensors||[]).filter(s=>!s.is_dead).sort((a,b)=>b.depth_m-a.depth_m); // bottom first
+  let mx=1;
+  bks.forEach(b=>{let s=0;const m={};al.forEach(sn=>{s+=inc[b]?.[sn.sn]||0;m[sn.sn]=Math.round(s*1000)/1000;if(Math.abs(s)>mx)mx=Math.abs(s)});cum[b]=m});
+  return {cum,maxAbs:mx,bks};
+}
+
 async function loadSel(){
   const dev=S.sel,nd=NODES.find(n=>n.id===dev);
-  document.getElementById('ovDev').textContent=(nd?.label||dev)+' · '+S.axis;
+  document.getElementById('ovDev').textContent=(nd?.label||dev);
   document.getElementById('selT').textContent='SELECTED: '+(nd?.label||dev);
   S.from=document.getElementById('cF')?.value||ds(-7);S.to=document.getElementById('cT')?.value||ds(0);
   const f=new Date(S.from+'T00:00:00').toISOString(),t=new Date(S.to+'T23:59:59').toISOString();
@@ -207,81 +216,88 @@ async function loadSel(){
   const ev=dd<=2?'1 hour':dd<=7?'3 hours':dd<=30?'6 hours':'1 day';
   const ovMsg=document.getElementById('ovMsg');if(ovMsg)ovMsg.style.display='none';
   try{
-    const{data,error}=await sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:ev,p_axis:S.axis});
-    if(error)throw error;
+    const[rA,rB]=await Promise.all([
+      sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:ev,p_axis:'A'}),
+      sb.rpc('inc_heatmap_series',{p_device:dev,p_from:f,p_to:t,p_every:ev,p_axis:'B'})
+    ]);
+    if(rA.error)throw rA.error;if(rB.error)throw rB.error;
     const ov=DEAD_OVERRIDE[dev]||[];
-    if(data?.sensors)data.sensors.forEach(s=>{if(ov.includes(s.sn))s.is_dead=true});
-    if(data?.data)data.data=data.data.filter(d=>!ov.includes(d.sn));
-    D.hm=data;buildData();
+    [rA.data,rB.data].forEach(dt=>{if(dt?.sensors)dt.sensors.forEach(s=>{if(ov.includes(s.sn))s.is_dead=true});if(dt?.data)dt.data=dt.data.filter(d=>!ov.includes(d.sn))});
+    D.hmA=rA.data;D.hmB=rB.data;D.hm=S.axis==='A'?D.hmA:D.hmB;
+    const A=computeCum(D.hmA),B=computeCum(D.hmB);
+    D.cumA=A.cum;D.cumB=B.cum;D.cum=S.axis==='A'?A.cum:B.cum;
+    D.bks=(S.axis==='A'?A.bks:B.bks);
+    D.cumYMax=Math.ceil((S.axis==='A'?A.maxAbs:B.maxAbs)*1.15);
+    D.cumAbsMax=Math.max(A.maxAbs,B.maxAbs);
+    D.maxDepth=Math.max(3,...alive().map(s=>s.depth_m));
+    const lgm=document.getElementById('lgm');if(lgm)lgm.textContent='≥'+Math.round(D.cumAbsMax)+' mm';
     const al=alive().sort((a,b)=>b.depth_m-a.depth_m);
     if(S.depthIdx>=al.length)S.depthIdx=0;
     const dp=document.getElementById('cDp');
     if(dp)dp.innerHTML=al.map((s,i)=>`<option value="${i}"${i===S.depthIdx?' selected':''}>${s.depth_m}.0 m</option>`).join('');
-    document.getElementById('selI').textContent=`Depth ${nd?.depth||'?'}.0m · Sensor ${data?.sensors?.length||0} · Int 3.0m`;
-    // playback range
+    document.getElementById('selI').textContent=`Depth ${nd?.depth||'?'}.0m · Sensor ${D.hm?.sensors?.length||0} · Int 3.0m`;
     S.pbIdx=D.bks.length-1;
     const rng=document.getElementById('pbRng');if(rng){rng.max=Math.max(0,D.bks.length-1);rng.value=S.pbIdx}
     document.getElementById('pbA').textContent=D.bks.length?fmtB(D.bks[0]):'—';
     document.getElementById('pbB').textContent=D.bks.length?fmtB(D.bks[D.bks.length-1]):'—';
-    if(!D.bks.length){if(ovMsg){ovMsg.style.display='block';ovMsg.textContent='Tidak ada data pada rentang ini'}}
+    if(!D.bks.length&&ovMsg){ovMsg.style.display='block';ovMsg.textContent='Tidak ada data pada rentang ini'}
     drawOv();drawCum();drawDisp();drawVel();updateCur();renderSt();
   }catch(e){console.warn(e);if(ovMsg){ovMsg.style.display='block';ovMsg.textContent='Error memuat data'}}
 }
 
-function buildData(){
-  const hm=D.hm;D.bks=[];D.inc={};D.cum={};D.incYMax=10;D.cumYMax=10;
-  if(!hm||!hm.data){return}
-  D.bks=[...new Set(hm.data.map(d=>d.b))].sort();
-  hm.data.forEach(d=>{(D.inc[d.b]=D.inc[d.b]||{})[d.sn]=d.v});
-  const al=alive().sort((a,b)=>b.depth_m-a.depth_m); // deepest (bottom) first
-  D.maxDepth=Math.max(3,...alive().map(s=>s.depth_m));
-  let im=1,cm=1;
-  D.bks.forEach(b=>{
-    let s=0;const m={};
-    al.forEach(sn=>{const iv=D.inc[b]?.[sn.sn]||0;s+=iv;m[sn.sn]=Math.round(s*1000)/1000;
-      if(Math.abs(iv)>im)im=Math.abs(iv);if(Math.abs(s)>cm)cm=Math.abs(s)});
-    D.cum[b]=m;
-  });
-  D.incYMax=Math.ceil(im*1.2);D.cumYMax=Math.ceil(cm*1.2);
-}
-
-// ---------- Overview: incremental profile heatmap (x=depth, y=incr mm) ----------
-let OVSTRIP=[];
-function ovPoints(b){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);return al.map(s=>({x:s.depth_m,y:(D.inc[b]?.[s.sn])??0,sn:s.sn}))}
+// ---------- Overview: depth×time cumulative heatmaps (A top, B bottom) ----------
 function drawOv(){
-  const cv=document.getElementById('cvO');if(!cv)return;if(D.ch.ov){D.ch.ov.destroy();D.ch.ov=null}
-  if(!D.bks.length)return;
-  const b=curB(),pts=ovPoints(b);
-  OVSTRIP=pts.map(p=>({x:p.x,v:p.y}));
-  const yM=D.incYMax;
-  const strip={id:'strip',beforeDatasetsDraw(c){const ctx=c.ctx,ar=c.chartArea,xs=c.scales.x;if(!ar)return;
-    OVSTRIP.forEach(s=>{const xL=xs.getPixelForValue(s.x-1.5),xR=xs.getPixelForValue(s.x+1.5);ctx.fillStyle=hc(s.v)+'59';ctx.fillRect(Math.max(ar.left,xL),ar.top,Math.min(ar.right,xR)-Math.max(ar.left,xL),ar.bottom-ar.top)});
-    const y0=c.scales.y.getPixelForValue(0);ctx.strokeStyle='rgba(200,215,235,.35)';ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ar.left,y0);ctx.lineTo(ar.right,y0);ctx.stroke();ctx.setLineDash([])}};
-  D.ch.ov=new Chart(cv,{type:'scatter',data:{datasets:[{data:pts,showLine:true,borderColor:'#fff',borderWidth:1.8,pointRadius:2.4,pointBackgroundColor:'#fff',tension:0}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'depth '+c.parsed.x+'m: '+c.parsed.y.toFixed(1)+' mm'}}},
-      scales:{x:{type:'linear',min:0,max:D.maxDepth+1.5,title:{display:true,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}},
-        y:{min:-yM,max:yM,title:{display:true,text:'Incremental (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},
-    plugins:[strip]});
+  const cv=document.getElementById('cvO'),wrap=cv?.parentElement;if(!cv||!wrap)return;
+  if(!D.bks.length){return}
+  const W=Math.max(240,wrap.clientWidth-8),H=Math.max(180,wrap.clientHeight-8);
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  const sensors=(D.hm?.sensors||[]).slice().sort((a,b)=>a.depth_m-b.depth_m); // shallow top
+  const LBL=30,TAX=16,GH=13,nb=D.bks.length,ns=sensors.length;
+  const hmH=(H-2*GH-TAX)/2,cellW=(W-LBL)/nb,cellH=hmH/Math.max(1,ns);
+  const cursorX=LBL+(S.pbIdx+0.5)*cellW;
+  [['A',D.cumA,0],['B',D.cumB,GH+hmH]].forEach(([ax,cum,oy])=>{
+    ctx.fillStyle=ax==='A'?'#38bdf8':'#a855f7';ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText('AXIS '+ax+(ax===S.axis?'  (detail)':''),2,oy+GH/2);
+    const top=oy+GH;
+    sensors.forEach((s,yi)=>{const y=top+yi*cellH;
+      D.bks.forEach((bk,xi)=>{const x=LBL+xi*cellW;
+        if(s.is_dead){ctx.fillStyle='#22303f';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5);ctx.strokeStyle='#3c4a5c';ctx.lineWidth=.4;ctx.save();ctx.beginPath();ctx.rect(x,y,cellW,cellH);ctx.clip();for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke()}ctx.restore()}
+        else{const v=cum[bk]?.[s.sn];ctx.fillStyle=v!=null?hcCum(v):'#132132';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5)}
+      });
+    });
+    // depth labels
+    ctx.fillStyle='#8ba0bd';ctx.font='7px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+    const step=cellH<11?Math.ceil(11/cellH):1;
+    sensors.forEach((s,yi)=>{if(yi%step&&yi!==ns-1)return;ctx.fillText(s.depth_m+'m',LBL-2,top+yi*cellH+cellH/2)});
+    // cursor
+    ctx.strokeStyle='#e0f2fe';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(cursorX,top);ctx.lineTo(cursorX,top+hmH);ctx.stroke();
+  });
+  // time axis
+  ctx.fillStyle='#8ba0bd';ctx.font='8px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  const mxL=Math.floor((W-LBL)/70),xst=Math.max(1,Math.ceil(nb/Math.max(1,mxL)));
+  D.bks.forEach((bk,xi)=>{if(xi%xst)return;const x=LBL+(xi+0.5)*cellW,d=new Date(bk);ctx.fillText(d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}),x,H-TAX+2)});
 }
+function ovClick(ev){const cv=document.getElementById('cvO');if(!cv||!D.bks.length)return;const r=cv.getBoundingClientRect();const W=r.width,LBL=30,cellW=(W-LBL)/D.bks.length;let i=Math.floor((ev.clientX-r.left-LBL)/cellW);i=Math.max(0,Math.min(D.bks.length-1,i));S.pbIdx=i;document.getElementById('pbRng').value=i;stopPlay();refreshAtCursor()}
 
-// ---------- Center: cumulative profile (x=depth, y=cumulative mm) ----------
-function cumPoints(b){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);return al.map(s=>({x:s.depth_m,y:(D.cum[b]?.[s.sn])??0}))}
+// ---------- Center cumulative profile: Y=depth, X=cumulative ----------
+function cumPts(b){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);return al.map(s=>({x:(D.cum[b]?.[s.sn])??0,y:s.depth_m}))}
 function drawCum(){
   const cv=document.getElementById('cvC');if(!cv)return;if(D.ch.cum){D.ch.cum.destroy();D.ch.cum=null}
   if(!D.bks.length)return;
-  const b=curB(),pts=cumPoints(b),yM=D.cumYMax;
-  const at=document.getElementById('cumAt');if(at)at.textContent=fmtB(b);
+  const b=curB(),pts=cumPts(b),xM=D.cumYMax,md=D.maxDepth;
+  const at=document.getElementById('cumAt');if(at)at.textContent=S.axis+'-Axis · '+fmtB(b);
   D.ch.cum=new Chart(cv,{type:'scatter',data:{datasets:[
-    {data:pts,showLine:true,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.12)',borderWidth:2,pointRadius:2.6,pointBackgroundColor:'#38bdf8',fill:true,tension:.15}
+    {data:alive().sort((a,b)=>a.depth_m-b.depth_m).map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
+    {data:pts,showLine:true,borderColor:'#38bdf8',backgroundColor:'#38bdf8',borderWidth:2,pointRadius:2.6,pointBackgroundColor:'#38bdf8',tension:.1}
   ]},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
-    plugins:{legend:{display:false},title:{display:true,text:'Cumulative @ '+fmtB(b),color:'#e5edf7',font:{size:10,weight:'bold'}},tooltip:{callbacks:{label:c=>'depth '+c.parsed.x+'m: '+c.parsed.y.toFixed(1)+' mm'}}},
-    scales:{x:{type:'linear',min:0,max:D.maxDepth+1.5,title:{display:true,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}},
-      y:{min:-yM,max:yM,title:{display:true,text:'Cumulative (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}}});
+    plugins:{legend:{display:false},title:{display:true,text:S.axis+'-Axis @ '+fmtB(b),color:'#e5edf7',font:{size:10,weight:'bold'}},tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' mm @ '+c.parsed.y+' m'}}},
+    scales:{x:{min:-xM,max:xM,title:{display:true,text:'Cumulative displacement (mm)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}},
+      y:{reverse:true,min:0,max:md+1.5,title:{display:true,text:'Depth (m)',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7},stepSize:6},grid:{color:'rgba(120,150,190,.07)'}}}}});
 }
 
-// ---------- time-series @ selected depth ----------
-function pbCursorPlugin(){return {id:'cur',afterDatasetsDraw(c){if(!D.bks.length)return;const x=new Date(curB()).getTime(),xs=c.scales.x,ar=c.chartArea;if(!ar)return;const px=xs.getPixelForValue(x);if(px<ar.left||px>ar.right)return;const ctx=c.ctx;ctx.save();ctx.strokeStyle='rgba(56,189,248,.9)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(px,ar.top);ctx.lineTo(px,ar.bottom);ctx.stroke();ctx.restore()}}}
+// ---------- time-series @ selected depth (selected axis, incremental) ----------
+function pbCursorPlugin(){return {id:'cur',afterDatasetsDraw(c){if(!D.bks.length)return;const x=new Date(curB()).getTime(),xs=c.scales.x,ar=c.chartArea;if(!ar)return;const px=xs.getPixelForValue(x);if(px<ar.left||px>ar.right)return;const ctx=c.ctx;ctx.save();ctx.strokeStyle='rgba(224,242,254,.9)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(px,ar.top);ctx.lineTo(px,ar.bottom);ctx.stroke();ctx.restore()}}}
 function seriesFor(sn){return (D.hm?.data||[]).filter(d=>d.sn===sn).sort((a,b)=>String(a.b).localeCompare(String(b.b)))}
 function drawDisp(){
   const cv=document.getElementById('cvD');if(!cv||!D.hm)return;if(D.ch.disp){D.ch.disp.destroy();D.ch.disp=null}
@@ -293,7 +309,7 @@ function drawDisp(){
     options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>it.length?fmtB(it[0].parsed.x):'',label:c=>c.parsed.y.toFixed(1)+' mm'}}},
       scales:{x:{type:'linear',ticks:{color:'#8ba0bd',font:{size:7},maxTicksLimit:6,callback:v=>new Date(v).toLocaleDateString('id-ID',{day:'2-digit',month:'short'})},grid:{color:'rgba(120,150,190,.06)'}},
-        y:{min:-yM,max:yM,title:{display:true,text:'mm',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},plugins:[thr,pbCursorPlugin()]});
+        y:{min:-yM,max:yM,title:{display:true,text:'incr. mm',color:'#8ba0bd',font:{size:8}},ticks:{color:'#8ba0bd',font:{size:7}},grid:{color:'rgba(120,150,190,.08)'}}}},plugins:[thr,pbCursorPlugin()]});
 }
 function drawVel(){
   const cv=document.getElementById('cvV');if(!cv||!D.hm)return;if(D.ch.vel){D.ch.vel.destroy();D.ch.vel=null}
@@ -310,17 +326,16 @@ function drawVel(){
 }
 
 // ---------- playback ----------
-function updateCur(){const b=D.bks.length?curB():null;document.getElementById('pbCur').textContent=b?fmtB(b):'—';
+function updateCur(){const b=D.bks.length?curB():null;const el=document.getElementById('pbCur');if(el)el.textContent=b?fmtB(b):'—';
   const live=document.getElementById('pbLive');if(live)live.classList.toggle('on',D.bks.length&&S.pbIdx===D.bks.length-1)}
 function refreshAtCursor(){
-  // profiles depend on bucket → update in place
-  if(D.ch.ov){D.ch.ov.data.datasets[0].data=ovPoints(curB());OVSTRIP=D.ch.ov.data.datasets[0].data.map(p=>({x:p.x,v:p.y}));D.ch.ov.update('none')}
-  if(D.ch.cum){const b=curB();D.ch.cum.data.datasets[0].data=cumPoints(b);D.ch.cum.options.plugins.title.text='Cumulative @ '+fmtB(b);D.ch.cum.update('none');const at=document.getElementById('cumAt');if(at)at.textContent=fmtB(b)}
+  drawOv();
+  if(D.ch.cum){const b=curB();D.ch.cum.data.datasets[1].data=cumPts(b);D.ch.cum.options.plugins.title.text=S.axis+'-Axis @ '+fmtB(b);D.ch.cum.update('none');const at=document.getElementById('cumAt');if(at)at.textContent=S.axis+'-Axis · '+fmtB(b)}
   if(D.ch.disp)D.ch.disp.update('none');
   if(D.ch.vel)D.ch.vel.update('none');
   updateCur();renderSt();
 }
-function onScrub(v){S.pbIdx=v;stopPlay();refreshAtCursor()}
+function onScrub(v){S.pbIdx=+v;stopPlay();refreshAtCursor()}
 function goLive(){if(!D.bks.length)return;S.pbIdx=D.bks.length-1;document.getElementById('pbRng').value=S.pbIdx;refreshAtCursor()}
 function togglePlay(){if(S.playing)stopPlay();else startPlay()}
 function startPlay(){if(!D.bks.length)return;if(S.pbIdx>=D.bks.length-1)S.pbIdx=0;S.playing=true;document.getElementById('pbBtn').innerHTML='&#10073;&#10073;';
@@ -332,17 +347,18 @@ function renderSt(){
   const p=document.getElementById('stP');if(!p)return;
   const dev=S.sel,ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev),lv=tlv(ew?.trigger_level);
   const b=D.bks.length?curB():null;let mxA=0,mxD=0,mxV=0,mxC=0,mxCD=0;
-  if(b){alive().forEach(s=>{const iv=D.inc[b]?.[s.sn];if(iv!=null&&Math.abs(iv)>mxA){mxA=Math.abs(iv);mxV=iv;mxD=s.depth_m}
-    const cv=D.cum[b]?.[s.sn];if(cv!=null&&Math.abs(cv)>mxC){mxC=Math.abs(cv);mxCD=s.depth_m}})}
-  // velocity between cursor and previous bucket
+  const incB={};(D.hm?.data||[]).forEach(d=>{if(d.b===b)incB[d.sn]=d.v});
+  if(b)alive().forEach(s=>{const iv=incB[s.sn];if(iv!=null&&Math.abs(iv)>mxA){mxA=Math.abs(iv);mxV=iv;mxD=s.depth_m}
+    const cv=D.cum[b]?.[s.sn];if(cv!=null&&Math.abs(cv)>mxC){mxC=Math.abs(cv);mxCD=s.depth_m}});
   let vel=0,vD=0;
-  if(b&&S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;if(dt>0)alive().forEach(s=>{const a=D.inc[b1]?.[s.sn],c=D.inc[b]?.[s.sn];if(a!=null&&c!=null){const v=Math.abs(c-a)/dt;if(v>vel){vel=v;vD=s.depth_m}}})}
+  if(b&&S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;const pv={};(D.hm?.data||[]).forEach(d=>{if(d.b===b1)pv[d.sn]=d.v});
+    if(dt>0)alive().forEach(s=>{const a=pv[s.sn],c=incB[s.sn];if(a!=null&&c!=null){const v=Math.abs(c-a)/dt;if(v>vel){vel=v;vD=s.depth_m}}})}
   const dir=mxV>0.3?'DOWNWARD':mxV<-0.3?'UPWARD':'STABLE',dcol=mxV>0.3?'#ef4444':mxV<-0.3?'#eab308':'#22c55e',di=mxV>0.3?'&darr;':mxV<-0.3?'&uarr;':'&rarr;';
   const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
   p.innerHTML=`
     <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
-    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}.0 M</span></div></div>
     <div class="mrow"><div class="k">Max Cumulative (abs)</div><div class="line"><span class="big ${vcl(mxC)}">${mxC.toFixed(1)} mm</span><span class="at">AT ${mxCD}.0 M</span></div></div>
+    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}.0 M</span></div></div>
     <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:11px"> mm/hr</span></span><span class="at">AT ${vD}.0 M</span></div></div>
     <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:19px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
     <div class="mrow" style="border-bottom:none"><div class="k">Cursor Time</div><div style="font-weight:800;font-size:12px;margin-top:2px">${b?fmtB(b):'—'}</div></div>
@@ -360,12 +376,13 @@ function renderSt(){
 async function loadAll(){
   try{const{data}=await sb.rpc('ews_device_latest');if(data)D.ews=data}catch(e){console.warn(e)}
   renderStats();await loadSel();
+  const cv=document.getElementById('cvO');if(cv&&!cv._b){cv._b=1;cv.style.cursor='crosshair';cv.addEventListener('click',ovClick)}
 }
 let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawOv();drawCum();drawDisp();drawVel();},180)});
 (async()=>{
   const ok=await GMS.guard({mount:'#root'});if(!ok)return;
   shell();await loadAll();
-  setInterval(()=>{if(!GMS.isOnline()||document.hidden||S.playing)return;loadAll().catch(()=>{})},120000);
+  setInterval(()=>{if(!GMS.isOnline()||document.hidden||S.playing||S.pbIdx!==D.bks.length-1)return;loadAll().catch(()=>{})},120000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&GMS.isOnline()&&!S.playing)loadAll().catch(()=>{})});
 })();
 </script>
