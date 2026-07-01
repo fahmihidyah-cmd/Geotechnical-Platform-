@@ -313,7 +313,7 @@ function cumPtsAx(b,ax){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);const 
 function drawCumAxis(ax,id,showY){
   const cv=document.getElementById(id);if(!cv)return;const key='cum'+ax;if(D.ch[key]){D.ch[key].destroy();D.ch[key]=null}
   if(!D.bks.length)return;
-  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(100,Math.ceil(D.cumAbsMax*1.1)),md=D.maxDepth;
+  const b=curB(),pts=cumPtsAx(b,ax),xM=Math.max(50,Math.ceil(D.cumAbsMax*1.1)),md=D.maxDepth;
   D.ch[key]=new Chart(cv,{type:'scatter',data:{datasets:[
     {data:alive().sort((a,b)=>a.depth_m-b.depth_m).map(s=>({x:0,y:s.depth_m})),showLine:true,borderColor:'rgba(148,163,184,.35)',borderDash:[4,4],borderWidth:1,pointRadius:0},
     {data:pts,showLine:true,borderColor:ax==='A'?'#38bdf8':'#a855f7',backgroundColor:ax==='A'?'#38bdf8':'#a855f7',borderWidth:2,pointRadius:2.3,pointBackgroundColor:ax==='A'?'#38bdf8':'#a855f7',tension:.1}
