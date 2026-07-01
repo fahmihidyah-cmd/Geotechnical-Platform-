@@ -151,9 +151,9 @@ function shell(){
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
-    <label>From</label><input type="date" id="cF" value="${S.from||ds(-7)}"/>
-    <label>To</label><input type="date" id="cT" value="${S.to||ds(0)}"/>
-    <button class="btn" onclick="loadSel()">SHOW</button>
+    <label>From</label><input type="date" id="cF" value="${S.from||ds(-7)}" onchange="applyRange()"/>
+    <label>To</label><input type="date" id="cT" value="${S.to||ds(0)}" onchange="applyRange()"/>
+    <button class="btn" onclick="applyRange()">SHOW</button>
     <span class="note">Overview & cumulative: Axis A &amp; B tampil semua · time-series ikut sensor governing</span>
   </div>
   <div class="main">
@@ -184,7 +184,8 @@ function ckUp(){const n=new Date(),e=document.getElementById('ck'),e2=document.g
 function setDev(id){S.sel=id;const e=document.getElementById('cDev');if(e)e.value=id;loadSel()}
 function selDev(id){setDev(id)}
 function setDp(v){S.depthIdx=parseInt(v,10);drawDisp();drawVel();renderSt()}
-window.setDev=setDev;window.selDev=selDev;window.setDp=setDp;window.loadSel=loadSel;
+function applyRange(){stopPlay();loadSel()}
+window.setDev=setDev;window.selDev=selDev;window.setDp=setDp;window.loadSel=loadSel;window.applyRange=applyRange;
 window.togglePlay=togglePlay;window.onScrub=onScrub;window.goLive=goLive;
 
 function renderStats(){
