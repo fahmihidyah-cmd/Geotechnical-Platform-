@@ -102,6 +102,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pb .live.on .d{background:var(--grn);animation:pulse 1.4s infinite}
 
 .msg{color:var(--mu);font-size:10px;text-align:center;position:absolute;top:50%;left:0;right:0;transform:translateY(-50%)}
+#ovTip{position:fixed;z-index:60;pointer-events:none;background:#0b1a2e;border:1px solid #38bdf866;border-radius:5px;padding:5px 8px;font-size:10px;color:#e5edf7;box-shadow:0 4px 14px rgba(0,0,0,.55);line-height:1.55;white-space:nowrap}
+#ovTip b{color:#38bdf8}
 </style>
 </head>
 <body>
@@ -158,6 +160,7 @@ function shell(){
     <div class="pnl l">
       <div class="ph"><span>OVERVIEW &mdash; <span class="cy" id="ovDev">—</span></span><small>Cumulative heatmap</small></div>
       <div class="ovbody"><canvas id="cvO"></canvas><div class="msg" id="ovMsg" style="display:none"></div></div>
+      <div id="ovTip" style="display:none"></div>
     </div>
     <div class="pnl">
       <div class="ph"><span class="cy" id="selT">SELECTED: —</span><small id="selI"></small></div>
@@ -263,6 +266,7 @@ function drawOv(){
   const sensors=(D.hm?.sensors||[]).slice().sort((a,b)=>a.depth_m-b.depth_m); // shallow top
   const LBL=30,TAX=16,GH=13,nb=D.bks.length,ns=sensors.length;
   const hmH=(H-2*GH-TAX)/2,cellW=(W-LBL)/nb,cellH=hmH/Math.max(1,ns);
+  D.ovGeo={LBL,TAX,GH,nb,ns,hmH,cellW,cellH,sensors};
   const cursorX=LBL+(S.pbIdx+0.5)*cellW;
   [['A',D.cumA,0],['B',D.cumB,GH+hmH]].forEach(([ax,cum,oy])=>{
     ctx.fillStyle=ax==='A'?'#38bdf8':'#a855f7';ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
@@ -287,6 +291,22 @@ function drawOv(){
   D.bks.forEach((bk,xi)=>{if(xi%xst)return;const x=LBL+(xi+0.5)*cellW,d=new Date(bk);ctx.fillText(d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}),x,H-TAX+2)});
 }
 function ovClick(ev){const cv=document.getElementById('cvO');if(!cv||!D.bks.length)return;const r=cv.getBoundingClientRect();const W=r.width,LBL=30,cellW=(W-LBL)/D.bks.length;let i=Math.floor((ev.clientX-r.left-LBL)/cellW);i=Math.max(0,Math.min(D.bks.length-1,i));S.pbIdx=i;document.getElementById('pbRng').value=i;stopPlay();refreshAtCursor()}
+function ovHover(ev){
+  const g=D.ovGeo,tip=document.getElementById('ovTip'),cv=document.getElementById('cvO');if(!g||!tip||!cv||!D.bks.length){if(tip)tip.style.display='none';return}
+  const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;
+  const xi=Math.floor((mx-g.LBL)/g.cellW);
+  if(mx<g.LBL||xi<0||xi>=g.nb){tip.style.display='none';return}
+  const aT=g.GH,aB=g.GH+g.hmH,bT=2*g.GH+g.hmH,bB=2*g.GH+2*g.hmH;let ax=null,yi=-1;
+  if(my>=aT&&my<aB){ax='A';yi=Math.floor((my-aT)/g.cellH)}else if(my>=bT&&my<bB){ax='B';yi=Math.floor((my-bT)/g.cellH)}
+  if(!ax||yi<0||yi>=g.ns){tip.style.display='none';return}
+  const s=g.sensors[yi],bk=D.bks[xi],val=(ax==='A'?D.cumA:D.cumB)[bk]?.[s.sn];
+  const iv=(D['hm'+ax]?.data||[]).find(d=>d.b===bk&&d.sn===s.sn)?.v;
+  tip.innerHTML=`<b>Axis ${ax} &middot; ${s.depth_m} m</b><br>${fmtB(bk)}<br>Cumulative: <b>${s.is_dead||val==null?'No Data':(val>=0?'+':'')+val.toFixed(1)+' mm'}</b><br>Incremental: <b>${s.is_dead||iv==null?'No Data':(iv>=0?'+':'')+iv.toFixed(1)+' mm'}</b>`;
+  tip.style.display='block';
+  let tx=ev.clientX+14,ty=ev.clientY+14;const tw=tip.offsetWidth,th=tip.offsetHeight;
+  if(tx+tw>innerWidth)tx=ev.clientX-tw-14;if(ty+th>innerHeight)ty=ev.clientY-th-14;
+  tip.style.left=tx+'px';tip.style.top=ty+'px';
+}
 
 // ---------- Center cumulative profile: Y=depth, X=cumulative ----------
 function cumPts(b){const al=alive().sort((a,b)=>a.depth_m-b.depth_m);return al.map(s=>({x:(D.cum[b]?.[s.sn])??0,y:s.depth_m}))}
@@ -384,7 +404,7 @@ function renderSt(){
 async function loadAll(){
   try{const{data}=await sb.rpc('ews_device_latest');if(data)D.ews=data}catch(e){console.warn(e)}
   renderStats();await loadSel();
-  const cv=document.getElementById('cvO');if(cv&&!cv._b){cv._b=1;cv.style.cursor='crosshair';cv.addEventListener('click',ovClick)}
+  const cv=document.getElementById('cvO');if(cv&&!cv._b){cv._b=1;cv.style.cursor='crosshair';cv.addEventListener('click',ovClick);cv.addEventListener('mousemove',ovHover);cv.addEventListener('mouseleave',()=>{const t=document.getElementById('ovTip');if(t)t.style.display='none'})}
 }
 let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawOv();drawCum();drawDisp();drawVel();},180)});
 (async()=>{
