@@ -77,9 +77,19 @@ Views: `v_instrument_sensors`, `v_instrument_readings`, `v_instrument_points`,
 - Kumulatif: **Medium >50 mm · High >100 mm**.
 - Velocity ratio: JINGGA >1.25 · MERAH >1.5. Modifier hujan ×0.5; persistence N=3; de-eskalasi M=6; voting 2-of-n; fail-safe.
 - Level HIJAU/KUNING/JINGGA/MERAH = Low/Medium/High/Very High. `GAUGE_LEN=3000mm`.
-- **Inklinometer kumulatif** = Σ depth-sensor `(sin − baseline)*3000`. **Complete-profile QC era-aware**:
+- **Inklinometer** EWS pakai **INCREMENTAL per-titik** (governing = sensor terparah lintas Axis A&B),
+  BUKAN kumulatif kolom (kumulatif bias di top-hole). **Complete-profile QC era-aware**:
   pakai max sensor-count jendela 4-hari (BUKAN max global) — supaya alat yang jumlah sensornya
   berubah (mis. 108102: 8→15 sensor) tidak membuang data lama. Jangan balik ke global-max.
+- **Sensor-health inklinometer di `evaluate_ews`** (aturan pemilik, sumber tunggal DB):
+  - **KOSONG/RUSAK** = sel data tak keluar angka → tertinggal >24 jam dari sensor tersegar device
+    (bukan outage device-wide) → **dikeluarkan dari velocity DAN magnitude**. (Dulu bocor: nilai
+    basi sn5 108102 −190mm memicu JINGGA palsu; sekarang benar KUNING dari sn10 ~90mm.)
+  - **RAILED/BEKU** = masih melapor tapi `stddev(sin,3hr) < 5e-4` DAN `|disp|≥20mm` DAN n≥8 →
+    **magnitude TETAP dipakai** (shear nyata), **velocity DINOLKAN** (hindari rasa aman palsu).
+    `inc_heatmap_series` mengembalikan `is_railed` per sensor; front-end `inclinometer.html`
+    menampilkan hatch amber + banner "FROZEN — magnitude valid, velocity tak terpantau, verifikasi lapangan".
+    Detail audit di `ews_device_trigger.details`: `excluded_empty`, `railed_count`.
 - **VWP** (`vwp_device_latest`): rate-of-rise + baseline 7-hari. Medium ≥5 kPa/hari ATAU ≥10 kPa
   vs baseline; High ≥10/≥20; Very High ≥20/≥40. Modifier hujan ×0.5. **Belum** masuk voting `evaluate_ews`.
 - **PGA gempa** (`fetch-bmkg`): threshold saat ini **0.02/0.05/0.10 g — SALAH**, resmi 0.10/0.20/0.30 g (ditunda).

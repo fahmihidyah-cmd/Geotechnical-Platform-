@@ -40,6 +40,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .leg .sc{display:flex;justify-content:space-between;font-size:8px;color:var(--mu);margin-top:1px}
 .leg .nd{display:flex;align-items:center;gap:4px;font-size:8px;color:var(--mu);white-space:nowrap}
 .leg .nd .sw{width:16px;height:12px;border-radius:2px;border:1px solid var(--st);background:repeating-linear-gradient(45deg,#22303f,#22303f 2px,#3c4a5c 2px,#3c4a5c 4px)}
+.leg .nd .sw.fr{border-color:#f59e0b;background:repeating-linear-gradient(45deg,#3a2a06,#3a2a06 2px,#f59e0b 2px,#f59e0b 4px)}
 
 .ctl{display:flex;align-items:center;gap:6px;padding:0 14px;height:28px;flex-shrink:0;background:var(--p0);border-bottom:1px solid var(--st)}
 .ctl label{font-size:9px;color:var(--mu);text-transform:uppercase}
@@ -72,6 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .badge.kuning{background:rgba(234,179,8,.13);color:#eab308;border:1.5px solid #eab308}
 .badge.jingga{background:rgba(249,115,22,.13);color:#f97316;border:1.5px solid #f97316}
 .badge.merah{background:rgba(239,68,68,.13);color:#ef4444;border:1.5px solid #ef4444}
+.frzn{background:rgba(245,158,11,.13);border:1.5px solid #f59e0b;color:#fbbf24;border-radius:7px;padding:6px 8px;margin-bottom:7px;font-size:9px;font-weight:700;line-height:1.35}
 .mrow{padding:5px 0;border-bottom:1px solid var(--st)}
 .mrow .k{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
 .mrow .line{display:flex;justify-content:space-between;align-items:baseline;margin-top:2px}
@@ -151,7 +153,7 @@ function shell(){
     <div class="stbox o"><div class="k">High</div><div class="v" id="sWn">0</div></div>
     <div class="stbox r"><div class="k">Very High</div><div class="v" id="sA">0</div></div>
     <div class="stbox"><div class="k">Time (WIB)</div><div class="v" id="ck" style="font-size:15px">—</div><div class="live"><span class="d"></span>LIVE &middot; <span id="ckd">—</span></div></div>
-    <div class="leg"><div class="lt">Incremental (mm) = (current &minus; initial) &times; 3000</div><div class="row"><div class="grad"><div class="bar"></div><div class="sc"><span>0</span><span>50</span><span>100</span><span>&ge;150</span></div></div><div class="nd"><span class="sw"></span>No Data</div></div></div>
+    <div class="leg"><div class="lt">Incremental (mm) = (current &minus; initial) &times; 3000</div><div class="row"><div class="grad"><div class="bar"></div><div class="sc"><span>0</span><span>50</span><span>100</span><span>&ge;150</span></div></div><div class="nd"><span class="sw"></span>No Data</div><div class="nd"><span class="sw fr"></span>Frozen</div></div></div>
   </div>
   <div class="ctl">
     <label>Device</label><select id="cDev" onchange="setDev(this.value)">${NODES.map(n=>`<option value="${n.id}"${n.id===S.sel?' selected':''}>${esc(n.label)}</option>`).join('')}</select>
@@ -282,7 +284,8 @@ function drawOv(){
     sensors.forEach((s,yi)=>{const y=top+yi*cellH;
       D.bks.forEach((bk,xi)=>{const x=LBL+xi*cellW;
         if(s.is_dead){ctx.fillStyle='#22303f';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5);ctx.strokeStyle='#3c4a5c';ctx.lineWidth=.4;ctx.save();ctx.beginPath();ctx.rect(x,y,cellW,cellH);ctx.clip();for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke()}ctx.restore()}
-        else{const v=cum[bk]?.[s.sn];ctx.fillStyle=v!=null?hcCum(v):'#132132';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5)}
+        else{const v=cum[bk]?.[s.sn];ctx.fillStyle=v!=null?hcCum(v):'#132132';ctx.fillRect(x,y,Math.ceil(cellW),Math.ceil(cellH)-0.5);
+          if(s.is_railed){ctx.strokeStyle='#f59e0bcc';ctx.lineWidth=.5;ctx.save();ctx.beginPath();ctx.rect(x,y,cellW,cellH);ctx.clip();for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke()}ctx.restore()}}
       });
     });
     ctx.fillStyle='#8ba0bd';ctx.font='7px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
@@ -305,7 +308,7 @@ function ovHover(ev){
   if(!ax||yi<0||yi>=g.ns){tip.style.display='none';return}
   const s=g.sensors[yi],bk=D.bks[xi],val=(ax==='A'?D.cumA:D.cumB)[bk]?.[s.sn];
   const iv=(ax==='A'?D.incA:D.incB)[bk]?.[s.sn];
-  tip.innerHTML=`<b>Axis ${ax} &middot; ${s.depth_m} m</b><br>${fmtB(bk)}<br>Incremental: <b>${s.is_dead||iv==null?'No Data':(iv>=0?'+':'')+iv.toFixed(1)+' mm'}</b><br>Cumulative: <b>${s.is_dead||val==null?'No Data':(val>=0?'+':'')+val.toFixed(1)+' mm'}</b>`;
+  tip.innerHTML=`<b>Axis ${ax} &middot; ${s.depth_m} m</b><br>${fmtB(bk)}<br>Incremental: <b>${s.is_dead||iv==null?'No Data':(iv>=0?'+':'')+iv.toFixed(1)+' mm'}</b><br>Cumulative: <b>${s.is_dead||val==null?'No Data':(val>=0?'+':'')+val.toFixed(1)+' mm'}</b>${s.is_railed?'<br><span style="color:#f59e0b;font-weight:700">&#9888; FROZEN &mdash; magnitude valid, velocity tak terpantau</span>':''}`;
   tip.style.display='block';
   let tx=ev.clientX+14,ty=ev.clientY+14;const tw=tip.offsetWidth,th=tip.offsetHeight;
   if(tx+tw>innerWidth)tx=ev.clientX-tw-14;if(ty+th>innerHeight)ty=ev.clientY-th-14;
@@ -402,8 +405,11 @@ function renderSt(){
   if(S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;if(dt>0)['A','B'].forEach(ax=>{const dat=D['hm'+ax]?.data||[],pv={},cv2={};dat.forEach(d=>{if(d.b===b1)pv[d.sn]=d.v;if(d.b===b)cv2[d.sn]=d.v});alive().forEach(s=>{if(pv[s.sn]!=null&&cv2[s.sn]!=null){const v=Math.abs(cv2[s.sn]-pv[s.sn])/dt;if(v>vel){vel=v;vD=s.depth_m;vAx=ax}}})})}}
   const dir=mxV>0.3?'DOWNWARD':mxV<-0.3?'UPWARD':'STABLE',dcol=mxV>0.3?'#ef4444':mxV<-0.3?'#eab308':'#22c55e',di=mxV>0.3?'&darr;':mxV<-0.3?'&uarr;':'&rarr;';
   const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
+  const rl=[...new Set(['A','B'].flatMap(ax=>(D['hm'+ax]?.sensors||[]).filter(s=>s.is_railed&&!s.is_dead).map(s=>s.depth_m)))].sort((a,b)=>a-b);
+  const frz=rl.length?`<div class="frzn">&#9888; FROZEN @ ${rl.map(d=>d+'m').join(', ')} &mdash; sensor beku: magnitude valid, velocity tak terpantau. Verifikasi lapangan.</div>`:'';
   p.innerHTML=`
     <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
+    ${frz}
     <div class="mrow"><div class="k">Max Point Disp. (abs)</div><div class="line"><span class="big ${dispCls(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
     <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big ${velCls(vel)}">${vel.toFixed(2)}<span style="font-size:10px"> mm/hr</span></span><span class="at">AT ${vD}m · ${vAx}</span></div></div>
     <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:18px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
