@@ -125,6 +125,10 @@ let pbTimer=null;
 function ds(o){return new Date(Date.now()+o*864e5).toISOString().slice(0,10)}
 function isOverrideDead(dev,sn){return (DEAD_OVERRIDE[dev]||[]).includes(sn)}
 function vcl(v){if(v==null)return'';const a=Math.abs(v);if(a>=20)return'p';if(a>=10)return'r';if(a>=5)return'o';if(a>=2)return'y';return'g'}
+// warna sesuai ambang EWS: point-disp (<50 Low hijau, 50-100 Medium oranye, >=100 High merah)
+function dispCls(v){const a=Math.abs(v);if(a>=100)return'r';if(a>=50)return'o';return'g'}
+// velocity mm/jam: >=62.5 VeryHigh(merah), >=2.08 High(oranye,=50mm/hari), >=0.17 Medium(kuning,=4.1mm/hari), else Low(hijau)
+function velCls(v){const a=Math.abs(v);if(a>=62.5)return'r';if(a>=2.08)return'o';if(a>=0.17)return'y';return'g'}
 function tlv(l){if(!l)return{c:'hijau',t:'LOW'};const u=String(l).toUpperCase();if(u==='MERAH')return{c:'merah',t:'VERY HIGH'};if(u==='JINGGA')return{c:'jingga',t:'HIGH'};if(u==='KUNING')return{c:'kuning',t:'MEDIUM'};return{c:'hijau',t:'LOW'}}
 function fmtB(b){const d=new Date(b);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
 function ramp(t){t=Math.max(0,Math.min(1,t));const st=[[0,[22,101,52]],[.12,[34,197,94]],[.38,[234,179,8]],[.58,[249,115,22]],[.78,[239,68,68]],[.9,[185,28,28]],[1,[168,85,247]]];
@@ -400,8 +404,8 @@ function renderSt(){
   const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
   p.innerHTML=`
     <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
-    <div class="mrow"><div class="k">Max Point Disp. (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
-    <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:10px"> mm/hr</span></span><span class="at">AT ${vD}m · ${vAx}</span></div></div>
+    <div class="mrow"><div class="k">Max Point Disp. (abs)</div><div class="line"><span class="big ${dispCls(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
+    <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big ${velCls(vel)}">${vel.toFixed(2)}<span style="font-size:10px"> mm/hr</span></span><span class="at">AT ${vD}m · ${vAx}</span></div></div>
     <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:18px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
     <div class="mrow" style="border-bottom:none"><div class="k">Cursor Time</div><div style="font-weight:800;font-size:11px;margin-top:2px">${b?fmtB(b):'—'}</div></div>
     <div class="sec"><h4>EWS Details</h4>
