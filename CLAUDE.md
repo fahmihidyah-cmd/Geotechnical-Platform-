@@ -35,13 +35,17 @@ Edge function source live disimpan di `supabase/functions/` (lihat README di san
 | pg_cron job | Frekuensi | Edge fn | Data |
 |---|---|---|---|
 | `pull-argatech-2min` | 2 mnt | `pull-argatech-sensors` | Extensometer + AWS (device 372, 373) |
-| `pull-loadsensing-hourly` | 15 mnt | `pull-loadsensing` | Inclinometer + VWP |
+| `pull-loadsensing-hourly` | 15 mnt | `pull-loadsensing` | Inclinometer + VWP (`current.csv`) |
+| `pull-loadsensing-backfill-6h` | 6 jam | `pull-loadsensing?month=YYYY-MM` | Backfill CSV bulanan (isi lubang gap gateway) |
 | `fetch-bmkg-every-minute` | **1 mnt** | `fetch-bmkg` | Gempa BMKG → PGA/TARP → **auto WA** (`send-alert-wa`). **JANGAN turunkan frekuensi** (latensi notif). Dedup `event_id`. |
 | `ews-evaluate-10min` | 10 mnt | — | `monitoring.evaluate_ews()` |
 | `prune-ingestion-logs` | harian 02:00 UTC | — | `monitoring.prune_ingestion_logs(7)` |
 
 Ingest ke `monitoring.readings` via `ingest_loadsensing_payload` / `parse_raw_payload`,
 dedup `ON CONFLICT (sensor_id, ts) DO NOTHING` (idempoten — kursor = `readings`, bukan log).
+**Full-backfill:** `ingest_loadsensing_payload` TIDAK lagi pakai filter `ts > max` — semua
+reading dicoba insert, dedup murni via `ON CONFLICT`. Jadi tarik CSV bulanan mengisi lubang
+riwayat (gap gateway mati) tanpa jadi hole permanen. Datalogger Worldsensing store-and-forward.
 
 ## QC saat ingest (non-destruktif)
 `monitoring.readings.qc` + trigger `trg_readings_qc` → `classify_reading_value(value)`:
