@@ -384,26 +384,24 @@ function renderSt(){
   const p=document.getElementById('stP');if(!p)return;
   const dev=S.sel,ew=(D.ews||[]).find(e=>e.category==='inclinometer'&&e.external_device_id===dev),lv=tlv(ew?.trigger_level);
   const b=D.bks.length?curB():null;
-  let mxA=0,mxD=0,mxV=0,mxAx='',mxC=0,mxCD=0,mxCax='',vel=0,vD=0,vAx='';
+  let mxA=0,mxD=0,mxV=0,mxAx='',vel=0,vD=0,vAx='';
   if(b){['A','B'].forEach(ax=>{
-    const dat=D['hm'+ax]?.data||[],cum=ax==='A'?D.cumA:D.cumB;
+    const dat=D['hm'+ax]?.data||[];
     dat.forEach(d=>{if(d.b!==b)return;const s=alive().find(x=>x.sn===d.sn);if(!s)return;const a=Math.abs(d.v||0);if(a>mxA){mxA=a;mxV=d.v;mxD=s.depth_m;mxAx=ax}});
-    alive().forEach(s=>{const cv=cum[b]?.[s.sn];if(cv!=null&&Math.abs(cv)>mxC){mxC=Math.abs(cv);mxCD=s.depth_m;mxCax=ax}});
   });
   if(S.pbIdx>0){const b1=D.bks[S.pbIdx-1],dt=(new Date(b)-new Date(b1))/36e5;if(dt>0)['A','B'].forEach(ax=>{const dat=D['hm'+ax]?.data||[],pv={},cv2={};dat.forEach(d=>{if(d.b===b1)pv[d.sn]=d.v;if(d.b===b)cv2[d.sn]=d.v});alive().forEach(s=>{if(pv[s.sn]!=null&&cv2[s.sn]!=null){const v=Math.abs(cv2[s.sn]-pv[s.sn])/dt;if(v>vel){vel=v;vD=s.depth_m;vAx=ax}}})})}}
   const dir=mxV>0.3?'DOWNWARD':mxV<-0.3?'UPWARD':'STABLE',dcol=mxV>0.3?'#ef4444':mxV<-0.3?'#eab308':'#22c55e',di=mxV>0.3?'&darr;':mxV<-0.3?'&uarr;':'&rarr;';
   const by={};(D.ews||[]).filter(e=>e.category==='inclinometer').forEach(e=>{by[e.external_device_id]=e});
   p.innerHTML=`
     <div class="badge ${lv.c}">${lv.c==='hijau'?'&#10004;':'&#9888;'} ${lv.t}</div>
-    <div class="mrow"><div class="k">Max Cumulative (abs)</div><div class="line"><span class="big ${vcl(mxC)}">${mxC.toFixed(1)} mm</span><span class="at">AT ${mxCD}m · ${mxCax}</span></div></div>
-    <div class="mrow"><div class="k">Max Incremental (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
+    <div class="mrow"><div class="k">Max Point Disp. (abs)</div><div class="line"><span class="big ${vcl(mxA)}">${mxA.toFixed(1)} mm</span><span class="at">AT ${mxD}m · ${mxAx}</span></div></div>
     <div class="mrow"><div class="k">Max Velocity (abs)</div><div class="line"><span class="big p">${vel.toFixed(2)}<span style="font-size:10px"> mm/hr</span></span><span class="at">AT ${vD}m · ${vAx}</span></div></div>
     <div class="mrow"><div class="k">Direction of Movement</div><div class="dir"><span style="color:${dcol};font-size:18px">${di}</span> <span style="color:${dcol}">${dir}</span></div></div>
     <div class="mrow" style="border-bottom:none"><div class="k">Cursor Time</div><div style="font-weight:800;font-size:11px;margin-top:2px">${b?fmtB(b):'—'}</div></div>
     <div class="sec"><h4>EWS Details</h4>
       <div class="sr"><span class="k">Vel. (day)</span><span class="v">${(ew?.velocity_mm_day||0).toFixed(1)} mm/d</span></div>
       <div class="sr"><span class="k">Vel. (hr)</span><span class="v">${(ew?.velocity_mm_hr||0).toFixed(2)} mm/hr</span></div>
-      <div class="sr"><span class="k">Cumulative</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
+      <div class="sr"><span class="k">Point Disp.</span><span class="v">${(ew?.cumulative_disp_mm||0).toFixed(1)} mm</span></div>
       <div class="sr"><span class="k">QC</span><span class="v">${esc(ew?.qc||'—')}</span></div></div>
     <div class="sec"><h4>All Devices Status</h4>
       ${NODES.map(n=>{const l2=tlv(by[n.id]?.trigger_level),on=S.sel===n.id;
