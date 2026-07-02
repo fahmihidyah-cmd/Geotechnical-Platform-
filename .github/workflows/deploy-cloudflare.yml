@@ -17,4 +17,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 931bec06ad7b1a086605a4271eb22d0f
+          wranglerVersion: '4.107.0'   # v3.90 can't deploy an assets-only Worker (needs v4)
           command: deploy
