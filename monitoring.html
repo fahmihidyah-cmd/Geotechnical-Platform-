@@ -1353,7 +1353,7 @@
     function instrumentView(){
       const iRain = `<b>Rainfall</b> — hourly rain (mm) over 7 days. Tall bars = heavy rain. Watch whether the instrument charts below spike shortly <b>after</b> a rain burst: rain raises pore pressure and can drive movement. <b>Red dashed lines = earthquake events.</b>`;
       const iExt = `<b>Extensometer</b> — surface crack/displacement per sensor (D1–D5), zeroed to the period start, in mm. A line trending <b>up</b> = the crack is opening (slope creeping). A sudden step aligned with rain or a quake = a trigger to inspect.`;
-      const iInc = `<b>Inclinometer — Live Overview</b> — <b>1 strip governing per hole</b> (waktu ke kanan). Tiap sel = sensor hidup dgn displacement tertinggi lintas <b>Axis A&amp;B</b> pada hari itu. Warna = besar displacement (hijau→merah). Label dalam sel: <b>kedalaman</b> (atas) &amp; <b>velocity mm/hari</b> (bawah). Hatch amber = FROZEN. Klik strip / <b>Detail →</b> untuk analisis lanjut per-kedalaman.`;
+      const iInc = `<b>Inclinometer — Live Overview</b> — <b>1 strip governing per hole</b> (waktu ke kanan). Tiap sel = <b>top displacement</b> governing (sensor hidup, tertinggi lintas <b>Axis A&amp;B</b>) hari itu, mengikuti engine inclinometer.html. Warna = <b>level EWS</b> (Low/Medium/High/Very High). Label sel: <b>displacement</b> (atas) &amp; <b>kedalaman</b> (bawah). Hover = detail (+velocity). Hatch amber = FROZEN. Klik strip / <b>Detail →</b> untuk analisis lanjut per-kedalaman.`;
       const iVwp = `<b>VWP / Piezometer</b> — pore-water pressure inside the slope (kPa). A rising line, especially after rain, means water is building up and stability is dropping. Sharp sustained rises are a key early-warning signal.`;
       return `
         <div style="font-size:10.5px;color:#9fb3cf;margin:0 2px 8px">Shared 7-day timeline · <span style="color:#f87171">┊ red dashed = earthquake</span> · hover&nbsp;&#9432;&nbsp;on each chart for how to read it.</div>
@@ -1881,7 +1881,7 @@
         <div style="display:flex;align-items:center;gap:12px;padding:0 2px 10px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:800;color:#e5e7eb">Inplace Inclinometer — Live Overview</div>
           <span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · governing per hole · 14 hari</span>
-          <span style="font-size:11px;color:#9fb3cf">1 strip / hole: warna = displacement governing (lintas Axis A&amp;B), label = kedalaman &amp; velocity. Klik strip → analisis lanjut.</span>
+          <span style="font-size:11px;color:#9fb3cf">1 strip / hole: warna = level EWS (top displacement governing, lintas Axis A&amp;B), label = displacement &amp; kedalaman. Hover = detail · klik → analisis lanjut.</span>
           <a href="inclinometer.html" class="btn-ghost" style="margin-left:auto;font-weight:700;text-decoration:none;padding:6px 16px">Advanced Analysis →</a>
         </div>
         <div id="incOverview"><div style="display:flex;justify-content:center;padding:30px"><div class="spin"></div></div></div>`;
@@ -1927,11 +1927,11 @@
         <div class="card-bd" style="padding:6px">
          ${hasData?`<div style="overflow-x:auto"><canvas id="incGov${i}" title="Klik untuk analisis lanjut" onclick="location.href='inclinometer.html?dev=${encodeURIComponent(r.node.id)}'" style="cursor:pointer;display:block"></canvas></div>
           <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:5px;font-size:10px;color:#9fb3cf;flex-wrap:wrap">
-            <span>Governing / hari · label: kedalaman & velocity (mm/hari)</span>
-            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#22c55e;border-radius:2px"></span>&lt;2</span>
-            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#eab308;border-radius:2px"></span>2–5</span>
-            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#f97316;border-radius:2px"></span>5–10</span>
-            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px"></span>&ge;10 mm</span>
+            <span>Top displacement governing / hari · label: displacement & kedalaman · hover = detail</span>
+            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#22c55e;border-radius:2px"></span>Low &lt;50</span>
+            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#eab308;border-radius:2px"></span>Med 50–100</span>
+            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#f97316;border-radius:2px"></span>High 100–150</span>
+            <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px"></span>V.High &ge;150 mm</span>
             <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#f59e0b;border-radius:2px"></span>FROZEN</span>
           </div>`:`<div style="color:#9fb3cf;padding:16px;text-align:center">No baseline / data</div>`}
         </div>
@@ -1989,30 +1989,40 @@
       return {buckets,cells};
     }
 
-    // Render 1 strip governing (waktu ke kanan). Sel diwarnai displacement governing;
-    // di dalam sel: kedalaman (atas) + velocity mm/hari (bawah). Frozen = hatch amber.
+    // Warna strip = level EWS (HIJAU/KUNING/JINGGA/MERAH) via ambang top-displacement (mm):
+    // <50 Low · 50–100 Medium · 100–150 High · >=150 Very High. Sejalan akumulasi EWS.
+    function incDispLevelColor(v){
+      const a=Math.abs(v||0);
+      if(a>=150) return INC_LV.MERAH.c;
+      if(a>=100) return INC_LV.JINGGA.c;
+      if(a>=50)  return INC_LV.KUNING.c;
+      return INC_LV.HIJAU.c;
+    }
+
+    // Render 1 strip governing per hole (waktu ke kanan). Tiap sel = top-displacement
+    // governing hari itu (lintas Axis A&B, sensor hidup). Warna = level EWS; label dalam
+    // sel = displacement + kedalaman. Frozen = hatch amber. Hover = detail; klik = advanced.
     function renderIncGovStrip(cv,hmA,hmB){
       if(!cv) return;
       const {buckets,cells}=incGovSeries(hmA,hmB); if(!buckets.length) return;
-      const parent=cv.parentElement, availW=Math.max(280,(parent?parent.clientWidth:820)-2);
-      const n=buckets.length, mL=8,mR=8,mT=6,mB=24, cellH=46;
-      const cellW=Math.max(26,Math.floor((availW-mL-mR)/n));
+      const parent=cv.parentElement, availW=Math.max(300,(parent?parent.clientWidth:820)-2);
+      const n=buckets.length, mL=8,mR=8,mT=6,mB=24, cellH=44;
+      const cellW=Math.max(30,Math.floor((availW-mL-mR)/n));
       const w=mL+n*cellW+mR, h=mT+cellH+mB;
       cv.width=w; cv.height=h; cv.style.height=h+'px'; if(w<=availW) cv.style.width=w+'px';
       const ctx=cv.getContext('2d'); ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,w,h);
       cells.forEach((c,xi)=>{
         const x=mL+xi*cellW, y=mT;
         if(c.empty){ ctx.fillStyle='#1e293b'; ctx.fillRect(x,y,cellW-1,cellH-1); return; }
-        ctx.fillStyle=hmTriggerColor(c.v); ctx.fillRect(x,y,cellW-1,cellH-1);
+        ctx.fillStyle=incDispLevelColor(c.v); ctx.fillRect(x,y,cellW-1,cellH-1);
         if(c.railed){ ctx.strokeStyle='#f59e0bdd'; ctx.lineWidth=.7; ctx.save(); ctx.beginPath(); ctx.rect(x,y,cellW,cellH); ctx.clip();
           for(let d=-cellH;d<cellW;d+=5){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke();} ctx.restore(); }
-        if(cellW>=38){
+        if(cellW>=40){
           ctx.textAlign='center'; ctx.fillStyle='#0b1220';
           ctx.font='bold 11px sans-serif'; ctx.textBaseline='alphabetic';
-          ctx.fillText(c.depth+'m', x+cellW/2, y+cellH/2-1);
+          ctx.fillText(Math.round(c.absv)+'mm', x+cellW/2, y+cellH/2-1);
           ctx.font='9px sans-serif';
-          const vtxt=(c.vel==null)?'—':((c.vel>=0?'+':'')+c.vel.toFixed(c.absv>=10?1:2));
-          ctx.fillText(vtxt, x+cellW/2, y+cellH/2+13);
+          ctx.fillText('@'+c.depth+'m', x+cellW/2, y+cellH/2+13);
         }
       });
       const li=cells.length-1;
@@ -2021,6 +2031,36 @@
       const maxXL=Math.floor((w-mL-mR)/54), xStep=Math.max(1,Math.ceil(n/Math.max(1,maxXL)));
       buckets.forEach((bk,xi)=>{ if((xi%xStep) && xi!==n-1) return; const d=new Date(bk);
         ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'}), mL+xi*cellW+cellW/2, mT+cellH+5); });
+      cv._gov={cells,mL,mT,cellW,cellH,n};
+      cv.onmousemove=incStripHover;
+      cv.onmouseleave=()=>{const t=document.getElementById('incTip'); if(t) t.style.display='none';};
+    }
+
+    // Tooltip hover: tanggal + top displacement + kedalaman + axis + velocity + frozen.
+    function incStripHover(ev){
+      const cv=ev.currentTarget, g=cv._gov; if(!g) return;
+      const rect=cv.getBoundingClientRect();
+      const sx=cv.width/(rect.width||cv.width), sy=cv.height/(rect.height||cv.height);
+      const cx=(ev.clientX-rect.left)*sx, cy=(ev.clientY-rect.top)*sy;
+      let t=document.getElementById('incTip');
+      const hide=()=>{ if(t) t.style.display='none'; };
+      if(cy<g.mT||cy>g.mT+g.cellH) return hide();
+      const xi=Math.floor((cx-g.mL)/g.cellW);
+      if(xi<0||xi>=g.n) return hide();
+      const c=g.cells[xi]; if(!c) return hide();
+      if(!t){ t=document.createElement('div'); t.id='incTip';
+        t.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:#0b1324;border:1px solid #334155;border-radius:6px;padding:6px 9px;font-size:11px;line-height:1.5;color:#e5edf7;box-shadow:0 4px 14px rgba(0,0,0,.5);max-width:230px';
+        document.body.appendChild(t); }
+      const dt=new Date(c.b).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+      if(c.empty){ t.innerHTML='<b>'+dt+'</b><br>Tidak ada data'; }
+      else{
+        const vel=(c.vel==null)?'—':((c.vel>=0?'+':'')+c.vel.toFixed(2)+' mm/hari');
+        t.innerHTML='<b>'+dt+'</b><br>Top displacement: <b>'+c.absv.toFixed(1)+' mm</b> @ '+c.depth+'m · Axis '+c.ax+
+          '<br>Velocity: '+vel+(c.railed?'<br><span style="color:#f59e0b">⚠ FROZEN — velocity tak terpantau</span>':'');
+      }
+      t.style.display='block';
+      t.style.left=Math.min(ev.clientX+14, window.innerWidth-238)+'px';
+      t.style.top=(ev.clientY+16)+'px';
     }
 
     async function drawIncHeatmap(deviceId){
