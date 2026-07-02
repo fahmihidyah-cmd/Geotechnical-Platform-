@@ -121,7 +121,8 @@ const NODES=[
 // Override manual sensor mati permanen (laporan operator) → dipaksa NO-DATA.
 // Kosong: deteksi kosong/rusak & railed kini otomatis dari DB (is_dead / is_railed).
 const DEAD_OVERRIDE={};
-let S={sel:'108102',from:null,to:null,depthIdx:-1,pbIdx:0,playing:false,speed:2};
+const _qDev=new URLSearchParams(location.search).get('dev');
+let S={sel:(_qDev&&['108052','108102','108164','108403'].includes(_qDev))?_qDev:'108102',from:null,to:null,depthIdx:-1,pbIdx:0,playing:false,speed:2};
 let D={hm:null,hmA:null,hmB:null,ews:[],bks:[],cumA:{},cumB:{},cumAbsMax:10,maxDepth:51,gov:null,ch:{}};
 let pbTimer=null;
 

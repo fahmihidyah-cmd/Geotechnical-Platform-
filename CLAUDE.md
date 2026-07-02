@@ -81,6 +81,15 @@ Views: `v_instrument_sensors`, `v_instrument_readings`, `v_instrument_points`,
   BUKAN kumulatif kolom (kumulatif bias di top-hole). **Complete-profile QC era-aware**:
   pakai max sensor-count jendela 4-hari (BUKAN max global) — supaya alat yang jumlah sensornya
   berubah (mis. 108102: 8→15 sensor) tidak membuang data lama. Jangan balik ke global-max.
+- **Chart inklinometer (`inc_profile_daily`, `inc_top_displacement_series`)**: pakai tabel
+  `monitoring.inc_initial_baseline` (sin+depth, single source), **buang sensor mati/blip**
+  (n < max(3, 20% count device di jendela) → cegah blip toe basi mengorupsi kumulatif, dulu
+  spike palsu −233mm 108102), **anchor deepest-alive=0** (konsisten `inclinometer.html`).
+- **Dashboard `monitoring.html` tab Inklinometer = LIVE OVERVIEW**: 4 hole berurutan, heatmap
+  A (kiri) · B (kanan) via `inc_heatmap_series`, badge EWS + **governing** (incremental tertinggi
+  sensor hidup + kedalaman + tag FROZEN bila railed). Link `inclinometer.html?dev=<id>` untuk analisis lanjut.
+- **`manual_state` (On/Off/Auto) DIHAPUS** — dulu kosmetik (tak dihormati EWS/RPC). Kolom di-reset
+  `auto`; fungsi `set_sensor_manual_state` di-drop. Status sensor = otomatis dari kesegaran data.
 - **Sensor-health inklinometer di `evaluate_ews`** (aturan pemilik, sumber tunggal DB):
   - **KOSONG/RUSAK** = sel data tak keluar angka → tertinggal >24 jam dari sensor tersegar device
     (bukan outage device-wide) → **dikeluarkan dari velocity DAN magnitude**. (Dulu bocor: nilai

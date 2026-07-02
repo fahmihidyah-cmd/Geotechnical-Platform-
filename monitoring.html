@@ -1462,9 +1462,7 @@
     function sensorVU(s){ if(s.latest_value==null) return {v:'—',unit:''};
       if(s.sensor_type_name==='AIO Atmosphere') return {v:fmt(s.latest_value,2),unit:'kPa'};
       return {v:fmt(s.latest_value,2),unit:s.unit||''}; }
-    function statusOf(s){ if(s.manual_state==='on') return {t:'ACTIVE (manual)',c:'#22c55e'};
-      if(s.manual_state==='off') return {t:'OFF (manual)',c:'#94a3b8'};
-      return stale(s.latest_ts,15)?{t:'DOWN',c:'#ef4444'}:{t:'ACTIVE',c:'#22c55e'}; }
+    function statusOf(s){ return stale(s.latest_ts,15)?{t:'DOWN',c:'#ef4444'}:{t:'ACTIVE',c:'#22c55e'}; }
     function trendArrow(mmPerDay){ if(mmPerDay==null||!isFinite(mmPerDay)) return '<span class="trend-st">→ stable</span>';
       const v=mmPerDay/24;
       if(v>0.0005) return `<span class="trend-up">↑ rising (+${fmt(v,4)} mm/hour)</span>`;
@@ -1516,17 +1514,12 @@
     }
     function statusPanel(kind){
       const list=(DATA.sensors||[]).filter(s=>s.kind===kind).sort((a,b)=>String(a.external_device_id+a.sensor_name).localeCompare(b.external_device_id+b.sensor_name));
-      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">SENSOR STATUS · auto from incoming data (≤15 min = active) · manual override</div></div>
+      return `<div class="card-hd" style="padding:12px 2px 2px"><div class="t">SENSOR STATUS · auto from incoming data (≤15 min = active)</div></div>
        <div class="card"><div class="card-bd" style="overflow:auto;max-height:300px">
-       <table class="tbl"><thead><tr><th>Sensor</th><th>Area</th><th>Last value</th><th>Updated</th><th>Status</th><th>Override</th></tr></thead><tbody>
+       <table class="tbl"><thead><tr><th>Sensor</th><th>Area</th><th>Last value</th><th>Updated</th><th>Status</th></tr></thead><tbody>
        ${list.map(s=>{const st=statusOf(s);const vu=sensorVU(s);
          return `<tr><td>${esc(s.sensor_name)}</td><td>${esc(areaLabel(s.external_device_id))}</td><td>${vu.v} ${esc(vu.unit)}</td><td>${ago(s.latest_ts)}</td>
-           <td><span style="color:${st.c};font-weight:900">● ${esc(st.t)}</span></td>
-           <td style="text-align:right;white-space:nowrap">
-             <button class="btn-ghost xs ${s.manual_state==='auto'?'on':''}" onclick="toggleSensor('${s.sensor_id}','auto')">Auto</button>
-             <button class="btn-ghost xs ${s.manual_state==='on'?'on':''}" onclick="toggleSensor('${s.sensor_id}','on')">On</button>
-             <button class="btn-ghost xs ${s.manual_state==='off'?'on':''}" onclick="toggleSensor('${s.sensor_id}','off')">Off</button>
-           </td></tr>`;}).join('')}
+           <td><span style="color:${st.c};font-weight:900">● ${esc(st.t)}</span></td></tr>`;}).join('')}
        </tbody></table></div></div>`;
     }
 
@@ -1635,7 +1628,6 @@
         const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=fname+'_'+stamp+'.csv'; a.click();
       }
     }
-    async function toggleSensor(id,state){ try{ await sb.rpc('set_sensor_manual_state',{p_sensor_id:id,p_state:state}); await loadAll(); }catch(e){ alert('Failed to change status: '+(e.message||e)); } }
 
     function extensometerView(){
       const groups=[{key:'WOC',dev:'373'},{key:'Water Intake',dev:'372'}];
@@ -1897,56 +1889,137 @@
     }
     window.renderIncRaw=renderIncRaw;
 
+    // ---- Inclinometer LIVE OVERVIEW: 4 hole berurutan, heatmap A (kiri) | B (kanan),
+    //      governing (pergerakan tertinggi + kedalaman) dari inc_heatmap_series (single source).
+    //      Klik "Detail →" → inclinometer.html?dev=<id> untuk advance analysis.
+    const INC_LV = {HIJAU:{t:'LOW',c:'#22c55e'},KUNING:{t:'MEDIUM',c:'#eab308'},JINGGA:{t:'HIGH',c:'#f97316'},MERAH:{t:'VERY HIGH',c:'#ef4444'}};
+
     function inclinometerView(){
-      const nodeId=STATE.incNode||INC_NODES[0].id;
-      const nodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
-      const rawNodeOpts=INC_NODES.map(n=>`<option value="${n.id}"${n.id===nodeId?' selected':''}>${esc(n.label)}</option>`).join('');
       return `
-        <div style="display:flex;align-items:center;gap:10px;padding:0 2px 8px;flex-wrap:wrap">
-          <select id="incNodeSel" class="flt" onchange="selectIncNode(this.value)" style="font-size:13px;font-weight:700">${nodeOpts}</select>
-          <input type="date" id="inc_from" class="flt" value="${STATE.incFrom||'2020-01-01'}" style="font-size:12px">
-          <span style="color:#9fb3cf;font-size:12px">—</span>
-          <input type="date" id="inc_to" class="flt" value="${STATE.incTo||dStr(0)}" style="font-size:12px">
-          <button class="btn-ghost" onclick="loadIncByDate()" style="font-weight:700;padding:6px 16px">SHOW</button>
-          <span id="incStatus" style="font-size:11px;color:#9fb3cf"></span>
-          <span id="incTemp" style="font-size:11px;color:#9fb3cf;margin-left:auto"></span>
+        <div style="display:flex;align-items:center;gap:12px;padding:0 2px 10px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:800;color:#e5e7eb">Inplace Inclinometer — Live Overview</div>
+          <span class="live-badge"><span class="dot" style="--c:#22c55e;animation:pulse 2s infinite"></span> REALTIME · A (kiri) · B (kanan) · 14 hari</span>
+          <span style="font-size:11px;color:#9fb3cf">Governing = pergerakan incremental tertinggi (sensor hidup) &amp; kedalamannya.</span>
+          <a href="inclinometer.html" class="btn-ghost" style="margin-left:auto;font-weight:700;text-decoration:none;padding:6px 16px">Advanced Analysis →</a>
         </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:calc(100vh - 290px)">
-          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfA"></canvas></div></div>
-          <div class="card" style="overflow:hidden"><div class="card-bd" style="height:100%;padding:6px"><canvas id="incProfB"></canvas></div></div>
-        </div>
-
-        <div class="card" style="margin-top:8px;overflow:hidden">
-          <div class="card-hd"><div class="t">Incremental Displacement Heatmap — A-Axis (from baseline)</div></div>
-          <div class="card-bd" style="padding:6px"><div id="incHeatmapBox" style="overflow-x:auto"><div style="color:#9fb3cf;padding:20px;text-align:center">Loading heatmap…</div></div></div>
-        </div>
-
-        <details style="margin-top:8px">
-          <summary style="cursor:pointer;color:#9fb3cf;font-size:12px;font-weight:700;padding:4px 0">RAW DATA</summary>
-          <div class="card" style="margin-top:4px"><div class="card-bd">
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <select id="inc_rawNode" class="flt">${rawNodeOpts}</select>
-              <button class="btn-ghost" onclick="renderIncRaw()">Render</button>
-              <button class="btn-ghost" onclick="exportTable('inc_result','inclinometer')">Excel</button>
-            </div>
-            <div id="inc_result" style="margin-top:8px;color:#9fb3cf;font-size:12px">Pilih node, lalu Render.</div>
-          </div></div>
-        </details>`;
+        <div id="incOverview"><div style="display:flex;justify-content:center;padding:30px"><div class="spin"></div></div></div>`;
     }
 
     function drawIncTab(){
       Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={};
-      const incData=processInc(DATA.incData||[]);
-      const nodeId=STATE.incNode||INC_NODES[0].id;
-      const nd=incData[nodeId];
-      if(!nd) return;
-      const tempEl=document.getElementById('incTemp');
-      if(tempEl) tempEl.textContent=nd.latestTemp!=null?nd.latestTemp.toFixed(1)+'°C':'';
-      const lbl=INC_NODES.find(n=>n.id===nodeId)?.label||nodeId;
-      drawProfileChart('incProfA',nd,'a',lbl+' — A-Axis');
-      drawProfileChart('incProfB',nd,'b',lbl+' — B-Axis');
-      drawIncHeatmap(nodeId);
+      drawIncOverview();
+    }
+
+    // governing lintas Axis A&B pada bucket terbaru, abaikan sensor mati.
+    function incGovFromHeat(hmA,hmB){
+      const bset=new Set(); [hmA,hmB].forEach(hm=>(hm&&hm.data||[]).forEach(d=>bset.add(d.b)));
+      const buckets=[...bset].sort(); if(!buckets.length) return null;
+      const lastB=buckets[buckets.length-1]; let best=null;
+      [['A',hmA],['B',hmB]].forEach(([ax,hm])=>{
+        if(!hm||!hm.sensors) return;
+        const meta={}; hm.sensors.forEach(s=>meta[s.sn]=s);
+        (hm.data||[]).forEach(d=>{
+          const s=meta[d.sn]; if(!s||s.is_dead||d.b!==lastB) return;
+          const a=Math.abs(d.v||0);
+          if(!best||a>best.absv) best={absv:a,v:d.v,sn:d.sn,ax,depth:s.depth_m,railed:!!s.is_railed};
+        });
+      });
+      return best;
+    }
+
+    function incBlockHtml(r,i){
+      const lv=INC_LV[r.ews&&r.ews.trigger_level]||{t:'—',c:'#94a3b8'};
+      const gov=incGovFromHeat(r.A,r.B);
+      const hasData=(r.A&&r.A.sensors&&r.A.sensors.length)||(r.B&&r.B.sensors&&r.B.sensors.length);
+      const govHtml=gov
+        ? `<span style="font-weight:800;color:${lv.c}">${gov.absv.toFixed(1)} mm</span> <span style="color:#9fb3cf">@ ${gov.depth}m · Axis ${gov.ax}</span>${gov.railed?' <span style="color:#f59e0b;font-weight:700">⚠ FROZEN</span>':''}`
+        : '<span style="color:#9fb3cf">No data</span>';
+      return `
+       <div class="card" style="margin-bottom:10px">
+        <div class="card-hd" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="t" style="font-size:14px">${esc(r.node.label)}</div>
+          <span style="background:${lv.c}22;color:${lv.c};border:1px solid ${lv.c};border-radius:5px;padding:2px 8px;font-size:11px;font-weight:800">${lv.t}</span>
+          <span style="font-size:12px">Governing: ${govHtml}</span>
+          <a href="inclinometer.html?dev=${encodeURIComponent(r.node.id)}" class="btn-ghost xs" style="margin-left:auto;text-decoration:none;font-weight:700">Detail →</a>
+        </div>
+        <div class="card-bd" style="padding:6px">
+         ${hasData?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><div style="font-size:11px;color:#38bdf8;font-weight:700;margin-bottom:3px;text-align:center">A-Axis</div><div style="overflow-x:auto"><canvas id="incHmA${i}"></canvas></div></div>
+            <div><div style="font-size:11px;color:#a855f7;font-weight:700;margin-bottom:3px;text-align:center">B-Axis</div><div style="overflow-x:auto"><canvas id="incHmB${i}"></canvas></div></div>
+          </div>`:`<div style="color:#9fb3cf;padding:16px;text-align:center">No baseline / data</div>`}
+        </div>
+       </div>`;
+    }
+
+    async function drawIncOverview(){
+      const box=document.getElementById('incOverview'); if(!box) return;
+      const to=new Date().toISOString(), from=new Date(Date.now()-14*86400000).toISOString(), ev='6 hours';
+      let ewsMap={};
+      try{ const {data}=await sb.rpc('ews_device_latest'); (data||[]).forEach(e=>{ if(e.category==='inclinometer') ewsMap[e.external_device_id]=e; }); }catch(e){}
+      const results=await Promise.all(INC_NODES.map(async n=>{
+        try{
+          const [rA,rB]=await Promise.all([
+            sb.rpc('inc_heatmap_series',{p_device:n.id,p_from:from,p_to:to,p_every:ev,p_axis:'A'}),
+            sb.rpc('inc_heatmap_series',{p_device:n.id,p_from:from,p_to:to,p_every:ev,p_axis:'B'})
+          ]);
+          return {node:n,A:rA.error?null:rA.data,B:rB.error?null:rB.data,ews:ewsMap[n.id]};
+        }catch(e){ return {node:n,A:null,B:null,ews:ewsMap[n.id]}; }
+      }));
+      box.innerHTML=results.map((r,i)=>incBlockHtml(r,i)).join('');
+      results.forEach((r,i)=>{
+        const gov=incGovFromHeat(r.A,r.B);
+        renderIncMini(document.getElementById('incHmA'+i),r.A,'A',gov);
+        renderIncMini(document.getElementById('incHmB'+i),r.B,'B',gov);
+      });
+    }
+
+    // Heatmap ringkas per-axis untuk overview: kedalaman (Y) × waktu (X), warna incremental.
+    // Sensor mati = hatch abu; railed = hatch amber; baris governing di-highlight + depth di-bold.
+    function renderIncMini(cv,data,axis,gov){
+      if(!cv||!data||!data.sensors||!data.sensors.length) return;
+      const sensors=data.sensors.slice().sort((a,b)=>a.depth_m-b.depth_m); // dangkal di atas
+      const buckets=[...new Set((data.data||[]).map(d=>d.b))].sort(); if(!buckets.length) return;
+      const lookup={}; (data.data||[]).forEach(d=>{lookup[d.sn+'|'+d.b]=d.v;});
+      const parent=cv.parentElement, availW=Math.max(200,(parent?parent.clientWidth:340)-2);
+      const mL=42,mR=6,mT=4,mB=28;
+      const cellW=Math.max(5,Math.min(16,Math.floor((availW-mL-mR)/buckets.length)));
+      const cellH=Math.max(9,Math.min(20,Math.floor(240/Math.max(1,sensors.length))));
+      const w=mL+buckets.length*cellW+mR, h=mT+sensors.length*cellH+mB;
+      cv.width=w; cv.height=h; cv.style.height=h+'px'; if(w<=availW) cv.style.width=w+'px';
+      const ctx=cv.getContext('2d'); ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,w,h);
+      const govSn=(gov&&gov.ax===axis)?gov.sn:null;
+      sensors.forEach((s,yi)=>{
+        const y=mT+yi*cellH;
+        buckets.forEach((bk,xi)=>{
+          const x=mL+xi*cellW;
+          if(s.is_dead){
+            ctx.fillStyle='#374151'; ctx.fillRect(x,y,cellW-1,cellH-1);
+            ctx.strokeStyle='#6b7280'; ctx.lineWidth=.4; ctx.save(); ctx.beginPath(); ctx.rect(x,y,cellW,cellH); ctx.clip();
+            for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke();} ctx.restore();
+          } else {
+            const val=lookup[s.sn+'|'+bk];
+            ctx.fillStyle=(val!=null)?hmTriggerColor(val):'#1e293b'; ctx.fillRect(x,y,cellW-1,cellH-1);
+            if(s.is_railed){ ctx.strokeStyle='#f59e0bcc'; ctx.lineWidth=.5; ctx.save(); ctx.beginPath(); ctx.rect(x,y,cellW,cellH); ctx.clip();
+              for(let d=-cellH;d<cellW;d+=4){ctx.beginPath();ctx.moveTo(x+d,y);ctx.lineTo(x+d+cellH,y+cellH);ctx.stroke();} ctx.restore(); }
+          }
+        });
+        if(s.sn===govSn){ ctx.strokeStyle='#e5edf7'; ctx.lineWidth=1.4; ctx.strokeRect(mL,y,buckets.length*cellW,cellH-1); }
+      });
+      // depth labels (governing di-bold putih)
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      const stepY=cellH<11?2:1;
+      sensors.forEach((s,yi)=>{
+        const govd=(s.sn===govSn);
+        if(!govd && (yi%stepY) && yi!==sensors.length-1) return;
+        ctx.fillStyle=govd?'#e5edf7':'#9fb3cf'; ctx.font=(govd?'bold ':'')+'9px sans-serif';
+        ctx.fillText(s.depth_m+'m'+(s.is_dead?' ✗':''),mL-3,mT+yi*cellH+cellH/2);
+      });
+      // date labels (bawah, miring)
+      ctx.fillStyle='#9fb3cf'; ctx.font='8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+      const maxXL=Math.floor((w-mL-mR)/46), xStep=Math.max(1,Math.ceil(buckets.length/Math.max(1,maxXL)));
+      buckets.forEach((bk,xi)=>{ if(xi%xStep) return; const x=mL+xi*cellW+cellW/2, d=new Date(bk);
+        ctx.save(); ctx.translate(x,mT+sensors.length*cellH+3); ctx.rotate(Math.PI/6);
+        ctx.fillText(d.toLocaleDateString('id-ID',{day:'numeric',month:'short'}),0,0); ctx.restore(); });
     }
 
     async function drawIncHeatmap(deviceId){
@@ -3175,7 +3248,6 @@
     window.renderExt=renderExt;
     window.renderAwsRaw=renderAwsRaw;
     window.exportTable=exportTable;
-    window.toggleSensor=toggleSensor;
     window.loadAll=loadAll;
     window.exportDashboard=exportDashboard;
 
