@@ -283,9 +283,10 @@
     .exec-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
     .exec-col.exec-left{overflow:hidden}   /* no scrollbar — cards flex to fit the column */
     /* Monitoring dashboard: 4 charts stacked to fill one screen, shared timeline */
-    .mon-stack{display:flex;flex-direction:column;gap:7px;height:calc(100vh - 142px);min-height:600px}
-    .mon-stack>.card{flex:1;min-height:0;display:flex;flex-direction:column}
-    .mon-stack>.card.mon-inc{flex:1.32}            /* split A/B + 2 legends need more room */
+    .mon-stack{display:flex;flex-direction:column;gap:7px}   /* page scrolls; heatmap gets natural height */
+    .mon-stack>.card{height:230px;min-height:230px;display:flex;flex-direction:column}
+    .mon-inc{display:flex;flex-direction:column;margin:2px 0}
+    #monIncOverview canvas{position:static;inset:auto;max-width:100%;display:block}
     .mon-stack .card-hd{padding:5px 12px 0}
     .mon-stack>.card>.card-bd{flex:1;min-height:0;position:relative;padding:5px 10px 7px}
     .mon-stack canvas{position:absolute;inset:6px 10px 8px}
@@ -1019,7 +1020,7 @@
 
             <div class="nav">
               ${nav.map(([k,n])=>`
-                <button class="${STATE.view===k?'act':''}" onclick="setView('${k}')">
+                <button class="${STATE.view===k?'act':''}" onclick="${k==='inclinometer'?"location.href='inclinometer.html'":"setView('"+k+"')"}">
                   <span class="ico">${k==='overview'?'▣':k==='trends'?'◫':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':'⚙'}</span>
                   <span>${esc(n)}</span>
                 </button>`).join('')}
@@ -1352,18 +1353,20 @@
     function instrumentView(){
       const iRain = `<b>Rainfall</b> — hourly rain (mm) over 7 days. Tall bars = heavy rain. Watch whether the instrument charts below spike shortly <b>after</b> a rain burst: rain raises pore pressure and can drive movement. <b>Red dashed lines = earthquake events.</b>`;
       const iExt = `<b>Extensometer</b> — surface crack/displacement per sensor (D1–D5), zeroed to the period start, in mm. A line trending <b>up</b> = the crack is opening (slope creeping). A sudden step aligned with rain or a quake = a trigger to inspect.`;
-      const iInc = `<b>Inclinometer</b> — cumulative lateral displacement at the casing top (mm), integrating <b>all</b> depth sensors from the fixed toe upward. Baseline = each instrument's earliest (install) reading, so values are absolute since install. <b>Axis A</b> and <b>Axis B</b> are two perpendicular directions; total movement = √(A²+B²). A steady rising trend = sub-surface slope movement.`;
+      const iInc = `<b>Inclinometer — Live Heatmap</b> — incremental displacement per depth-sensor (mm from install baseline), <b>A-Axis (kiri) · B-Axis (kanan)</b>, kedalaman ke bawah × waktu ke kanan. Warna = besar pergerakan (hijau→merah). <b>Governing</b> = sensor hidup dengan pergerakan tertinggi + kedalamannya. Hatch abu = sensor mati; hatch amber = FROZEN. Klik <b>Advanced/Detail →</b> untuk analisis lanjut.`;
       const iVwp = `<b>VWP / Piezometer</b> — pore-water pressure inside the slope (kPa). A rising line, especially after rain, means water is building up and stability is dropping. Sharp sustained rises are a key early-warning signal.`;
       return `
         <div style="font-size:10.5px;color:#9fb3cf;margin:0 2px 8px">Shared 7-day timeline · <span style="color:#f87171">┊ red dashed = earthquake</span> · hover&nbsp;&#9432;&nbsp;on each chart for how to read it.</div>
         <div class="mon-stack">
           <div class="card"><div class="card-hd"><div class="t">🌧️ Rainfall (mm)${infoDot(iRain)}</div></div><div class="card-bd"><canvas id="monRain"></canvas></div></div>
           <div class="card"><div class="card-hd"><div class="t">📏 Extensometer — WOC &amp; Water Intake (mm)${infoDot(iExt)}</div></div><div class="card-bd"><canvas id="monExt"></canvas></div></div>
-          <div class="card mon-inc"><div class="card-hd"><div class="t">∠ Inclinometer — Top Displacement (mm)${infoDot(iInc)}</div></div>
-            <div class="card-bd"><div class="mon-split">
-              <div><div class="mon-sub">Axis A</div><canvas id="monIncA"></canvas></div>
-              <div><div class="mon-sub">Axis B</div><canvas id="monIncB"></canvas></div>
-            </div></div></div>
+          <div class="mon-inc">
+            <div class="card-hd" style="display:flex;align-items:center;gap:8px;padding:2px 2px 6px">
+              <div class="t">∠ Inclinometer — Live Heatmap · A (kiri) · B (kanan)${infoDot(iInc)}</div>
+              <a href="inclinometer.html" class="btn-ghost xs" style="margin-left:auto;text-decoration:none;font-weight:700">Advanced →</a>
+            </div>
+            <div id="monIncOverview"><div style="display:flex;justify-content:center;padding:20px"><div class="spin"></div></div></div>
+          </div>
           <div class="card"><div class="card-hd"><div class="t">◎ VWP — Pore Pressure (kPa)${infoDot(iVwp)}</div></div><div class="card-bd"><canvas id="monVwp"></canvas></div></div>
         </div>`;
     }
@@ -1423,31 +1426,10 @@
       const extB0 = Math.max(100, Math.ceil(extMax*1.3/10)*10);
       monChart('monExt', extDs.length?extDs:[line('—',[],'#a78bfa')], 'mm', 'line', [-extB0,extB0], DISP_TRIG);
 
-      // 3) Inclinometer — cumulative top displacement per node, split Axis A / Axis B.
-      // Source: DB RPC inc_top_displacement_series (single source of truth, install
-      // baseline + complete-profile QC). No client-side cumulative computation here.
-      const incPal=['#f59e0b','#22c55e','#ec4899','#06b6d4'];
-      const incA=[], incB=[];
-      const incLine=(lbl,data,col)=>({label:lbl, data, borderColor:col, backgroundColor:col, borderWidth:1.5, pointRadius:0, tension:.25, fill:false, spanGaps:true});
-      (function(){
-        const byDev={};
-        (DATA.incTop||[]).forEach(r=>{ const id=String(r.external_device_id); const ax=r.axis;
-          const g=byDev[id]=byDev[id]||{A:[],B:[]}; if(g[ax]) g[ax].push({x:new Date(r.ts).getTime(), y:+r.value}); });
-        let ci=0;
-        Object.keys(byDev).sort().forEach(id=>{
-          const lbl=(INC_NODES.find(n=>n.id===id)||{}).label||('INC-'+id); const col=incPal[ci%incPal.length];
-          const A=byDev[id].A.filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
-          const B=byDev[id].B.filter(p=>isFinite(p.x)&&isFinite(p.y)).sort((a,b)=>a.x-b.x);
-          incA.push(incLine(lbl,A,col)); incB.push(incLine(lbl,B,col)); ci++;
-        });
-      })();
-      // Symmetric y-range, default floor ±60 mm (shows the Medium 50 line) with ≈30%
-      // headroom; A & B share the same bound for direct comparison and the axis expands
-      // automatically as displacement grows (revealing the High/Very High lines).
-      let incMax=0; incA.concat(incB).forEach(ds=>ds.data.forEach(p=>{ const a=Math.abs(p.y); if(a>incMax) incMax=a; }));
-      const incB0 = Math.max(60, Math.ceil(incMax*1.3/5)*5);
-      monChart('monIncA', incA.length?incA:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0], DISP_TRIG);
-      monChart('monIncB', incB.length?incB:[line('—',[],'#f59e0b')], 'mm', 'line', [-incB0,incB0], DISP_TRIG);
+      // 3) Inclinometer — LIVE 4-hole heatmap overview (A kiri | B kanan) + governing,
+      // menggantikan chart top-displacement garis. Self-fetch inc_heatmap_series per hole
+      // (single source, sudah termasuk QC dead/railed). Async → mengisi #monIncOverview.
+      drawIncOverview('monIncOverview');
 
       // 4) VWP — pore pressure per channel
       const vwpDs=[]; const vwpPal=['#22d3ee','#3b82f6','#a78bfa','#ec4899','#f97316','#22c55e','#eab308','#06b6d4'];
@@ -1951,8 +1933,8 @@
        </div>`;
     }
 
-    async function drawIncOverview(){
-      const box=document.getElementById('incOverview'); if(!box) return;
+    async function drawIncOverview(containerId){
+      const box=document.getElementById(containerId||'incOverview'); if(!box) return;
       const to=new Date().toISOString(), from=new Date(Date.now()-14*86400000).toISOString(), ev='6 hours';
       let ewsMap={};
       try{ const {data}=await sb.rpc('ews_device_latest'); (data||[]).forEach(e=>{ if(e.category==='inclinometer') ewsMap[e.external_device_id]=e; }); }catch(e){}
@@ -3216,7 +3198,6 @@
     const DASHBOARDS = [
       {view:'overview', name:'Executive'},
       {view:'trends',   name:'Monitoring'},
-      {view:'inclinometer', name:'Inclinometer'},
       {view:'inspection', name:'Inspection'},
     ];
     let _carouselTimer = null;
