@@ -1,0 +1,9 @@
+# Files that must NOT be served publicly by the gcmp Worker (assets.directory ".").
+# Keeps edge-function source (with credentials), docs, and build config off the web.
+.assetsignore
+.gitignore
+.github/
+supabase/
+wrangler.jsonc
+CLAUDE.md
+README.md
