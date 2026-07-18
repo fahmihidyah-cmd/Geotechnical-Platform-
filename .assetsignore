@@ -2,8 +2,16 @@
 # Keeps edge-function source (with credentials), docs, and build config off the web.
 .assetsignore
 .gitignore
+.git/
 .github/
 supabase/
 wrangler.jsonc
 CLAUDE.md
 README.md
+
+# Build-time artifacts created in CI (wrangler-action runs `npm i wrangler`).
+# node_modules/workerd/bin/workerd is ~121 MiB and exceeds the 25 MiB asset cap.
+node_modules/
+.wrangler/
+package.json
+package-lock.json
