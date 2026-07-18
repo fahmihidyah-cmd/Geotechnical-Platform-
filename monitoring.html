@@ -2506,6 +2506,16 @@
       try{
         const { error } = await sb.rpc('inspection_set_state',{ p_id:id, p_state:state, p_note:note });
         if(error) throw error;
+        // Refresh data yang dipengaruhi close/reopen supaya boundary di risk map ikut hilang/muncul
+        // tanpa menunggu heavy-poll berikutnya (DATA.riskAreas hanya dimuat di loadAll heavy).
+        try{
+          const [ins, ras] = await Promise.all([
+            sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
+            sb.from('v_inspection_risk_areas').select('*'),
+          ]);
+          if(!ins.error) DATA.insp=ins.data||[];
+          if(!ras.error) DATA.riskAreas=ras.data||[];
+        }catch(_){}
         await drawInspectionData(); setInsTab('log');
       }catch(e){ alert('Gagal mengubah status: '+(e.message||e)); }
     }
