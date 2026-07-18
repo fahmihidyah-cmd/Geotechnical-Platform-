@@ -545,6 +545,8 @@ function buildRecord(){
     geo_validation:geoStr,
     geo_time:geo.time||null,
   };
+  // RLS insert policy mensyaratkan created_by = auth.uid() untuk non-admin.
+  if(UID) payload.created_by=UID;
   PARAMS.forEach(p=> payload[p.code+"_condition"]=cond[p.code]);
   return {
     client_uuid:payload.client_uuid,
@@ -628,19 +630,26 @@ function done(sent,warn){
 
 // ===================== OUTBOX SYNC =====================
 let _sync=false;
-async function syncOutbox(){ if(_sync||!isOnline())return; const items=await obxAll(); if(!items.length){refreshOutbox();return;}
-  _sync=true; refreshOutbox();
-  for(const rec of items){ try{ await pushRecord(rec); await obxDel(rec.client_uuid); }catch(e){} }
-  _sync=false; refreshOutbox(); }
+async function syncOutbox(manual){ if(_sync||!isOnline())return; const items=await obxAll(); if(!items.length){refreshOutbox();return;}
+  _sync=true; refreshOutbox(); let lastErr=null;
+  for(const rec of items){ try{
+      // record lama dari antrean mungkin belum punya created_by (bug lama) — lengkapi.
+      if(UID && rec.payload && !rec.payload.created_by) rec.payload.created_by=UID;
+      await pushRecord(rec); await obxDel(rec.client_uuid);
+    }catch(e){ lastErr=e; } }
+  _sync=false; refreshOutbox();
+  if(manual && lastErr) alert("Gagal mengirim antrean: "+(lastErr.message||lastErr)); }
 async function refreshOutbox(){ const box=$("outbox"); if(!box)return; const items=await obxAll();
   if(!items.length){ box.innerHTML=""; return; }
   box.innerHTML='<div class="chip"><span>&#8681; '+items.length+' inspeksi menunggu terkirim'+(_sync?' (mengirim…)':'')+'</span>'+(isOnline()&&!_sync?'<button id="syncNow">Kirim sekarang</button>':'')+'</div>';
-  const b=$("syncNow"); if(b) b.onclick=syncOutbox; }
+  const b=$("syncNow"); if(b) b.onclick=()=>syncOutbox(true); }
 
 // ===================== INIT =====================
+let UID=null;
 async function init(){
   const _hd=$("hdr"); if(_hd) _hd.style.display="none";   // header disembunyikan — konteks sudah dari shell
   const session=await GMS.getSession();
+  UID = session && session.user ? session.user.id : null;
   if(!session){ $("app").innerHTML='<div class="center"><div style="font-size:16px;font-weight:700">Perlu login</div><div style="font-size:13px">Login dulu di halaman utama, lalu kembali.</div><a class="btn primary" style="text-decoration:none;max-width:220px" href="index.html">Ke Halaman Login</a></div>'; return; }
   await loadConfig(); await loadDraft();
   if(!PARAMS.length){ $("app").innerHTML='<div class="center">Konfigurasi belum tersedia offline. Sambungkan internet sekali untuk mengunduh, lalu bisa dipakai offline.</div>'; return; }
