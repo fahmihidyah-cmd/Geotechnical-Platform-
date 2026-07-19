@@ -185,6 +185,36 @@ Correlation explorer hujan→VWP→displacement (RPC cross-correlation dgn lag 0
 instrument health score/uptime per device (dead/frozen/stale dari `details`) · partisi bulanan /
 continuous aggregate `readings` bila >5 jt baris · opsional embed Grafana read-only.
 
+### FASE 4 · Self-service & keberlanjutan (NORTH STAR — kelas Trimble 4D / GeoMoS / MonitorIQ)
+Tujuan pemilik: platform **customizable via UI admin tanpa kode**, dan **tetap hidup saat
+pemilik resign**. Semua konfigurasi pindah dari hardcode → tabel DB + halaman `admin.html`:
+1. **Registry instrumen via UI** — CRUD `monitoring.devices`/`sensors`/`inc_initial_baseline`/
+   `vwp_calibration` + koordinat & lokasi: tambah/nonaktifkan alat TANPA migrasi SQL.
+   (Onboarding alat baru spt SYSCOM accelero cukup isi form.)
+2. **Threshold & TARP editor** (perluasan F2 thresholds) + editor teks tindakan TARP per level.
+3. **Penerima alarm & eskalasi via UI** — CRUD `alert_recipients` + jadwal/level per penerima.
+4. **Manajemen user & role via UI** — CRUD `user_roles` (approve pending, set validator/admin).
+5. **Report scheduler** — pilih template (shift/harian/AI report), jadwal, penerima email/WA.
+6. **Widget dashboard configurable** — tabel `dashboard_config` per role: pilih panel & urutan.
+Prasyarat teknis SUDAH ada (semua logika di DB); ini murni kerja UI admin + RLS admin-only.
+
+## KEBERLANJUTAN / BUS FACTOR (risiko #1 — lebih penting dari semua fitur)
+Saat ini SEMUA akun di bawah individu pemilik — bila resign, akses platform ikut hilang:
+| Aset | Sekarang | Harus jadi |
+|---|---|---|
+| Supabase (project `dhddckamrkfleuigrsip`) | akun pribadi gmail | **Organization** perusahaan, ≥2 owner |
+| GitHub repo | `fahmihidyah-cmd` (pribadi) | org perusahaan / transfer + ≥2 admin |
+| Cloudflare (worker `gcmp` + aerial + domain) | akun pribadi | akun/email perusahaan, ≥2 member |
+| Domain (rencana `gmplens.com`) | — | daftar atas nama perusahaan + auto-renew |
+| WhatsApp API, Loadsensing, Argatech, API AI | kredensial pribadi/campur | vault perusahaan (mis. 1Password/Bitwarden tim) |
+Langkah wajib sebelum handover: (1) migrasi akun ke org/email perusahaan; (2) simpan semua
+secret di vault tim; (3) tunjuk & latih **≥2 admin**; (4) tulis **runbook operasional non-dev**
+(`RUNBOOK.md`: feed down→cek apa; alarm→siapa; sensor rusak→prosedur; deploy→langkah;
+restore backup→langkah) — CLAUDE.md ini = handover DEV, runbook = handover OPS;
+(5) uji "hari tanpa pemilik": admin lain melakukan 1 deploy + 1 ubah threshold + 1 respon alarm
+tanpa bantuan; (6) rencana on-prem (lihat dokumen migrasi) = jalur kemandirian penuh dari
+akun cloud pribadi.
+
 ### UX/UI (audit terpisah — eksekusi bertahap, bisa nyicil bareng F0–F2)
 1. **3 persona**: shift crew (HP — grid 344px & tombol `.mini` tak ramah jempol; buat breakpoint
    mobile-first), engineer (desktop, default sekarang), manajemen (**TV mode**: fullscreen,
