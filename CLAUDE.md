@@ -111,6 +111,54 @@ Views: `v_instrument_sensors`, `v_instrument_readings`, `v_instrument_points`,
 5. Storage: DB ~193 MB (Pro 8 GB). Foto di Supabase Storage bucket (kuota 100 GB terpisah).
    PDF di-generate di sisi client (tidak disimpan). Log ingest dipangkas 7 hari otomatis.
 
+## Roadmap dashboard (hasil audit Jul 2026 — disepakati pemilik, kerjakan berurutan)
+Prinsip urutan: **cepat → jujur → pintar** (fitur advance di atas data tak konsisten = makin banyak "tidak match").
+
+**FASE 0 · Performa `monitoring.html`** (fakta: 197 KB monolitik, ~20 query paralel saat boot
+≈1–2 MB, heavy pass tiap 10 mnt + tiap tab fokus, `root.innerHTML=tpl()` rebuild 16 chart+peta):
+1. Stop rebuild DOM total → update-in-place (`chart.update('none')`; render DOM hanya saat ganti view). *Dampak terbesar.*
+2. XLSX (0.9 MB) lazy-load saat klik Export saja.
+3. Fetch per-view (view aktif saja) + throttle `visibilitychange` (min 60 dtk).
+4. Gabung 8 query ringan → 1 RPC `dashboard_snapshot()`.
+
+**FASE 1 · Konsistensi data** (akar "tidak match"):
+1. Buang SEMUA dummy tab Inspection (MTTR/Gap/tren) — hitung nyata dari `closed_at`.
+2. Satu bahasa pergerakan inklinometer: headline = **governing incremental RESULTAN √(A²+B²)**
+   (selaras EWS); top-displacement jadi sekunder berlabel metode. Jangan A-only.
+3. Standarkan **WITA** untuk semua bucket harian di RPC (sekarang campur UTC/WITA → geser di batas hari).
+4. Chip "data as-of" **per panel** per feed (argatech 2 mnt vs loadsensing 15 mnt), bukan 1 global.
+5. Flag QC permanen artefak transien sensor mati (burst −191/782/1192 mm 108102) + filter frame-transien.
+
+**FASE 2 · Fitur advance:**
+threshold config-driven (tabel `monitoring.thresholds` + editor admin) · panel forecast
+**inverse-velocity (Fukuzono)** di DB (garis proyeksi + ETA ambang) · unifikasi 3 sistem risiko →
+governing per lokasi (matrix 5×5 jadi live) · alarm workflow ack/assign/escalate di atas
+`ews_alert_log` · tabel `events` (blasting/perbaikan/hujan) sebagai marker semua chart ·
+**AI Daily Report** (Edge Fn `generate-ai-report`, provider-agnostic — mulai Gemini free tier;
+RPC `ai_report_snapshot()` → LLM temperature 0 wajib sitir angka → tabel `monitoring.ai_reports`;
+advisory only, TIDAK pernah memicu alarm).
+
+**FASE 3 · Analytics:** correlation explorer hujan→VWP→displacement (lag) · instrument health
+score/uptime · partisi + continuous aggregates `readings` · opsional Grafana read-only.
+
+**UX/UI (audit terpisah — belum dieksekusi):**
+1. **3 persona, 1 layout** — shift crew (HP, layar kecil, sarung tangan), engineer (desktop),
+   manajemen (TV/carousel). Grid 344px & tombol `mini` tidak ramah HP; buat breakpoint
+   mobile-first utk halaman lapangan + "TV mode" high-contrast utk control room.
+2. **Hirarki informasi**: status EWS global harus terbaca <3 dtk dari jarak 3 m — 1 banner
+   status raksasa persisten (sticky) di SEMUA tab, bukan KPI sejajar banyak.
+3. **Aksesibilitas**: banyak font 8–10px (terlalu kecil), kontras teks muted rendah; jangan
+   andalkan warna saja utk level (tambah ikon/pola — colorblind-safe); touch target ≥44px.
+4. **Konsistensi**: bahasa campur EN/ID → pilih ID; tema campur (monitoring gelap, inspeksi
+   terang) → satukan; label timezone eksplisit "WITA" di semua timestamp.
+5. **State kosong/loading**: skeleton + empty-state jelas ("feed loadsensing down 17 jam" harus
+   tampil sebagai status, bukan chart kosong).
+6. **Alarm UX**: perubahan level = notifikasi visual persist + ack; hindari flapping tampil ke user
+   (tahan dgn persistence yang sudah ada).
+7. **IA/navigasi**: rapikan sidebar vs carousel vs halaman standalone (`inclinometer.html`) —
+   satu pola navigasi; back/breadcrumb konsisten.
+8. **Chart UX**: unit + garis ambang berlabel di semua chart; tooltip seragam; zoom/pan; export per chart.
+
 ## PR / pekerjaan yang masih terbuka
 1. **VWP masuk voting EWS global** (`evaluate_ews`) — sekarang VWP hanya di shift report.
 2. **Risk matrix L×C** (Likelihood×Consequence) untuk inspeksi sebagai fungsi DB
