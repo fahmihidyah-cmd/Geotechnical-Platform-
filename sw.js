@@ -1,6 +1,6 @@
-/* GMS service worker v16 — multi-page offline shell + map assets + aerial tile runtime cache */
+/* GMS service worker v18 — multi-page offline shell + map assets + aerial tile runtime cache */
 "use strict";
-const CACHE = "gms-shell-v17";
+const CACHE = "gms-shell-v18";
 const TILE_CACHE = "gms-aerial-tiles-v1";          // persistent: survives app updates
 const TILE_HOST = "young-mouse-1ee2.fahmihidyah.workers.dev"; // aerial XYZ tiles (Cloudflare)
 const SUPA_CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";

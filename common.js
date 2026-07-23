@@ -29,12 +29,17 @@
   GMS.getProfile = async function(){
     const { data:{ user } } = await GMS.sb.auth.getUser();
     if(!user) return null;
-    let role="member", status="pending", prof=null;
-    try{
-      const { data:rl, error } = await GMS.sb.from("user_roles").select("role,status,can_validate,full_name,badge_number,position,department,phone").eq("user_id",user.id).maybeSingle();
-      if(error) throw error;
-      if(rl){ prof=rl; role=rl.role||"member"; status=rl.status||"pending"; }
-    }catch(e){ return null; } // fail-closed: profile lookup failed → caller treats as not logged in
+    let role="member", status="pending", prof=null, ok=false;
+    // retry 3×: 503/timeout sesaat (server sibuk) jangan langsung memblokir halaman
+    for(let i=0;i<3 && !ok;i++){
+      try{
+        const { data:rl, error } = await GMS.sb.from("user_roles").select("role,status,can_validate,full_name,badge_number,position,department,phone").eq("user_id",user.id).maybeSingle();
+        if(error) throw error;
+        ok=true;
+        if(rl){ prof=rl; role=rl.role||"member"; status=rl.status||"pending"; }
+      }catch(e){ if(i<2) await new Promise(r=>setTimeout(r,1000*(i+1))); }
+    }
+    if(!ok) return null; // fail-closed: profile lookup failed → caller treats as not logged in
     const isSuper = role==="super_admin";
     const canValidate = status==="active" && (role==="admin"||role==="super_admin");
     return { user, role, status, canValidate, isSuper, profile:prof, email:user.email };
@@ -57,7 +62,12 @@
       return null;
     }
     const p = await GMS.getProfile();
-    if(!p){ block('<div>Gagal memuat profil. Coba muat ulang.</div>'); return null; }
+    if(!p){
+      block('<div style="font-size:16px;font-weight:700;color:var(--txt)">Server sibuk</div>'+
+            '<div style="font-size:13px;max-width:340px">Gagal memuat profil (koneksi ke server bermasalah / server sedang sibuk). Ini biasanya sementara.</div>'+
+            '<button class="btn primary" style="max-width:180px" onclick="location.reload()">Coba lagi</button>');
+      return null;
+    }
     if(p.status!=="active"){
       const dis = p.status==="disabled";
       block('<div style="width:56px;height:56px;border-radius:50%;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:26px">&#9888;</div>'+
