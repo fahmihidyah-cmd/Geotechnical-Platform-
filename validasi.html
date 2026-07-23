@@ -231,8 +231,8 @@ window.decide=async(status)=>{
   try{ const body = status==="approved" ? Object.assign({},condBody(),ovrBody(),{approval_status:"approved",review_note:note||null,approved_by:ME||null,approved_at:new Date().toISOString()})
                                         : {approval_status:"rejected",review_note:note||null};
     const {error}=await sb.from("inspections").update(body).eq("id",sel.id); if(error)throw error;
-    closeDrawer(); await loadPending(); }
-  catch(e){ alert(e.message||e); busy=false; renderDrawer(); }
+    busy=false; closeDrawer(); await loadPending(); }
+  catch(e){ busy=false; renderDrawer(); alert(e.message||e); }
 };
 
 (async()=>{
