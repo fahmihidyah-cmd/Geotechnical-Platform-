@@ -37,7 +37,7 @@ Edge function source live disimpan di `supabase/functions/` (lihat README di san
 | `pull-argatech-2min` | 2 mnt | `pull-argatech-sensors` | Extensometer + AWS (device 372, 373) |
 | `pull-loadsensing-hourly` | 15 mnt | `pull-loadsensing` | Inclinometer + VWP (`current.csv`) |
 | `pull-loadsensing-backfill-6h` | 6 jam | `pull-loadsensing?month=YYYY-MM` | Backfill CSV bulanan (isi lubang gap gateway) |
-| `fetch-bmkg-every-minute` | **1 mnt** | `fetch-bmkg` | Gempa BMKG → PGA/TARP → **auto WA** (`send-alert-wa`). **JANGAN turunkan frekuensi** (latensi notif). Dedup `event_id`. |
+| `fetch-bmkg-every-minute` | **1 mnt** | `fetch-bmkg` | Gempa BMKG → PGA/TARP → **auto WA** (`send-alert-wa`). **JANGAN turunkan frekuensi** (latensi notif). Dedup `event_id` **BATCH** (v8: 1 query `.in()` per 200 event — JANGAN kembali ke per-event; insiden 23 Jul 2026: per-event×1mnt=10 jt panggilan + dedup bocor saat 503 → 100k duplikat → IO habis → PostgREST 503 total). Backstop: **UNIQUE index `uq_earthquakes_event_id`** + handler 23505. |
 | `ews-evaluate-10min` | 10 mnt | — | `monitoring.evaluate_ews()` |
 | `prune-ingestion-logs` | harian 02:00 UTC | — | `monitoring.prune_ingestion_logs(7)` |
 
