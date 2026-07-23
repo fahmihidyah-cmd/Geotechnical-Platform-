@@ -114,7 +114,14 @@ Views: `v_instrument_sensors`, `v_instrument_readings`, `v_instrument_points`,
 ## Roadmap dashboard (audit Jul 2026 — disepakati pemilik; kerjakan BERURUTAN)
 Prinsip: **cepat → jujur → pintar**. Tiap item ditulis: apa · di mana · cara · selesai-bila.
 
-### FASE 0 · Performa `monitoring.html`
+### FASE 0 · Performa
+0. **[SELESAI 23 Jul 2026] `evaluate_ews` dioptimasi** — pola "latest per sensor" diubah dari
+   `DISTINCT ON` (sort seluruh riwayat tiap sensor) → `CROSS JOIN LATERAL … ORDER BY ts DESC LIMIT 1`
+   (index-dive via `readings_sensor_ts_idx`); `ps` CTE inklinometer pakai LATERAL first/last + agregat
+   jendela 3-hari. Semantik EWS byte-identik (diverifikasi: output per-device sama). **8.476 ms → 178 ms (~48×)**.
+   Ini beban DB terbesar kedua setelah insiden fetch-bmkg. Diterapkan via MCP (bukan repo).
+
+### FASE 0b · Performa `monitoring.html`
 (fakta terukur: 197 KB monolitik; boot ≈20 query paralel ≈1–2 MB; heavy pass tiap 10 mnt
 + tiap tab fokus; `render()` me-rebuild DOM+16 chart+peta setiap `loadAll`)
 1. **Stop rebuild DOM total** *(dampak terbesar)* — `loadAll()` berakhir memanggil `render()`
