@@ -342,6 +342,8 @@
   .leaflet-popup-tip{background:rgba(9,26,46,.98)}
   .leaflet-popup-close-button{color:#9fb3cf!important;font-size:16px!important;padding:5px 6px 0 0!important}
   .leaflet-popup-close-button:hover{color:#fff!important}
+  .fault-toggle.active{background:#a855f7!important;border-color:#a855f7!important;color:#fff!important}
+  .layer-btn.loading{opacity:.55;pointer-events:none}
 </style>
 
 
@@ -405,6 +407,7 @@
         <button class="layer-btn" onclick="switchLayer('street')" id="btn-street"><span class="layer-icon">🗺️</span>Street</button>
         <button class="layer-btn active" onclick="switchLayer('satellite')" id="btn-satellite"><span class="layer-icon">🛰️</span>Satellite</button>
         <button class="layer-btn" onclick="switchLayer('topo')" id="btn-topo"><span class="layer-icon">⛰️</span>Topografi</button>
+        <button class="layer-btn fault-toggle" onclick="toggleFaults()" id="btn-faults" title="Toggle active fault lines (GEM)"><span class="layer-icon">⋔</span>Faults</button>
       </div>
       <div class="eews-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--lv1)"></div>LV1</div>
@@ -412,6 +415,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--lv3)"></div>LV3</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--lv4)"></div>LV4</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>WOC/Port</div>
+        <span id="faultLegend" style="display:none;flex-basis:100%;flex-wrap:wrap;gap:9px;align-items:center"></span>
       </div>
     </div>
 
@@ -731,6 +735,52 @@ function switchLayer(key){
     document.getElementById('btn-'+k)?.classList.toggle('active', k===key);
   });
 }
+
+// ── Geological structure overlay (active faults, source: GEM Global Active Faults) ──
+// Data lives in DB (RPC geology_faults_geojson); front-end only fetches & draws.
+let faultLayer = null, faultsData = null;
+const FAULT_STYLE = {
+  strike_slip: { color:'#f59e0b', label:'Strike-slip fault' },
+  reverse:     { color:'#ef4444', label:'Thrust / reverse fault' },
+  normal:      { color:'#3b82f6', label:'Normal fault' },
+  subduction:  { color:'#a855f7', label:'Subduction zone' },
+  other:       { color:'#94a3b8', label:'Other' }
+};
+async function toggleFaults(){
+  const btn = document.getElementById('btn-faults');
+  const leg = document.getElementById('faultLegend');
+  if(faultLayer){ map.removeLayer(faultLayer); faultLayer=null; btn?.classList.remove('active'); if(leg) leg.style.display='none'; return; }
+  try{
+    if(btn){ btn.classList.add('loading'); }
+    if(!faultsData){
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/geology_faults_geojson`, {
+        method:'POST', headers:{ 'Content-Type':'application/json', apikey:ANON_KEY, Authorization:'Bearer '+ANON_KEY }, body:'{}'
+      });
+      faultsData = await r.json();
+    }
+    if(!faultsData || !Array.isArray(faultsData.features)){ throw new Error('no data'); }
+    faultLayer = L.geoJSON(faultsData, {
+      style:(f)=>{ const cat=f.properties.category; const s=FAULT_STYLE[cat]||FAULT_STYLE.other;
+        return { color:s.color, weight: cat==='subduction'?2:2.6, opacity:.9, dashArray: cat==='subduction'?'5,4':null }; },
+      onEachFeature:(f,layer)=>{ const p=f.properties; const s=FAULT_STYLE[p.category]||FAULT_STYLE.other;
+        layer.bindPopup('<div style="font-size:11px;min-width:130px"><b style="color:'+s.color+'">'+s.label+'</b><br>'
+          +'Mechanism: '+GMS.esc(p.slip_type||'—')+(p.slip_rate?'<br>Slip rate: '+GMS.esc(p.slip_rate):'')
+          +'<br><span style="color:#9fb3cf">Source: '+GMS.esc(p.source||'GEM')+'</span></div>');
+        layer.on('mouseover',()=>layer.setStyle({weight:4})); layer.on('mouseout',()=>layer.setStyle({weight:f.properties.category==='subduction'?2:2.6})); }
+    }).addTo(map);
+    btn?.classList.add('active');
+    if(leg){
+      const cats=[...new Set(faultsData.features.map(f=>f.properties.category))];
+      leg.innerHTML = '<span style="flex-basis:100%;height:1px;background:var(--border);margin:3px 0"></span>'
+        + cats.map(c=>{ const s=FAULT_STYLE[c]||FAULT_STYLE.other;
+            return '<span class="legend-item"><span style="display:inline-block;width:15px;border-top:3px '+(c==='subduction'?'dashed':'solid')+' '+s.color+'"></span>'+s.label+'</span>'; }).join('')
+        + '<span class="legend-item" style="color:var(--text3)">Source: GEM Global Active Faults</span>';
+      leg.style.display='flex';
+    }
+  }catch(e){ alert('Failed to load fault data: '+(e&&e.message||e)); }
+  finally{ if(btn) btn.classList.remove('loading'); }
+}
+window.toggleFaults = toggleFaults;
 
 // ── Format waktu WITA (UTC+8) ───────────────────────────────────────────────
 // Kolom `tanggal` di DB bertipe timestamp tanpa timezone, isinya UTC.
