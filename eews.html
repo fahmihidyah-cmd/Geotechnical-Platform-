@@ -30,7 +30,6 @@
      topbar agar mulus di dalam shell monitoring. Elemen tetap di DOM (JS tak error). */
   html.embed #eewsMenuLink{display:none!important}
   html.embed .topbar{display:none!important}
-  html.embed .main{padding-top:16px}
   body{
     font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);min-height:100vh;
     background:
@@ -290,6 +289,51 @@
     .card-header{padding:11px 13px;font-size:12px}
     .detail-val{max-width:150px}
   }
+
+  /* ── Map-first redesign: peta = hero, statistik & status jadi panel collapsible ── */
+  body{display:flex;flex-direction:column;min-height:100vh}
+  .main.eews-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:0;max-width:none;margin:0}
+  .eews-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    padding:9px 16px;background:rgba(16,18,26,.92);border-bottom:1px solid var(--border);flex:0 0 auto;position:relative;z-index:1300}
+  .eb-left,.eb-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .eb-status{display:inline-flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);
+    border-radius:99px;padding:6px 13px;cursor:pointer;color:var(--text);font:600 12px 'Segoe UI',sans-serif;transition:border-color .15s}
+  .eb-status:hover{border-color:rgba(255,255,255,.22)}
+  .eb-status-dot{width:9px;height:9px;border-radius:50%;background:var(--text3);box-shadow:0 0 8px transparent;flex:none}
+  .eb-caret{color:var(--text3);font-size:10px}
+  .eb-tarp{font:700 12px 'Segoe UI',sans-serif;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}
+  .eb-tarp.lv1{color:#60a5fa;border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.12)}
+  .eb-tarp.lv2{color:#fbbf24;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.13)}
+  .eb-tarp.lv3{color:#fb923c;border-color:rgba(249,115,22,.45);background:rgba(249,115,22,.13)}
+  .eb-tarp.lv4{color:#f87171;border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.15)}
+  .eb-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 12px;
+    font:600 12px 'Segoe UI',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .eb-btn:hover{background:#2d3248;transform:translateY(-1px)}
+  .eb-btn.on{background:var(--accent);border-color:var(--accent);color:#06231a}
+  .eb-btn-accent{border-color:var(--accent);color:var(--accent)}
+  .eews-mapwrap{position:relative;flex:1 1 auto;min-height:0}
+  .eews-mapwrap .map-wrapper{position:absolute;inset:0;border-radius:0;height:auto}
+  .eews-mapwrap #map{position:absolute;inset:0;height:100%!important;width:100%}
+  .eews-legend{position:absolute;bottom:12px;right:12px;z-index:700;display:flex;gap:11px;flex-wrap:wrap;align-items:center;
+    background:rgba(10,12,18,.74);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:10px;color:var(--text2);max-width:min(300px,60vw)}
+  .eews-legend .legend-item{display:flex;align-items:center;gap:5px}
+  .eews-legend .legend-dot{width:9px;height:9px;border-radius:50%}
+  .eews-panel{position:absolute;z-index:1200;display:none;background:rgba(18,20,28,.975);backdrop-filter:blur(16px);
+    border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 55px rgba(0,0,0,.55);animation:epIn .16s ease}
+  .eews-panel.open{display:flex;flex-direction:column}
+  @keyframes epIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+  .ep-status{top:12px;left:12px;width:min(440px,94vw);padding:14px}
+  .ep-info{top:12px;right:12px;width:min(340px,94vw);padding:14px}
+  .ep-log{left:12px;right:12px;bottom:12px;max-height:54%;padding:12px 14px}
+  .ep-head{display:flex;align-items:center;gap:9px;margin-bottom:11px;font-size:13px;flex:0 0 auto}
+  .ep-head .ep-x{margin-left:auto;background:none;border:none;color:var(--text3);font-size:16px;line-height:1;cursor:pointer;padding:2px 7px;border-radius:7px}
+  .ep-head .ep-x:hover{background:var(--bg3);color:var(--text)}
+  .ep-checked{font-size:10.5px;color:var(--text3);font-weight:400}
+  .eews-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .eews-stats .stat{padding:13px 15px}
+  .eews-stats .stat-value{font-size:24px}
+  .ep-log .table-wrap{overflow:auto;min-height:0;flex:1 1 auto}
+  @media(max-width:640px){ .ep-info,.ep-status{width:94vw;left:3vw;right:auto} }
 </style>
 
 
@@ -315,101 +359,117 @@
 
 <div class="new-event-toast" id="toast"></div>
 
-<div class="main">
-  <div class="stats">
-    <div class="stat" id="stat-total">
-      <div class="stat-label">Total Earthquakes</div>
-      <div class="stat-value green" id="s-total">—</div>
-      <div class="stat-sub">events stored</div>
+<div class="main eews-main">
+  <!-- Bar kontrol ramping & profesional — selalu terlihat -->
+  <div class="eews-bar">
+    <div class="eb-left">
+      <button class="eb-status" id="eb-status" onclick="togglePanel('status')" title="Status sistem EEWS (hulu→hilir)">
+        <span class="eb-status-dot" id="eb-status-dot"></span>
+        <span id="eb-status-lbl">Memuat…</span>
+        <span class="eb-caret">▾</span>
+      </button>
+      <span class="eb-tarp" id="bar-tarp" title="Site TARP level — Donovan (1979)">TARP —</span>
     </div>
-    <div class="stat" id="stat-mag">
-      <div class="stat-label">Highest Magnitude</div>
-      <div class="stat-value" id="s-maxmag">—</div>
-      <div class="stat-sub" id="s-maxmag-loc">—</div>
-    </div>
-    <div class="stat" id="stat-tarp">
-      <div class="stat-label">Site TARP Level</div>
-      <div class="stat-value" id="s-tarp">—</div>
-      <div class="stat-sub">Donovan (1979)</div>
-    </div>
-    <div class="stat" id="stat-alert">
-      <div class="stat-label">Pending Alerts</div>
-      <div class="stat-value" id="s-alert">—</div>
-      <div class="stat-sub">notification queue</div>
+    <div class="eb-right">
+      <button class="eb-btn" id="eb-info-btn" onclick="togglePanel('info')">📊 Info</button>
+      <button class="eb-btn" id="eb-log-btn" onclick="togglePanel('log')">📋 Log Gempa</button>
+      <button class="eb-btn" onclick="loadHealth()">⟳ Cek</button>
+      <button class="eb-btn eb-btn-accent" id="btn-test-alarm" onclick="runTestAlarm()">🔔 Uji Alarm</button>
     </div>
   </div>
 
-  <div class="card" id="sys-status-card" style="margin-bottom:16px">
-    <div class="card-header">
-      <div class="card-header-left"><div class="dot" id="sys-overall-dot" style="background:var(--text3)"></div>Status Sistem EEWS<span id="sys-overall-badge"></span></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span id="sys-checked" style="font-size:11px;color:var(--text3)"></span>
-        <button class="refresh-btn" onclick="loadHealth()">⟳ Cek Ulang</button>
-        <button class="refresh-btn" id="btn-test-alarm" onclick="runTestAlarm()" style="border-color:var(--accent);color:var(--accent)">🔔 Uji Alarm</button>
+  <!-- Peta = hero -->
+  <div class="eews-mapwrap">
+    <div class="map-wrapper">
+      <div id="map"></div>
+      <div class="map-hint" id="map-hint">🖱️ Click map to enable scroll-zoom</div>
+      <div class="latest-panel" id="latest-panel">
+        <div class="latest-head" id="latest-head">
+          <span class="latest-title"><span class="latest-ind"></span> Latest Earthquake</span>
+          <button class="latest-chevron" id="latest-chevron" aria-label="Toggle">▾</button>
+        </div>
+        <div class="latest-body" id="latest-body">
+          <div class="latest-empty">Waiting for data…</div>
+        </div>
       </div>
-    </div>
-    <div id="sys-stages" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;padding:6px 2px 2px">
-      <div style="font-size:12px;color:var(--text2)">Memuat status…</div>
-    </div>
-    <div id="sys-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:12px"></div>
-  </div>
-
-  <div class="grid2">
-    <div>
-      <div class="card map-card">
-        <div class="card-header">
-          <div class="card-header-left"><div class="dot" style="background:var(--accent)"></div>Real-time Earthquake Map</div>
-          <span style="font-size:11px;color:var(--text3)">Click marker for details</span>
-        </div>
-        <div class="map-wrapper">
-          <div id="map"></div>
-          <div class="map-hint" id="map-hint">🖱️ Click map to enable scroll-zoom</div>
-          <div class="latest-panel" id="latest-panel">
-            <div class="latest-head" id="latest-head">
-              <span class="latest-title"><span class="latest-ind"></span> Latest Earthquake</span>
-              <button class="latest-chevron" id="latest-chevron" aria-label="Toggle">▾</button>
-            </div>
-            <div class="latest-body" id="latest-body">
-              <div class="latest-empty">Waiting for data…</div>
-            </div>
-          </div>
-          <div class="layer-switcher">
-            <button class="layer-btn active" onclick="switchLayer('dark')" id="btn-dark"><span class="layer-icon">🌑</span>Dark</button>
-            <button class="layer-btn" onclick="switchLayer('street')" id="btn-street"><span class="layer-icon">🗺️</span>Street</button>
-            <button class="layer-btn" onclick="switchLayer('satellite')" id="btn-satellite"><span class="layer-icon">🛰️</span>Satellite</button>
-            <button class="layer-btn" onclick="switchLayer('topo')" id="btn-topo"><span class="layer-icon">⛰️</span>Topografi</button>
-          </div>
-        </div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:var(--lv1)"></div>LV1 &lt;0.02g</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--lv2)"></div>LV2 0.02–0.05g</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--lv3)"></div>LV3 0.05–0.10g</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--lv4)"></div>LV4 &gt;0.10g</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>WOC / Port</div>
-        </div>
+      <div class="layer-switcher">
+        <button class="layer-btn active" onclick="switchLayer('dark')" id="btn-dark"><span class="layer-icon">🌑</span>Dark</button>
+        <button class="layer-btn" onclick="switchLayer('street')" id="btn-street"><span class="layer-icon">🗺️</span>Street</button>
+        <button class="layer-btn" onclick="switchLayer('satellite')" id="btn-satellite"><span class="layer-icon">🛰️</span>Satellite</button>
+        <button class="layer-btn" onclick="switchLayer('topo')" id="btn-topo"><span class="layer-icon">⛰️</span>Topografi</button>
+      </div>
+      <div class="eews-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lv1)"></div>LV1</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lv2)"></div>LV2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lv3)"></div>LV3</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--lv4)"></div>LV4</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>WOC/Port</div>
       </div>
     </div>
 
-  </div>
-
-  <div class="table-card">
-    <div class="card-header">
-      <div class="card-header-left"><div class="dot" style="background:var(--lv1)"></div>Earthquake Log</div>
-      <span style="font-size:11px;color:var(--text3)" id="table-count">—</span>
+    <!-- Panel: STATUS SISTEM (ringkas, buka dari bar kiri) -->
+    <div class="eews-panel ep-status" id="panel-status">
+      <div class="ep-head">
+        <b>Status Sistem EEWS</b><span id="sys-overall-badge"></span>
+        <span id="sys-checked" class="ep-checked"></span>
+        <button class="ep-x" onclick="togglePanel('status')" aria-label="Tutup">✕</button>
+      </div>
+      <div id="sys-overall-dot" style="display:none"></div>
+      <div id="sys-stages" style="display:grid;grid-template-columns:1fr;gap:9px">
+        <div style="font-size:12px;color:var(--text2)">Memuat status…</div>
+      </div>
+      <div id="sys-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:12px"></div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>Time (WITA)</th><th>Region</th><th>Mag</th>
-            <th>Depth</th><th>Coordinates</th><th>Tsunami</th>
-            <th>TARP</th><th>PGA WOC (g)</th><th>PGA Port (g)</th>
-          </tr>
-        </thead>
-        <tbody id="eq-tbody">
-          <tr class="loading-row"><td colspan="10">Loading data...</td></tr>
-        </tbody>
-      </table>
+
+    <!-- Panel: INFO / statistik (buka dari tombol Info) -->
+    <div class="eews-panel ep-info" id="panel-info">
+      <div class="ep-head"><b>Ringkasan Gempa</b>
+        <button class="ep-x" onclick="togglePanel('info')" aria-label="Tutup">✕</button>
+      </div>
+      <div class="eews-stats">
+        <div class="stat" id="stat-total">
+          <div class="stat-label">Total Earthquakes</div>
+          <div class="stat-value green" id="s-total">—</div>
+          <div class="stat-sub">events stored</div>
+        </div>
+        <div class="stat" id="stat-mag">
+          <div class="stat-label">Highest Magnitude</div>
+          <div class="stat-value" id="s-maxmag">—</div>
+          <div class="stat-sub" id="s-maxmag-loc">—</div>
+        </div>
+        <div class="stat" id="stat-tarp">
+          <div class="stat-label">Site TARP Level</div>
+          <div class="stat-value" id="s-tarp">—</div>
+          <div class="stat-sub">Donovan (1979)</div>
+        </div>
+        <div class="stat" id="stat-alert">
+          <div class="stat-label">Pending Alerts</div>
+          <div class="stat-value" id="s-alert">—</div>
+          <div class="stat-sub">notification queue</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: LOG GEMPA (bottom sheet) -->
+    <div class="eews-panel ep-log" id="panel-log">
+      <div class="ep-head">
+        <b>Earthquake Log</b><span id="table-count" class="ep-checked">—</span>
+        <button class="ep-x" onclick="togglePanel('log')" aria-label="Tutup">✕</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Time (WITA)</th><th>Region</th><th>Mag</th>
+              <th>Depth</th><th>Coordinates</th><th>Tsunami</th>
+              <th>TARP</th><th>PGA WOC (g)</th><th>PGA Port (g)</th>
+            </tr>
+          </thead>
+          <tbody id="eq-tbody">
+            <tr class="loading-row"><td colspan="10">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -813,6 +873,7 @@ async function loadData(){
     document.getElementById('s-maxmag-loc').textContent=maxMagLoc||'—';
     const tEl=document.getElementById('s-tarp');
     tEl.textContent=maxTarpStr; tEl.className='stat-value '+maxTarpStr.toLowerCase();
+    const barT=document.getElementById('bar-tarp'); if(barT){ barT.textContent='TARP '+maxTarpStr; barT.className='eb-tarp '+maxTarpStr.toLowerCase(); }
     document.getElementById('s-alert').textContent=Array.isArray(logs)?logs.length:'—';
     document.getElementById('eq-tbody').innerHTML=rows.join('')||'<tr class="loading-row"><td colspan="10">No data available</td></tr>';
     document.getElementById('table-count').textContent=`${eqs.length} of ${totalCount} events`;
@@ -880,6 +941,10 @@ function updateClock(){
 function startApp(){
   if(typeof L==='undefined'){ setTimeout(startApp,100); return; }
   initMap();
+  // Peta kini mengisi penuh area (flex) — pastikan Leaflet menghitung ulang ukurannya
+  // setelah layout siap (khususnya saat di-embed via iframe di monitoring.html).
+  setTimeout(()=>{ try{ map && map.invalidateSize(); }catch(e){} }, 300);
+  window.addEventListener('resize', ()=>{ try{ map && map.invalidateSize(); }catch(e){} });
   initLatestToggle();
   loadData();
   connectWebSocket();
@@ -895,6 +960,21 @@ function startApp(){
 // Front-end hanya menampilkan hasil.
 const HEALTH_COLORS = { ok:'#22c55e', warn:'#f59e0b', down:'#ef4444', unknown:'#5a6280' };
 const HEALTH_LABEL  = { ok:'OK', warn:'WASPADA', down:'DOWN', unknown:'—' };
+// Panel collapsible (status / info / log) — hanya satu terbuka; klik lagi = tutup.
+function togglePanel(which){
+  const keys=['status','info','log'];
+  const target=document.getElementById('panel-'+which);
+  const isOpen = target && target.classList.contains('open');
+  keys.forEach(k=>{ const p=document.getElementById('panel-'+k); if(p) p.classList.remove('open'); });
+  document.getElementById('eb-info-btn')?.classList.remove('on');
+  document.getElementById('eb-log-btn')?.classList.remove('on');
+  if(target && !isOpen){
+    target.classList.add('open');
+    if(which==='info') document.getElementById('eb-info-btn')?.classList.add('on');
+    if(which==='log')  document.getElementById('eb-log-btn')?.classList.add('on');
+  }
+}
+window.togglePanel=togglePanel;
 async function callDiag(payload){
   const s = await GMS.getSession();
   const token = (s && s.access_token) ? s.access_token : ANON_KEY;
@@ -915,6 +995,8 @@ async function loadHealth(){
     const ob = document.getElementById('sys-overall-badge');
     const otext = d.overall==='ok'?'SEHAT':d.overall==='warn'?'PERLU PERHATIAN':'BERMASALAH';
     if(ob){ ob.textContent=otext; ob.style.cssText='margin-left:9px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:'+oc+'22;color:'+oc+';border:1px solid '+oc+'55'; }
+    const bDot=document.getElementById('eb-status-dot'); if(bDot){ bDot.style.background=oc; bDot.style.boxShadow='0 0 9px '+oc; }
+    const bLbl=document.getElementById('eb-status-lbl'); if(bLbl){ bLbl.textContent=otext; bLbl.style.color=oc; }
     const ck = document.getElementById('sys-checked'); if(ck) ck.textContent = 'dicek '+new Date(d.checked_at).toLocaleTimeString('id-ID')+' WITA';
     wrap.innerHTML = (d.stages||[]).map(st=>{
       const c = HEALTH_COLORS[st.status] || HEALTH_COLORS.unknown;
