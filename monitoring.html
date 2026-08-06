@@ -1007,6 +1007,7 @@
         ['inclinometer','Inclinometer'],
         ['vwp','VWP'],
         ['aws','AWS / Weather'],
+        ['eews','EEWS (Earth Quake)'],
       ];
 
       return `
@@ -1023,7 +1024,7 @@
             <div class="nav">
               ${nav.map(([k,n])=>`
                 <button class="${STATE.view===k?'act':''}" onclick="${k==='inclinometer'?"location.href='inclinometer.html'":"setView('"+k+"')"}">
-                  <span class="ico">${k==='overview'?'▣':k==='trends'?'◫':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':'⚙'}</span>
+                  <span class="ico">${k==='overview'?'▣':k==='trends'?'◫':k==='instrument'?'⌁':k==='inclinometer'?'∠':k==='vwp'?'◎':k==='aws'?'☁':k==='inspection'?'▦':k==='eews'?'🌏':'⚙'}</span>
                   <span>${esc(n)}</span>
                 </button>`).join('')}
             </div>
@@ -2527,6 +2528,13 @@
       }catch(e){ alert('Foto tidak tersedia: '+(e.message||e)); }
     }
 
+    function eewsView(){
+      // Embed EEWS penuh (peta, TARP, PGA, log gempa, Status Sistem + Uji Alarm) via iframe.
+      // ?embed=1 → eews.html menyembunyikan link "← Menu" & topbar-nya agar mulus di shell ini.
+      return `<iframe src="eews.html?embed=1" title="EEWS — Earthquake Early Warning"
+        style="width:100%;height:calc(100vh - 88px);min-height:560px;border:0;border-radius:12px;background:#0a0c12;display:block"></iframe>`;
+    }
+
     function render(){
       document.getElementById('root').innerHTML = tpl();
 
@@ -2547,7 +2555,7 @@
 
       const page = document.getElementById('page');
       page.classList.add('scroll');
-      document.getElementById('modeLbl').textContent = ({overview:'Executive Dashboard',trends:'Monitoring Dashboard',inspection:'Inspection Dashboard',instrument:'Extensometer',inclinometer:'Inclinometer',vwp:'VWP',aws:'AWS / Weather'}[STATE.view]||'Dashboard');
+      document.getElementById('modeLbl').textContent = ({overview:'Executive Dashboard',trends:'Monitoring Dashboard',inspection:'Inspection Dashboard',instrument:'Extensometer',inclinometer:'Inclinometer',vwp:'VWP',aws:'AWS / Weather',eews:'EEWS — Earthquake Early Warning'}[STATE.view]||'Dashboard');
 
       if(STATE.view==='overview'){
         page.innerHTML = overviewLayout();
@@ -2572,6 +2580,11 @@
       } else if(STATE.view==='inspection'){
         page.innerHTML = inspectionDataView();
         drawInspectionData();
+      } else if(STATE.view==='eews'){
+        // EEWS ditampilkan in-place via iframe ke eews.html (mode embed) — file tetap terpisah,
+        // sumber tunggal, tanpa menyalin kode. Semua logika tetap di DB/edge.
+        page.classList.remove('scroll');
+        page.innerHTML = eewsView();
       }
       updateCarouselUI();
     }

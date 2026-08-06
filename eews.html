@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0c12">
 <title>EEWS — Bahodopi Block 2 & 3</title>
+<script>try{if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('embed');}catch(e){}</script>
 </head>
 <body>
-<a href="index.html" style="position:fixed;top:10px;left:10px;z-index:99999;background:rgba(0,0,0,.6);color:#fff;text-decoration:none;padding:8px 13px;border-radius:9px;font:600 13px 'Segoe UI',sans-serif;border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px)">&#8592; Menu</a>
+<a id="eewsMenuLink" href="index.html" style="position:fixed;top:10px;left:10px;z-index:99999;background:rgba(0,0,0,.6);color:#fff;text-decoration:none;padding:8px 13px;border-radius:9px;font:600 13px 'Segoe UI',sans-serif;border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px)">&#8592; Menu</a>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EEWS IGP Morowali — Earthquake Early Warning</title>
@@ -25,6 +26,11 @@
     --radius:14px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  /* Mode embed (dibuka via iframe di monitoring.html ?embed=1): sembunyikan link "← Menu" &
+     topbar agar mulus di dalam shell monitoring. Elemen tetap di DOM (JS tak error). */
+  html.embed #eewsMenuLink{display:none!important}
+  html.embed .topbar{display:none!important}
+  html.embed .main{padding-top:16px}
   body{
     font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);min-height:100vh;
     background:
