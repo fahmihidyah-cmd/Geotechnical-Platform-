@@ -336,6 +336,12 @@
   .eews-stats .stat-sub{font-size:9.5px;margin-top:2px}
   .ep-log .table-wrap{overflow:auto;min-height:0;flex:1 1 auto}
   @media(max-width:640px){ .ep-info,.ep-status{width:94vw;left:3vw;right:auto} }
+  /* Popup marker peta: kompak & senada navy (Leaflet default putih & besar). */
+  .leaflet-popup-content-wrapper{background:rgba(9,26,46,.98);color:#e5edf7;border:1px solid rgba(148,163,184,.22);border-radius:11px;box-shadow:0 14px 38px rgba(0,0,0,.55)}
+  .leaflet-popup-content{margin:8px 11px;line-height:1.3}
+  .leaflet-popup-tip{background:rgba(9,26,46,.98)}
+  .leaflet-popup-close-button{color:#9fb3cf!important;font-size:16px!important;padding:5px 6px 0 0!important}
+  .leaflet-popup-close-button:hover{color:#fff!important}
 </style>
 
 
@@ -365,18 +371,18 @@
   <!-- Bar kontrol ramping & profesional — selalu terlihat -->
   <div class="eews-bar">
     <div class="eb-left">
-      <button class="eb-status" id="eb-status" onclick="togglePanel('status')" title="Status sistem EEWS (hulu→hilir)">
+      <button class="eb-status" id="eb-status" onclick="togglePanel('status')" title="EEWS system status (upstream→downstream)">
         <span class="eb-status-dot" id="eb-status-dot"></span>
-        <span id="eb-status-lbl">Memuat…</span>
+        <span id="eb-status-lbl">Loading…</span>
         <span class="eb-caret">▾</span>
       </button>
       <span class="eb-tarp" id="bar-tarp" title="Site TARP level — Donovan (1979)">TARP —</span>
     </div>
     <div class="eb-right">
       <button class="eb-btn" id="eb-info-btn" onclick="togglePanel('info')">📊 Info</button>
-      <button class="eb-btn" id="eb-log-btn" onclick="togglePanel('log')">📋 Log Gempa</button>
-      <button class="eb-btn" onclick="loadHealth()">⟳ Cek</button>
-      <button class="eb-btn eb-btn-accent" id="btn-test-alarm" onclick="runTestAlarm()">🔔 Uji Alarm</button>
+      <button class="eb-btn" id="eb-log-btn" onclick="togglePanel('log')">📋 Earthquake Log</button>
+      <button class="eb-btn" onclick="loadHealth()">⟳ Refresh</button>
+      <button class="eb-btn eb-btn-accent" id="btn-test-alarm" onclick="runTestAlarm()">🔔 Test Alarm</button>
     </div>
   </div>
 
@@ -412,21 +418,21 @@
     <!-- Panel: STATUS SISTEM (ringkas, buka dari bar kiri) -->
     <div class="eews-panel ep-status" id="panel-status">
       <div class="ep-head">
-        <b>Status Sistem EEWS</b><span id="sys-overall-badge"></span>
+        <b>EEWS System Status</b><span id="sys-overall-badge"></span>
         <span id="sys-checked" class="ep-checked"></span>
-        <button class="ep-x" onclick="togglePanel('status')" aria-label="Tutup">✕</button>
+        <button class="ep-x" onclick="togglePanel('status')" aria-label="Close">✕</button>
       </div>
       <div id="sys-overall-dot" style="display:none"></div>
       <div id="sys-stages" style="display:grid;grid-template-columns:1fr;gap:9px">
-        <div style="font-size:12px;color:var(--text2)">Memuat status…</div>
+        <div style="font-size:12px;color:var(--text2)">Loading status…</div>
       </div>
       <div id="sys-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:12px"></div>
     </div>
 
     <!-- Panel: INFO / statistik (buka dari tombol Info) -->
     <div class="eews-panel ep-info" id="panel-info">
-      <div class="ep-head"><b>Ringkasan Gempa</b>
-        <button class="ep-x" onclick="togglePanel('info')" aria-label="Tutup">✕</button>
+      <div class="ep-head"><b>Summary</b>
+        <button class="ep-x" onclick="togglePanel('info')" aria-label="Close">✕</button>
       </div>
       <div class="eews-stats">
         <div class="stat" id="stat-total">
@@ -456,7 +462,7 @@
     <div class="eews-panel ep-log" id="panel-log">
       <div class="ep-head">
         <b>Earthquake Log</b><span id="table-count" class="ep-checked">—</span>
-        <button class="ep-x" onclick="togglePanel('log')" aria-label="Tutup">✕</button>
+        <button class="ep-x" onclick="togglePanel('log')" aria-label="Close">✕</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -839,21 +845,21 @@ async function loadData(){
       // Popup lengkap saat marker diklik
       const dtPop = toWITA(eq.tanggal);
       m.bindPopup(`
-        <div style="min-width:210px;font-family:system-ui,sans-serif">
-          <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:${TARP_COLORS[tarp]}">
+        <div style="min-width:150px;font-family:system-ui,sans-serif">
+          <div style="font-size:11.5px;font-weight:700;margin-bottom:5px;color:${TARP_COLORS[tarp]}">
             ${isLatest ? '🔴 LATEST EVENT — ' : ''}M${M} · ${tarp}
           </div>
-          <table style="font-size:12px;border-collapse:collapse;width:100%">
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">Time</td><td style="color:#111;font-weight:500">${dtPop}</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">Region</td><td style="color:#111;font-weight:500">${eq.wilayah||'—'}</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">Depth</td><td style="color:#111;font-weight:500">${eq.kedalaman||'—'}</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">Coordinates</td><td style="color:#111;font-weight:500">${eq.lintang}, ${eq.bujur}</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">Tsunami</td><td style="color:#111;font-weight:500">${(eq.potensi||'—').slice(0,28)}</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">PGA WOC</td><td style="color:${TARP_COLORS[tarpFromPga(pgaA)]};font-weight:700">${pgaA.toFixed(6)} g</td></tr>
-            <tr><td style="color:#333;font-weight:600;padding:3px 8px 3px 0;white-space:nowrap">PGA Port</td><td style="color:${TARP_COLORS[tarpFromPga(pgaB)]};font-weight:700">${pgaB.toFixed(6)} g</td></tr>
+          <table style="font-size:10px;border-collapse:collapse;width:100%">
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">Time</td><td style="color:#e5edf7">${dtPop}</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">Region</td><td style="color:#e5edf7">${eq.wilayah||'—'}</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">Depth</td><td style="color:#e5edf7">${eq.kedalaman||'—'}</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">Coordinates</td><td style="color:#e5edf7">${eq.lintang}, ${eq.bujur}</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">Tsunami</td><td style="color:#e5edf7">${(eq.potensi||'—').slice(0,28)}</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">PGA WOC</td><td style="color:${TARP_COLORS[tarpFromPga(pgaA)]};font-weight:700">${pgaA.toFixed(6)} g</td></tr>
+            <tr><td style="color:#9fb3cf;font-weight:600;padding:1.5px 8px 1.5px 0;white-space:nowrap">PGA Port</td><td style="color:${TARP_COLORS[tarpFromPga(pgaB)]};font-weight:700">${pgaB.toFixed(6)} g</td></tr>
           </table>
         </div>
-      `, { maxWidth: 300 });
+      `, { maxWidth: 236 });
 
       m.on('click',()=>{
         showDetail(eq,pgaA,pgaB,tarp);
@@ -968,7 +974,7 @@ function startApp(){
 // Semua logika/pengumpulan data di DB (RPC eews_health) + edge fn eews-diagnostics.
 // Front-end hanya menampilkan hasil.
 const HEALTH_COLORS = { ok:'#22c55e', warn:'#f59e0b', down:'#ef4444', unknown:'#5a6280' };
-const HEALTH_LABEL  = { ok:'OK', warn:'WASPADA', down:'DOWN', unknown:'—' };
+const HEALTH_LABEL  = { ok:'OK', warn:'WARNING', down:'DOWN', unknown:'—' };
 // Panel collapsible (status / info / log) — hanya satu terbuka; klik lagi = tutup.
 function togglePanel(which){
   const keys=['status','info','log'];
@@ -998,15 +1004,15 @@ async function loadHealth(){
   const wrap = document.getElementById('sys-stages'); if(!wrap) return;
   try{
     const d = await callDiag({ action:'health' });
-    if(!d || !d.ok){ wrap.innerHTML = '<div style="color:var(--lv4);font-size:12px">Gagal memuat status'+((d&&d.message)?': '+GMS.esc(d.message):'')+'</div>'; return; }
+    if(!d || !d.ok){ wrap.innerHTML = '<div style="color:var(--lv4);font-size:12px">Failed to load status'+((d&&d.message)?': '+GMS.esc(d.message):'')+'</div>'; return; }
     const oc = HEALTH_COLORS[d.overall] || HEALTH_COLORS.unknown;
     const od = document.getElementById('sys-overall-dot'); if(od){ od.style.background=oc; od.style.boxShadow='0 0 8px '+oc; }
     const ob = document.getElementById('sys-overall-badge');
-    const otext = d.overall==='ok'?'SEHAT':d.overall==='warn'?'PERLU PERHATIAN':'BERMASALAH';
+    const otext = d.overall==='ok'?'HEALTHY':d.overall==='warn'?'NEEDS ATTENTION':'CRITICAL';
     if(ob){ ob.textContent=otext; ob.style.cssText='margin-left:9px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:'+oc+'22;color:'+oc+';border:1px solid '+oc+'55'; }
     const bDot=document.getElementById('eb-status-dot'); if(bDot){ bDot.style.background=oc; bDot.style.boxShadow='0 0 9px '+oc; }
     const bLbl=document.getElementById('eb-status-lbl'); if(bLbl){ bLbl.textContent=otext; bLbl.style.color=oc; }
-    const ck = document.getElementById('sys-checked'); if(ck) ck.textContent = 'dicek '+new Date(d.checked_at).toLocaleTimeString('id-ID')+' WITA';
+    const ck = document.getElementById('sys-checked'); if(ck) ck.textContent = 'checked '+new Date(d.checked_at).toLocaleTimeString('id-ID')+' WITA';
     wrap.innerHTML = (d.stages||[]).map(st=>{
       const c = HEALTH_COLORS[st.status] || HEALTH_COLORS.unknown;
       const ic = st.status==='ok'?'✓':st.status==='warn'?'!':'✕';
@@ -1038,25 +1044,25 @@ function showTestResult(inner, autoHide){
 }
 async function runTestAlarm(){
   if(testBusy) return;
-  if(!confirm('Kirim ALARM UJI ke SEMUA penerima aktif (termasuk grup)?\n\nPesan jelas berlabel UJI COBA — bukan gempa nyata. Gunakan untuk memastikan notifikasi benar-benar sampai.')) return;
+  if(!confirm('Send a TEST ALARM to ALL active recipients (including groups)?\n\nThe message is clearly labelled TEST — not a real earthquake. Use it to confirm notifications actually arrive.')) return;
   testBusy = true;
   const btn = document.getElementById('btn-test-alarm');
   const old = btn ? btn.textContent : '';
   if(btn){ btn.textContent='⏳ Mengirim…'; btn.disabled=true; }
-  showTestResult('<span style="color:var(--text2)">Mengirim alarm uji ke penerima…</span>', false);
+  showTestResult('<span style="color:var(--text2)">Sending test alarm to recipients…</span>', false);
   try{
     const d = await callDiag({ action:'test', scope:'all' });
     if(!d || !Array.isArray(d.detail)){
-      showTestResult('<span style="color:var(--lv4)">Gagal: '+GMS.esc((d&&d.message)||'tak dikenal')+'</span>', true);
+      showTestResult('<span style="color:var(--lv4)">Failed: '+GMS.esc((d&&d.message)||'unknown')+'</span>', true);
     } else {
       const rows = d.detail.map(x=>{
         const ok = x.status==='sent'; const c = ok?'#22c55e':'#ef4444';
         return '<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--border)">'
-          + '<span>'+(ok?'✅':'❌')+' '+GMS.esc(x.name)+(x.is_group?' <span style="color:var(--text3)">(grup)</span>':'')+'</span>'
+          + '<span>'+(ok?'✅':'❌')+' '+GMS.esc(x.name)+(x.is_group?' <span style="color:var(--text3)">(group)</span>':'')+'</span>'
           + '<span style="color:'+c+';font-weight:600">'+GMS.esc(x.status)+'</span></div>';
       }).join('');
       const hc = d.failed===0 ? '#22c55e' : '#f59e0b';
-      showTestResult('<div style="font-weight:700;margin-bottom:6px;color:'+hc+'">Hasil uji alarm — '+d.sent+' terkirim, '+d.failed+' gagal</div>'+rows, true);
+      showTestResult('<div style="font-weight:700;margin-bottom:6px;color:'+hc+'">Test alarm result — '+d.sent+' sent, '+d.failed+' failed</div>'+rows, true);
     }
   }catch(e){ showTestResult('<span style="color:var(--lv4)">Error: '+GMS.esc(String(e))+'</span>', true); }
   finally{ testBusy=false; if(btn){ btn.textContent=old; btn.disabled=false; } setTimeout(loadHealth, 1500); }
