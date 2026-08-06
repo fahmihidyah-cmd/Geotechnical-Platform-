@@ -803,7 +803,7 @@
       const heavyP = heavy ? Promise.all([
         sb.from('inspections').select('id,location_id,inspection_date,inspector,risk_final,tarp_level,total_score,approval_status,status').neq('status','CLOSED').order('inspection_date',{ascending:false}),
         sb.from('locations').select('id,name,area_code,lat,lng,easting,northing'),
-        sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status,lintang,bujur').order('tanggal',{ascending:false}).limit(8),
+        sb.from('earthquakes').select('id,magnitude,wilayah,kedalaman,tanggal,status,lintang,bujur').gte('tanggal',new Date(Date.now()-8*864e5).toISOString()).order('tanggal',{ascending:false}),
         sb.rpc('instrument_series_json',{p_kind:'extensometer',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
         sb.rpc('instrument_series_json',{p_kind:'weather',p_from:parseRange('7d'),p_to:nowIso,p_every:'1 hour'}),
         sb.from('v_aws_stats').select('*'),
