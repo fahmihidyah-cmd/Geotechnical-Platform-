@@ -18,7 +18,7 @@
 <script src="common.js"></script>
 <style>
   :root {
-    --bg:#0a0c12;--bg2:#161922;--bg3:#232736;
+    --bg:#051426;--bg2:#0a2037;--bg3:#0e2c4d;
     --border:rgba(255,255,255,0.08);
     --text:#e8eaf0;--text2:#9097b0;--text3:#5a6280;
     --accent:#1d9e75;--accent-glow:rgba(29,158,117,0.35);
@@ -33,8 +33,8 @@
   body{
     font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);min-height:100vh;
     background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(29,158,117,0.10), transparent 60%),
-      radial-gradient(900px 500px at 10% 110%, rgba(59,130,246,0.08), transparent 55%),
+      radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,0.12), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(34,211,238,0.07), transparent 55%),
       var(--bg);
     background-attachment:fixed;
   }
@@ -294,7 +294,7 @@
   body{display:flex;flex-direction:column;min-height:100vh}
   .main.eews-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:0;max-width:none;margin:0}
   .eews-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-    padding:9px 16px;background:rgba(16,18,26,.92);border-bottom:1px solid var(--border);flex:0 0 auto;position:relative;z-index:1300}
+    padding:9px 16px;background:rgba(10,32,55,.85);backdrop-filter:saturate(130%) blur(10px);border-bottom:1px solid rgba(148,163,184,.12);flex:0 0 auto;position:relative;z-index:1300}
   .eb-left,.eb-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .eb-status{display:inline-flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);
     border-radius:99px;padding:6px 13px;cursor:pointer;color:var(--text);font:600 12px 'Segoe UI',sans-serif;transition:border-color .15s}
@@ -318,20 +318,22 @@
     background:rgba(10,12,18,.74);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:10px;color:var(--text2);max-width:min(300px,60vw)}
   .eews-legend .legend-item{display:flex;align-items:center;gap:5px}
   .eews-legend .legend-dot{width:9px;height:9px;border-radius:50%}
-  .eews-panel{position:absolute;z-index:1200;display:none;background:rgba(18,20,28,.975);backdrop-filter:blur(16px);
-    border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 55px rgba(0,0,0,.55);animation:epIn .16s ease}
+  .eews-panel{position:absolute;z-index:1200;display:none;background:rgba(10,32,55,.97);backdrop-filter:blur(16px);
+    border:1px solid rgba(148,163,184,.16);border-radius:13px;box-shadow:0 18px 48px rgba(0,0,0,.5);animation:epIn .16s ease}
   .eews-panel.open{display:flex;flex-direction:column}
   @keyframes epIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
-  .ep-status{top:12px;left:12px;width:min(440px,94vw);padding:14px}
-  .ep-info{top:12px;right:12px;width:min(340px,94vw);padding:14px}
-  .ep-log{left:12px;right:12px;bottom:12px;max-height:54%;padding:12px 14px}
-  .ep-head{display:flex;align-items:center;gap:9px;margin-bottom:11px;font-size:13px;flex:0 0 auto}
-  .ep-head .ep-x{margin-left:auto;background:none;border:none;color:var(--text3);font-size:16px;line-height:1;cursor:pointer;padding:2px 7px;border-radius:7px}
+  .ep-status{top:11px;left:11px;width:min(340px,90vw);padding:12px}
+  .ep-info{top:11px;right:11px;width:min(280px,90vw);padding:12px}
+  .ep-log{left:11px;right:11px;bottom:11px;max-height:48%;padding:11px 13px}
+  .ep-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;flex:0 0 auto}
+  .ep-head .ep-x{margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;line-height:1;cursor:pointer;padding:2px 7px;border-radius:7px}
   .ep-head .ep-x:hover{background:var(--bg3);color:var(--text)}
-  .ep-checked{font-size:10.5px;color:var(--text3);font-weight:400}
-  .eews-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .eews-stats .stat{padding:13px 15px}
-  .eews-stats .stat-value{font-size:24px}
+  .ep-checked{font-size:10px;color:var(--text3);font-weight:400}
+  .eews-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .eews-stats .stat{padding:9px 11px;border-radius:10px}
+  .eews-stats .stat-label{font-size:9.5px;margin-bottom:4px}
+  .eews-stats .stat-value{font-size:18px}
+  .eews-stats .stat-sub{font-size:9.5px;margin-top:2px}
   .ep-log .table-wrap{overflow:auto;min-height:0;flex:1 1 auto}
   @media(max-width:640px){ .ep-info,.ep-status{width:94vw;left:3vw;right:auto} }
 </style>
@@ -795,6 +797,13 @@ async function loadData(){
     let totalCount = eqs.length;
     const cr = countRes.headers.get('content-range');
     if(cr && cr.includes('/')){ totalCount = parseInt(cr.split('/')[1]) || eqs.length; }
+
+    // Anti-"refresh tiap menit": bila daftar gempa & antrean alarm tak berubah, JANGAN rebuild
+    // peta/marker/tabel (poll fallback 60s jadi tak terasa berkedip). Rebuild hanya saat ada
+    // perubahan data atau event realtime baru.
+    const _sig = totalCount+'|'+eqs.length+'|'+((eqs[0]&&eqs[0].id)||'')+'|'+(Array.isArray(logs)?logs.length:0);
+    if(window._eqSig===_sig && !window._pendingNewEqId){ return; }
+    window._eqSig=_sig;
 
     markersLayer.forEach(m=>map.removeLayer(m)); markersLayer=[];
 
