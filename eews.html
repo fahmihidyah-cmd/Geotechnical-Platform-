@@ -401,9 +401,9 @@
         </div>
       </div>
       <div class="layer-switcher">
-        <button class="layer-btn active" onclick="switchLayer('dark')" id="btn-dark"><span class="layer-icon">🌑</span>Dark</button>
+        <button class="layer-btn" onclick="switchLayer('dark')" id="btn-dark"><span class="layer-icon">🌑</span>Dark</button>
         <button class="layer-btn" onclick="switchLayer('street')" id="btn-street"><span class="layer-icon">🗺️</span>Street</button>
-        <button class="layer-btn" onclick="switchLayer('satellite')" id="btn-satellite"><span class="layer-icon">🛰️</span>Satellite</button>
+        <button class="layer-btn active" onclick="switchLayer('satellite')" id="btn-satellite"><span class="layer-icon">🛰️</span>Satellite</button>
         <button class="layer-btn" onclick="switchLayer('topo')" id="btn-topo"><span class="layer-icon">⛰️</span>Topografi</button>
       </div>
       <div class="eews-legend">
@@ -680,7 +680,7 @@ const LAYERS = {
 };
 
 let currentLayer = null;
-let currentLayerKey = 'dark';
+let currentLayerKey = 'satellite';
 
 function initMap(){
   map = L.map('map', {
@@ -697,9 +697,9 @@ function initMap(){
   function deactivateZoom(){ if(zoomActive){ map.scrollWheelZoom.disable(); zoomActive=false; mapEl.classList.remove('map-zoom-on'); } }
   map.on('click', activateZoom);
   mapEl.addEventListener('mouseleave', deactivateZoom);
-  currentLayer = L.tileLayer(LAYERS.dark.url, {
-    attribution: LAYERS.dark.attribution,
-    maxZoom: LAYERS.dark.maxZoom
+  currentLayer = L.tileLayer(LAYERS.satellite.url, {
+    attribution: LAYERS.satellite.attribution,
+    maxZoom: LAYERS.satellite.maxZoom
   }).addTo(map);
 
   SITES.forEach(s=>{
