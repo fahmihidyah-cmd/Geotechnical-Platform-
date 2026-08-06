@@ -333,6 +333,21 @@
     </div>
   </div>
 
+  <div class="card" id="sys-status-card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-header-left"><div class="dot" id="sys-overall-dot" style="background:var(--text3)"></div>Status Sistem EEWS<span id="sys-overall-badge"></span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="sys-checked" style="font-size:11px;color:var(--text3)"></span>
+        <button class="refresh-btn" onclick="loadHealth()">⟳ Cek Ulang</button>
+        <button class="refresh-btn" id="btn-test-alarm" onclick="runTestAlarm()" style="border-color:var(--accent);color:var(--accent)">🔔 Uji Alarm</button>
+      </div>
+    </div>
+    <div id="sys-stages" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;padding:6px 2px 2px">
+      <div style="font-size:12px;color:var(--text2)">Memuat status…</div>
+    </div>
+    <div id="sys-test-result" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:12px"></div>
+  </div>
+
   <div class="grid2">
     <div>
       <div class="card map-card">
@@ -862,11 +877,77 @@ function startApp(){
   initLatestToggle();
   loadData();
   connectWebSocket();
+  loadHealth();
+  setInterval(loadHealth, 120000);
   updateClock();
   setInterval(updateClock, 1000);
   // Fallback polling setiap 60 detik kalau WebSocket mati
   setInterval(()=>{ if(!ws||ws.readyState!==1){ loadData(); } }, 60000);
 }
+// ── DIAGNOSTIK HULU→HILIR + UJI ALARM ─────────────────────────────────────────
+// Semua logika/pengumpulan data di DB (RPC eews_health) + edge fn eews-diagnostics.
+// Front-end hanya menampilkan hasil.
+const HEALTH_COLORS = { ok:'#22c55e', warn:'#f59e0b', down:'#ef4444', unknown:'#5a6280' };
+const HEALTH_LABEL  = { ok:'OK', warn:'WASPADA', down:'DOWN', unknown:'—' };
+async function callDiag(payload){
+  const s = await GMS.getSession();
+  const token = (s && s.access_token) ? s.access_token : ANON_KEY;
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/eews-diagnostics`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token, 'apikey':ANON_KEY },
+    body: JSON.stringify(payload)
+  });
+  return r.json();
+}
+async function loadHealth(){
+  const wrap = document.getElementById('sys-stages'); if(!wrap) return;
+  try{
+    const d = await callDiag({ action:'health' });
+    if(!d || !d.ok){ wrap.innerHTML = '<div style="color:var(--lv4);font-size:12px">Gagal memuat status'+((d&&d.message)?': '+GMS.esc(d.message):'')+'</div>'; return; }
+    const oc = HEALTH_COLORS[d.overall] || HEALTH_COLORS.unknown;
+    const od = document.getElementById('sys-overall-dot'); if(od){ od.style.background=oc; od.style.boxShadow='0 0 8px '+oc; }
+    const ob = document.getElementById('sys-overall-badge');
+    const otext = d.overall==='ok'?'SEHAT':d.overall==='warn'?'PERLU PERHATIAN':'BERMASALAH';
+    if(ob){ ob.textContent=otext; ob.style.cssText='margin-left:9px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:'+oc+'22;color:'+oc+';border:1px solid '+oc+'55'; }
+    const ck = document.getElementById('sys-checked'); if(ck) ck.textContent = 'dicek '+new Date(d.checked_at).toLocaleTimeString('id-ID')+' WITA';
+    wrap.innerHTML = (d.stages||[]).map(st=>{
+      const c = HEALTH_COLORS[st.status] || HEALTH_COLORS.unknown;
+      const ic = st.status==='ok'?'✓':st.status==='warn'?'!':'✕';
+      return '<div style="display:flex;gap:9px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
+        + '<div style="width:11px;height:11px;border-radius:50%;background:'+c+';margin-top:3px;flex:0 0 auto;box-shadow:0 0 8px '+c+'"></div>'
+        + '<div style="min-width:0"><div style="font-weight:600;font-size:12.5px">'+GMS.esc(st.label)
+        + ' <span style="color:'+c+';font-weight:700">'+ic+' '+(HEALTH_LABEL[st.status]||'')+'</span></div>'
+        + '<div style="font-size:11px;color:var(--text2);margin-top:2px;word-break:break-word">'+GMS.esc(st.detail||'')+'</div></div></div>';
+    }).join('');
+  }catch(e){ wrap.innerHTML = '<div style="color:var(--lv4);font-size:12px">Error: '+GMS.esc(String(e))+'</div>'; }
+}
+let testBusy = false;
+async function runTestAlarm(){
+  if(testBusy) return;
+  if(!confirm('Kirim ALARM UJI ke SEMUA penerima aktif (termasuk grup)?\n\nPesan jelas berlabel UJI COBA — bukan gempa nyata. Gunakan untuk memastikan notifikasi benar-benar sampai.')) return;
+  testBusy = true;
+  const btn = document.getElementById('btn-test-alarm'); const box = document.getElementById('sys-test-result');
+  const old = btn ? btn.textContent : '';
+  if(btn){ btn.textContent='⏳ Mengirim…'; btn.disabled=true; }
+  if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--text2)">Mengirim alarm uji ke penerima…</span>'; }
+  try{
+    const d = await callDiag({ action:'test', scope:'all' });
+    if(!d || !Array.isArray(d.detail)){
+      if(box) box.innerHTML = '<span style="color:var(--lv4)">Gagal: '+GMS.esc((d&&d.message)||'tak dikenal')+'</span>';
+    } else {
+      const rows = d.detail.map(x=>{
+        const ok = x.status==='sent'; const c = ok?'#22c55e':'#ef4444';
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--border)">'
+          + '<span>'+(ok?'✅':'❌')+' '+GMS.esc(x.name)+(x.is_group?' <span style="color:var(--text3)">(grup)</span>':'')+'</span>'
+          + '<span style="color:'+c+';font-weight:600">'+GMS.esc(x.status)+'</span></div>';
+      }).join('');
+      const hc = d.failed===0 ? '#22c55e' : '#f59e0b';
+      box.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:'+hc+'">Hasil uji alarm — '+d.sent+' terkirim, '+d.failed+' gagal</div>'+rows;
+    }
+  }catch(e){ if(box) box.innerHTML='<span style="color:var(--lv4)">Error: '+GMS.esc(String(e))+'</span>'; }
+  finally{ testBusy=false; if(btn){ btn.textContent=old; btn.disabled=false; } setTimeout(loadHealth, 1500); }
+}
+
 // AUTH GATE — EEWS sebelumnya bisa diakses tanpa login. Sekarang require admin/validator session.
 document.addEventListener('DOMContentLoaded', async () => {
   const s = await GMS.getSession();
