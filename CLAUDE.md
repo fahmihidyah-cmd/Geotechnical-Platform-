@@ -59,6 +59,9 @@ tetap di **read-time** (view/RPC).
 - `monitoring.ingestion_batches` + `raw_api_payloads` (log audit, dipangkas 7 hari; FK cascade).
 - `monitoring.ews_evaluations`, `ews_device_trigger`, `ews_alert_log`.
 - `public.earthquakes`, `alert_logs`, `alert_recipients`, `locations`.
+- `public.geology_faults` (category/slip_type/slip_rate/geom jsonb) — overlay sesar aktif peta EEWS,
+  subset **GEM Global Active Faults** (Sulawesi, 49 fitur). RPC `geology_faults_geojson()` → FeatureCollection;
+  `eews.html` tombol **Faults** menggambar via `L.geoJSON` (warna per mekanisme: strike-slip/thrust/normal/subduksi).
 - `public.shift_reports`, `shift_report_instruments`, `shift_round_checks`.
 - `public.inspections`, `inspection_photos`/`_documentation`/`_risk_areas` (data dummy sudah dihapus), `pera_assessments`, `pera_questions` (template — JANGAN hapus).
 
