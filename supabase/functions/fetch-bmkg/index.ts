@@ -1,8 +1,12 @@
-// ARSIP source live edge function `fetch-bmkg` — deployed v8 (2026-07-23).
+// ARSIP source live edge function `fetch-bmkg` — deployed v9 (2026-08-06).
 // Deploy dilakukan via Supabase MCP/dashboard, BUKAN dari repo ini (lihat supabase/functions/README.md).
 // v8: dedup BATCH (1 query per 200 event via .in()) menggantikan 1 query per event per menit
 //     yang menumpuk 10 jt panggilan REST + duplikat 116k baris saat badai 503 (insiden 23 Jul 2026).
 //     Backstop: UNIQUE index earthquakes(event_id) + handler 23505 di insert.
+// v9: trigger alarm = OR → severity (PGA>=0.02g) ATAU kedekatan (episenter <= PROXIMITY_KM=50 km,
+//     SEMUA magnitudo). Jarak diaktifkan kembali per permintaan pemilik sebagai jaring pengaman
+//     event lokal; TIDAK menggerbang PGA (gempa jauh ber-PGA tinggi tetap memicu). Reason di
+//     alert_logs.response.trigger.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── BMKG Single Source ───────────────────────
@@ -13,7 +17,9 @@ const SITES = [
   { name: "Area WOC",  lat: -2.748761, lon: 122.000297, vs30: 421 },
   { name: "Area Port", lat: -2.725700, lon: 122.028042, vs30: 421 },
 ];
-const PROXIMITY_KM = 100;
+// Radius trigger kedekatan (jarak EPISENTER, km). Alarm menyala bila gempa berada
+// dalam radius ini APA PUN magnitudonya — jaring pengaman event lokal (v9, 6 Agu 2026).
+const PROXIMITY_KM = 50;
 
 function getTarpLevel(pga) {
   if (pga < 0.02) return { level: "LV1", hazard: "Low Seismic Hazard",       action: "Monitor — log only" };
@@ -188,9 +194,10 @@ Deno.serve(async (_req) => {
           tarp_level:       tarp.level,
           hazard:           tarp.hazard,
           action:           tarp.action,
-          within_100km:     R_epi <= PROXIMITY_KM,
-          // Proximity (<100km) trigger DISABLED per request — alert only on severity (TARP>=LV2, pga>=0.02)
-          requires_alert:   (pga >= 0.02),
+          within_50km:      R_epi <= PROXIMITY_KM,
+          // Trigger = OR: severity (PGA>=0.02g) ATAU kedekatan (episenter <= PROXIMITY_KM,
+          // semua magnitudo). Jarak TIDAK menggerbang PGA — gempa jauh ber-PGA tinggi tetap memicu.
+          requires_alert:   (pga >= 0.02) || (R_epi <= PROXIMITY_KM),
         };
       });
       const tarpOrder = { LV1:1, LV2:2, LV3:3, LV4:4 };
@@ -218,11 +225,16 @@ Deno.serve(async (_req) => {
         console.error("Insert error:", error);
         continue;
       }
-      // Alert: HANYA severity (TARP>=LV2). Trigger jarak <=100km dinonaktifkan.
+      // Alert = OR: severity (PGA>=0.02g) ATAU kedekatan (episenter <= 50 km, semua magnitudo).
       const qualifyingSites = siteResults.filter(s => s.requires_alert);
       if (qualifyingSites.length > 0 && inserted) {
         const govSite = qualifyingSites.reduce(
           (mx, s) => s.pga_donovan_g > mx.pga_donovan_g ? s : mx, qualifyingSites[0]);
+        const bySeverity  = govSite.pga_donovan_g >= 0.02;
+        const byProximity = govSite.within_50km;
+        const triggerReason = (bySeverity && byProximity) ? "PGA≥0.02g + Jarak ≤50km"
+                            : bySeverity ? "Severity (PGA≥0.02g)"
+                            : "Jarak ≤50km (semua magnitudo)";
         const { data: recipients } = await supabase
           .from("alert_recipients")
           .select("id")
@@ -241,8 +253,8 @@ Deno.serve(async (_req) => {
               action:           govSite.action,
               distance_epi_km:  govSite.distance_epi_km,
               distance_hypo_km: govSite.distance_hypo_km,
-              within_100km:     govSite.within_100km,
-              trigger:          "Severity (TARP>=LV2)",
+              within_50km:      govSite.within_50km,
+              trigger:          triggerReason,
             }),
             created_at: new Date().toISOString(),
           }));
