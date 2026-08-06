@@ -922,18 +922,35 @@ async function loadHealth(){
   }catch(e){ wrap.innerHTML = '<div style="color:var(--lv4);font-size:12px">Error: '+GMS.esc(String(e))+'</div>'; }
 }
 let testBusy = false;
+let testHideTimer = null;
+function dismissTestResult(){
+  const box = document.getElementById('sys-test-result'); if(!box) return;
+  box.style.display='none'; box.innerHTML='';
+  if(testHideTimer){ clearTimeout(testHideTimer); testHideTimer=null; }
+}
+// Tampilkan kotak hasil dgn tombol ✕ tutup + auto-hilang. `autoHide` false utk state loading.
+function showTestResult(inner, autoHide){
+  const box = document.getElementById('sys-test-result'); if(!box) return;
+  if(testHideTimer){ clearTimeout(testHideTimer); testHideTimer=null; }
+  box.style.position='relative';
+  box.style.display='block';
+  box.innerHTML = '<button type="button" onclick="dismissTestResult()" title="Tutup" aria-label="Tutup" '
+    + 'style="position:absolute;top:5px;right:7px;background:none;border:none;color:var(--text3);font-size:16px;line-height:1;cursor:pointer;padding:2px 6px">✕</button>'
+    + '<div style="padding-right:24px">'+inner+'</div>';
+  if(autoHide) testHideTimer = setTimeout(dismissTestResult, 20000);
+}
 async function runTestAlarm(){
   if(testBusy) return;
   if(!confirm('Kirim ALARM UJI ke SEMUA penerima aktif (termasuk grup)?\n\nPesan jelas berlabel UJI COBA — bukan gempa nyata. Gunakan untuk memastikan notifikasi benar-benar sampai.')) return;
   testBusy = true;
-  const btn = document.getElementById('btn-test-alarm'); const box = document.getElementById('sys-test-result');
+  const btn = document.getElementById('btn-test-alarm');
   const old = btn ? btn.textContent : '';
   if(btn){ btn.textContent='⏳ Mengirim…'; btn.disabled=true; }
-  if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--text2)">Mengirim alarm uji ke penerima…</span>'; }
+  showTestResult('<span style="color:var(--text2)">Mengirim alarm uji ke penerima…</span>', false);
   try{
     const d = await callDiag({ action:'test', scope:'all' });
     if(!d || !Array.isArray(d.detail)){
-      if(box) box.innerHTML = '<span style="color:var(--lv4)">Gagal: '+GMS.esc((d&&d.message)||'tak dikenal')+'</span>';
+      showTestResult('<span style="color:var(--lv4)">Gagal: '+GMS.esc((d&&d.message)||'tak dikenal')+'</span>', true);
     } else {
       const rows = d.detail.map(x=>{
         const ok = x.status==='sent'; const c = ok?'#22c55e':'#ef4444';
@@ -942,9 +959,9 @@ async function runTestAlarm(){
           + '<span style="color:'+c+';font-weight:600">'+GMS.esc(x.status)+'</span></div>';
       }).join('');
       const hc = d.failed===0 ? '#22c55e' : '#f59e0b';
-      box.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:'+hc+'">Hasil uji alarm — '+d.sent+' terkirim, '+d.failed+' gagal</div>'+rows;
+      showTestResult('<div style="font-weight:700;margin-bottom:6px;color:'+hc+'">Hasil uji alarm — '+d.sent+' terkirim, '+d.failed+' gagal</div>'+rows, true);
     }
-  }catch(e){ if(box) box.innerHTML='<span style="color:var(--lv4)">Error: '+GMS.esc(String(e))+'</span>'; }
+  }catch(e){ showTestResult('<span style="color:var(--lv4)">Error: '+GMS.esc(String(e))+'</span>', true); }
   finally{ testBusy=false; if(btn){ btn.textContent=old; btn.disabled=false; } setTimeout(loadHealth, 1500); }
 }
 
