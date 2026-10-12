@@ -123,6 +123,15 @@ Prinsip: **cepat → jujur → pintar**. Tiap item ditulis: apa · di mana · ca
    (index-dive via `readings_sensor_ts_idx`); `ps` CTE inklinometer pakai LATERAL first/last + agregat
    jendela 3-hari. Semantik EWS byte-identik (diverifikasi: output per-device sama). **8.476 ms → 178 ms (~48×)**.
    Ini beban DB terbesar kedua setelah insiden fetch-bmkg. Diterapkan via MCP (bukan repo).
+   **Regresi 12 Okt 2026 (EEWS/dashboard lag):** `evaluate_ews` kembali 20–30 dtk (+ timeout 2 mnt)
+   karena (a) query hujan `D6 - RainFall Hourly` = JOIN + `ORDER BY r.ts DESC LIMIT 1` → bitmap-scan
+   147k baris (22 dtk); (b) cek kesegaran `NOT EXISTS (readings JOIN sensors … ts>=…)` → scan penuh
+   saat device MATI (Loadsensing off sejak 24 Sep). Fix: keduanya diubah ke pola per-sensor
+   (LATERAL / `EXISTS` per `sensor_id`) → **31,6 dtk → 0,18 dtk**. `eews_health` 1,3 dtk → 44 ms
+   (LATERAL `ORDER BY runid DESC` per job, bukan sort `cron.job_run_details`). Index baru:
+   `earthquakes(tanggal DESC)`, `earthquakes(created_at DESC)`, `alert_logs(created_at DESC)`.
+   **ATURAN:** "latest per sensor" JANGAN pakai `JOIN … ORDER BY r.ts DESC LIMIT 1` lintas join —
+   selalu LATERAL per `sensor_id`. Log cron dipangkas harian oleh job `prune-cron-run-details`.
 
 ### FASE 0b · Performa `monitoring.html`
 (fakta terukur: 197 KB monolitik; boot ≈20 query paralel ≈1–2 MB; heavy pass tiap 10 mnt
