@@ -132,6 +132,11 @@ Prinsip: **cepat → jujur → pintar**. Tiap item ditulis: apa · di mana · ca
    `earthquakes(tanggal DESC)`, `earthquakes(created_at DESC)`, `alert_logs(created_at DESC)`.
    **ATURAN:** "latest per sensor" JANGAN pakai `JOIN … ORDER BY r.ts DESC LIMIT 1` lintas join —
    selalu LATERAL per `sensor_id`. Log cron dipangkas harian oleh job `prune-cron-run-details`.
+   **15 Okt 2026 (reload dashboard lambat):** pola sama di RPC/view boot `monitoring.html`:
+   `ews_device_latest` (DISTINCT ON seluruh `ews_device_trigger`) 15,5 dtk → 46 ms ·
+   `inst_latest_temp` (array_agg seluruh riwayat suhu) 13,4 dtk → 54 ms (+ tie-break `s.name`,
+   dulu nilai acak antar sensor ber-ts sama) · `v_aws_stats` (LEFT JOIN seluruh readings) 7,4 → ~2,6 dtk
+   (LATERAL jendela 7 hari). Output diverifikasi identik.
 
 ### FASE 0b · Performa `monitoring.html`
 (fakta terukur: 197 KB monolitik; boot ≈20 query paralel ≈1–2 MB; heavy pass tiap 10 mnt
