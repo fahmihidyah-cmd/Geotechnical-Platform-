@@ -62,6 +62,10 @@ tetap di **read-time** (view/RPC).
 - `public.geology_faults` (category/slip_type/slip_rate/geom jsonb) — overlay sesar aktif peta EEWS,
   subset **GEM Global Active Faults** (Sulawesi, 49 fitur). RPC `geology_faults_geojson()` → FeatureCollection;
   `eews.html` tombol **Faults** menggambar via `L.geoJSON` (warna per mekanisme: strike-slip/thrust/normal/subduksi).
+- **Keamanan (21 Okt 2026, advisor `rls_disabled_in_public`):** SEMUA tabel `public` WAJIB RLS ON
+  (tabel baru juga — termasuk tabel staging/bantu). Fix: RLS ON di `geology_faults` (dibaca via RPC
+  SECURITY DEFINER), `syscom_acq_raw` (staging SYSCOM, isi via service_role), `_perf_check` (tabel bantu,
+  hapus manual). `monitoring.prune_ingestion_logs` di-REVOKE dari anon/authenticated (cron-only).
 - `public.shift_reports`, `shift_report_instruments`, `shift_round_checks`.
 - `public.inspections`, `inspection_photos`/`_documentation`/`_risk_areas` (data dummy sudah dihapus), `pera_assessments`, `pera_questions` (template — JANGAN hapus).
 
