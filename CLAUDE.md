@@ -141,6 +141,8 @@ Prinsip: **cepat → jujur → pintar**. Tiap item ditulis: apa · di mana · ca
    `inst_latest_temp` (array_agg seluruh riwayat suhu) 13,4 dtk → 54 ms (+ tie-break `s.name`,
    dulu nilai acak antar sensor ber-ts sama) · `v_aws_stats` (LEFT JOIN seluruh readings) 7,4 → ~2,6 dtk
    (LATERAL jendela 7 hari). Output diverifikasi identik.
+   **18–23 Nov 2026:** `v_rain_status` (row_number atas ~200k baris hujan, dipanggil tiap poll `baseP`)
+   5 dtk → <0,5 dtk (LATERAL latest/dry-terakhir + agregat hari-ini WITA via index).
 
 ### FASE 0b · Performa `monitoring.html`
 (fakta terukur: 197 KB monolitik; boot ≈20 query paralel ≈1–2 MB; heavy pass tiap 10 mnt
